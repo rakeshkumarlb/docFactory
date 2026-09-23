@@ -1,0 +1,16 @@
+{
+  "app": "kitchenhq",
+  "source": "store/kitchenhq/docs/repo/chatui/README.md",
+  "summary": "chatui/README.md is mostly stale or duplicate; records one open question about its contradictions with the other docs.",
+  "ops": [
+    {
+      "op": "add",
+      "file": "open-questions",
+      "section": "Documentation inconsistencies",
+      "text": "chatui/README.md says the chat UI connects to a \"long-lived Executive Chef agent\" and gives a local run recipe (install the root requirements, set `MCP_URL`, run `uvicorn chatui.app:app`), which contradicts the root README and CLAUDE.md (no long-lived agent, chatui has its own requirements and no MCP dependency, run `uvicorn app:app` from `chatui/`); the chatui README is presumed stale and needs confirmation.",
+      "quote": "The chat UI connects to the long-lived Executive Chef agent over a small FastAPI service"
+    }
+  ],
+  "id": "P-kitchenhq-20260923-04",
+  "source_sha": "403c911dd14904f481794b098ace2ea4fbee1bb89e931e1bb2736b90de8d8e54"
+}

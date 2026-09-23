@@ -1,0 +1,25 @@
+{
+  "type": "SMTD",
+  "title": "Software Maintenance Technical Document",
+  "version": 1,
+  "numbering": true,
+  "sections": [
+    "@/_shared/document-control.md",
+    "@/_shared/revision-history.md",
+    "sections/01-overview-support.md",
+    "sections/02-slo-kpis.md",
+    "sections/03-architecture-environments.md",
+    "sections/04-dependencies.md",
+    "sections/05-repositories.md",
+    "sections/06-cicd-release.md",
+    "sections/07-monitoring-alerting.md",
+    "sections/08-incident-management.md",
+    "sections/09-routine-operations.md",
+    "sections/10-security-compliance.md",
+    "sections/11-backup-dr.md",
+    "sections/12-risks-roadmap.md",
+    "@/_shared/glossary.md",
+    "@/_shared/references.md",
+    "@/_shared/sources.md"
+  ]
+}

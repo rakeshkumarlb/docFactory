@@ -1,0 +1,15 @@
+{
+  "type": "SRS",
+  "title": "Software Requirements Specification",
+  "version": 1,
+  "numbering": true,
+  "sections": [
+    "@/_shared/document-control.md",
+    "@/_shared/revision-history.md",
+    "sections/01-introduction.md",
+    "sections/02-overall-description.md",
+    "sections/03-specific-requirements.md",
+    "sections/04-appendices.md",
+    "@/_shared/sources.md"
+  ]
+}
