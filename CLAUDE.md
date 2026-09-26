@@ -1,148 +1,209 @@
-# docFactory
+# docFactory (Pydantic approach)
 
-Agent system that keeps application documentation up to date as new information arrives (call transcripts, emails, specs, READMEs, answers). It runs from this folder using Claude Code (or GitHub Copilot) agents plus small deterministic Python scripts. Text-based files only (`.md`, `.txt`, `.eml` as text, transcripts, `.csv`, code docs). Convert Word/PDF to text first.
+Keeps application documentation (BRD, SRS, SOP, SMTD, ...) up to date from structured knowledge. Knowledge is held as **Pydantic-validated JSON objects in SQLite**; documents are **composed Pydantic objects** rendered to Markdown by deterministic code.
+
+## Status
+
+- **Phase 1 (current): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
+- **Phase 2 (later, not designed yet): RAG + LLM.** Retrieval over the original documents, an LLM constructs the same tool calls, validation errors become feedback that tells it what to look for next. Provenance, evidence quotes, history and the approval gate are added then (see "Phase 2 roadmap").
+
+Nothing described here exists until it appears in the repo. If something is unclear, ask the user before coding.
 
 ## Principles
 
-1. **`knowledge/<app>/` is the source of truth.** Generated documents are views of it, never the other way round.
-2. **Every fact has provenance.** A fact bullet always links to the store document it came from.
-3. **Agents propose, humans approve, scripts apply.** No agent edits `knowledge/` directly. Every merge waits for explicit approval.
-4. **Scripts do all deterministic work** (hashing, filing, versioning, SQL, template assembly, completeness %, linting). Scripts are generic and know nothing template- or app-specific. Agents do only judgment work: classify, extract, draft, word questions.
-5. **Never silently guess.** Unknown app -> `_unclassified`. Contradiction -> conflict entry. Missing information -> MissingInfo file.
-6. **Nothing is destroyed.** Replaced/deleted store files are archived; every change is in the SQLite log.
+1. **Single Responsibility (strongest rule).** Every class lives in its own file, and every module has one reason to change.
+   - Every Pydantic class, including small nested item classes, is in its own file. Entity models go in `docfactory/entitymodels/`, document models in `docfactory/documentmodels/`, common and shared models in `docfactory/models/`.
+   - Every entity saver is in its own file under `docfactory/entitysaver/`; every document saver is in its own file under `docfactory/documentsaver/`.
+   - The file is named after its class in snake_case (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`). A module never defines two classes.
+   - A class does one thing: a model describes and validates data, a saver stores it, the renderer renders it, the database module talks to SQLite. None of them does another's job.
+   - A test enforces the file and naming rule (see "Tests").
+2. **The facts in `KnowledgeFacts` are the source of truth.** Generated documents are views of them, never the other way round.
+3. **Only valid data is stored.** Every write goes through a Pydantic model. Invalid input is rejected with a structured error and nothing is written.
+4. **Models are the contract.** Every model and field has a description written for an LLM: what it means, what a good value looks like, what to ask when it is missing. The same model is the validator, the LLM's tool schema and the documentation.
+5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, SQL, completeness, composition, rendering. An LLM (Phase 2) only does judgment work: find the information and construct the call.
+6. **Never invent values.** A default is a placeholder, not knowledge. Completeness counts only what was actually answered. Do not fill fields to raise a score.
+7. **Errors are feedback.** A rejected call returns errors precise enough for a caller (test or LLM) to fix the payload or go and find the missing information.
+8. **Only tools write to the database.** No hand-edited rows, no hand-edited generated documents.
 
-## Pipeline
+## Data flow
 
 ```
-incoming/  --/ingest-->  store/  --/extract-->  review/ (proposal)  --you approve-->  knowledge/<app>/
-                                                                                        |
-templates/<TYPE>/  --compose.py-->  output/<app>/<DocID>-*.md  <--/generate--------------+
-                                    output/<app>/<DocID>-*-MissingInfo.md --you answer--> incoming/  (loop)
+seed data (Phase 1)  ----\
+                          >-- save_<entity>() tool --validate--> KnowledgeFacts (JSON, hash, completeness, version)
+LLM over RAG (Phase 2) --/                                              |
+                                                                        v
+              document models (composed Pydantic) --build--> document objects --> DocumentOutputs
+                                                                        |
+                                                                        v
+                                                       render (deterministic) --> output/<app>/<doc>.md
 ```
 
-Nothing runs in the background: agents run when a command is invoked (`/ingest`, `/extract`, `/approve`, `/generate`, `/new-template`, `/status`). Run `python tools/db.py status` any time.
+## Models
+
+One Pydantic v2 model per file, in three flat folders (no sub-folders):
+
+| Folder | Holds | Examples |
+|---|---|---|
+| `docfactory/entitymodels/` | **EntityModels**: knowledge facts and the nested item types that belong to them | `ApplicationOverview`, `Architecture`, `Environments`, `Environment`, `FunctionalRequirements`, `Requirement`, `NonFunctionalRequirements`, `Slo`, `Kpis` |
+| `docfactory/documentmodels/` | **DocumentModels**: output documents, their sections and their parts | `DocumentControl`, `RevisionHistory`, `SmtdDocument`, `SmtdSupportModel` (a section), `RevisionEntry` |
+| `docfactory/models/` | Common and shared models used by both sides, and by the savers | the base model, `NotApplicable`, `SaveResult`, `SaveError` |
+
+An item type used by both entities and documents belongs in `models/`.
+
+- An entity is an **aggregate**: list-like content (requirements, environments, components, SLOs) is a list of typed item models inside one object.
+- All models derive from one base model (`docfactory/models/`, its own file) that sets `extra="forbid"` (a hallucinated field is an error) and requires a description on every field (enforced by a test).
+- **Mandatory fields are the absolutely necessary ones only** (what identifies the object or makes it meaningless). Everything else has a default where a default is legitimate (`None`, empty list, empty string). If no honest default exists, the field is mandatory.
+- Field metadata beyond the type: `description` (meaning and what a good answer contains), `question` (asked when the field is missing; defaults to the description), whether `N/A` is a legal answer (`na_allowed`), and `scored` (default true).
+- Two kinds of knowledge fact, distinguished only by scope in the key:
+  - **Common** to all applications: `Shared.Kpis`, `Shared.Slo` (AppID NULL).
+  - **Application-specific:** `KitchenHQ.ApplicationOverview`, `KitchenHQ.Architecture` (AppID = `KitchenHQ`).
+- **Output-specific** content (document control, revision history) is not a knowledge fact. It belongs to one generated document and lives in `DocumentOutputs` (see "Documents").
+- Models are Python code, versioned by git. There is no schema-version column in Phase 1.
+
+## Database (SQLite, `db/docfactory.sqlite`)
+
+Two tables with the same shape, plus completeness and version columns.
+
+| Column (KnowledgeFacts) | Column (DocumentOutputs) | Meaning |
+|---|---|---|
+| `FactKey` (PK) | `DocumentKey` (PK) | Unique key: `<Scope>.<Name>[.<SubName>...]`. Scope is an application name or `Shared`. |
+| `Value` | `Value` | The validated object as canonical JSON text (sorted keys, no extra whitespace, UTF-8) |
+| `Hashcode` | `Hashcode` | SHA-256 hex of the canonical `Value` |
+| `AppID` (nullable) | `AppID` (nullable) | The application; NULL means common/shared |
+| `Completeness` | `Completeness` | 0-100 (REAL): how much of the object has been actually answered (see below) |
+| `Version` | `Version` | Integer, starts at 1, incremented automatically by the base saver each time the stored value changes |
+
+Rules enforced by code, not by convention:
+- `AppID` is NULL exactly when the key scope is `Shared`; otherwise it equals the key's first segment, case-sensitive.
+- The key must match a registered pattern; the pattern selects the Pydantic model that validates the value.
+- **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row, its `Version` and its `Completeness` are untouched. A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
+- `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (Phase 2).
+- **Multi-component applications:** each component has its own keys, `<App>.Components.<Component>.<Entity>`, e.g. `KitchenHQ.Components.dbmcp.Architecture`, `KitchenHQ.Components.chatui.Environments`. `AppID` is still the application (`KitchenHQ`). The application-level keys (`KitchenHQ.Architecture`, `KitchenHQ.Environments`, ...) hold the high-level view of the whole application. Component keys reuse the same models as application keys. The component name is free text and is not validated.
+- Key examples: `KitchenHQ.ApplicationOverview`, `KitchenHQ.Architecture`, `Shared.Kpis`; documents: `KitchenHQ.Outputs.SMTD`, `KitchenHQ.Outputs.SMTD.DocumentControl`, `KitchenHQ.Outputs.SMTD.RevisionHistory`, `KitchenHQ.Outputs.SRS`.
+
+### Completeness
+
+A field is **answered** when its value differs from its default, or it holds a legal `N/A`. A field still equal to its default is **not yet answered**, even if the caller passed the default explicitly. `N/A` counts as answered: the question was considered and the answer is "not applicable". Mandatory fields are answered by definition (validation guarantees them).
+
+- `Completeness = answered fields / total fields * 100`. Every field has the same weight.
+- **N/A** is a typed value, `NotApplicable(reason)`, with a non-empty reason. It is accepted only on fields declared `na_allowed`; anywhere else it is a validation error.
+- **All list items and nested values are typed Pydantic models.** No `dict`, `Any` or `list[dict]` in any model (a test enforces this). Scoring is **item-level and recursive**, counting leaf fields:
+  - A nested single model is replaced by its own fields. If it is absent (still its default) it counts as one unanswered field.
+  - A list of models is replaced by the fields of every item, so each item's unanswered fields lower the score. An empty list counts as one unanswered field.
+  - A `NotApplicable` value on a list or nested-model field counts as one answered field (nothing further to score).
+  - The number of items is not fixed by the schema, so total fields grows with the data. A list with one complete item scores 100% for that list; completeness measures how filled-in what is present is. Missing whole items are found by the document's expectations, not by this score.
+- For a document object, "fields" are the document model's fields (a field filled from a fact is answered, a missing fact is not).
+- Fields marked `scored=False` (e.g. purely technical ones) are excluded from both counts.
+
+## Savers and tools
+
+Plain Python, no framework. Everything is deterministic and callable from tests, seed scripts or (Phase 2) an LLM tool loop.
+
+- A **registry** maps each fact-key pattern to its model and saver, and each document key pattern to its model and saver.
+- **`BaseSaver`** (`docfactory/base_saver.py`, generic over the model) owns all shared behaviour, so concrete savers contain no logic of their own:
+  1. resolve and check the key against the pattern; derive `AppID` (NULL for `Shared`)
+  2. validate the payload with the Pydantic model
+  3. canonical JSON -> SHA-256 hash
+  4. read the existing row: same hash -> `UNCHANGED`; no row -> `CREATED`, `Version = 1`; different hash -> `UPDATED`, `Version + 1`
+  5. compute completeness
+  6. write in one transaction (never on `REJECTED`)
+- **Entity savers** (`docfactory/entitysaver/`, one file each, e.g. `application_overview_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `KnowledgeFacts`.
+- **Document savers** (`docfactory/documentsaver/`, one file each, e.g. `document_control_saver.py`, `revision_history_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`).
+- Thin function wrappers for callers and LLM tool definitions: `save_<entity>(app, payload)` per entity and generic `save_fact(key, payload)` / `save_document(key, payload)` dispatchers, all delegating to the savers.
+- Return value is always a `SaveResult` model, never an exception for bad input:
+
+```
+SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashcode, completeness,
+             errors: [ SaveError { path, message, error_type, received, expected, field_description, question } ] }
+```
+
+- On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
+- Read side: `get_fact(key)`, `list_facts(app=None)` (an app's facts plus `Shared`), `get_document(key)`.
+
+## Documents
+
+- A document type (SMTD, SRS, BRD, SOP, ...) is a composed **DocumentModel**: it is made of section models, and each section is made of entity models or fields of them. Sections are reusable across document types (e.g. `DocumentControl` in every document). Each is its own file in `docfactory/documentmodels/`.
+- Each document field declares its **binding**: which fact key(s) supply it (for example `Architecture.environments`) and the same field metadata as entities (description, question, `na_allowed`).
+- `build_document` is deterministic: it reads the app's facts and the shared facts, fills the document object, marks each field as content, `N/A - <reason>`, or missing, and computes completeness. It does not invent content.
+- Missing fields produce the **MissingInfo** list (field, question, expected source), generated from the model metadata, not written by hand.
+- **Every output document is three rows in `DocumentOutputs`**, each a validated Pydantic object with its own hash, completeness and version:
+  - `KitchenHQ.Outputs.SMTD` - the document body (all chapters), **without** document control and revision history. Built from the knowledge facts.
+  - `KitchenHQ.Outputs.SMTD.DocumentControl` - document id, title, version, status, owner, approvers, dates. Supplied by the caller (seed data in Phase 1), not derived from knowledge facts.
+  - `KitchenHQ.Outputs.SMTD.RevisionHistory` - the list of revisions (version, date, author, change summary). Supplied by the caller.
+  All three use the same `<App>.Outputs.<DocType>` prefix, so a document's parts are found by prefix. `DocumentControl` and `RevisionHistory` are reused by every document type.
+- `render_markdown` assembles the final `.md` from the three rows (default order: document control, revision history, body). Same rows in, same bytes out. The `.md` file under `output/<app>/` is a view and never truth. The body's completeness is computed over the body only; document control and revision history score their own.
+
+## The `pydantic-developer-agent` (first deliverable of Phase 1)
+
+Before any model or saver is written, we create a specialized agent, `.claude/agents/pydantic-developer-agent.md`, with reusable prompts, built strongly around the principles above. All models and savers are then produced through it, so they come out uniform.
+
+- **The agent** knows and enforces: single responsibility (one class per file, file name = snake_case of the class, correct folder), the base model, descriptions and questions on every field, honest defaults and minimal mandatory fields, typed lists and no `dict`/`Any`, `NotApplicable` only where `na_allowed`, scoring rules, and that savers inherit `BaseSaver` and contain no logic. It writes a test with every class it creates and runs the suite before it reports done.
+- **Reusable prompts** (in `.claude/commands/`), one per repeatable task. Planned set: create an entity model (entity or nested item), create a document model (document, section or part), create a shared model, create an entity saver, create a document saver, review existing models against the principles, and add a field to a model. Their exact wording is agreed with the user when the agent is created.
+- The agent never edits the database or generated documents by hand, and never invents field content.
+
+## Phase 1 build order
+
+1. **Create the `pydantic-developer-agent` and its prompts** (above).
+2. Package skeleton via the agent: base model, `NotApplicable`, `SaveError`, `SaveResult`, `BaseSaver`, registry, canonical JSON + hash, database setup.
+3. **One or two entities end to end**, with tests, before adding more. Proposed: `ApplicationOverview` (app-specific) and `Kpis` (shared, AppID NULL).
+4. One small document type over those entities, with its `DocumentControl` and `RevisionHistory`, `build_document` and `render_markdown`, checked against a golden `.md` file.
+5. Seed data as Python calling the save tools (hard-coded, no parsing of source documents).
+6. Only then widen: more entities, more documents (SMTD first, since it has the most fields).
+
+### Tests (pytest, every test uses a temporary database)
+
+- **Structure:** every module in `models/`, `entitymodels/`, `documentmodels/`, `entitysaver/` and `documentsaver/` defines exactly one class, named after the file (snake_case); every Pydantic class is under `models/`, `entitymodels/` or `documentmodels/`, and entity and document models are in the right one; every field of every registered model has a description; no model contains `dict`, `Any` or untyped list items.
+- Valid payload -> `CREATED`, row has canonical JSON, correct SHA-256, correct AppID, completeness, `Version = 1`.
+- Same payload again -> `UNCHANGED`, `Version` and row untouched; changed payload -> `UPDATED`, new hash, `Version = 2`; changing back is a new change (`Version = 3`), not a revert.
+- A new saver subclass gets versioning and hash-skipping with no code of its own.
+- Component keys (`KitchenHQ.Components.dbmcp.Architecture`) store AppID `KitchenHQ` and validate with the same model as `KitchenHQ.Architecture`.
+- Key order in the payload does not change the hash.
+- Missing mandatory field, wrong type, bad enum, extra field -> `REJECTED`, nothing written, errors contain path, description and question.
+- `Shared.*` key stores NULL AppID; an app key with a mismatching or missing AppID is rejected; an unregistered key is rejected.
+- Defaults do not count as answered (even when passed explicitly); a legal `NotApplicable(reason)` does; `N/A` on a field without `na_allowed`, or with an empty reason, is rejected; completeness = answered / total.
+- Item-level scoring: an empty list is one unanswered field; a list of two items (one complete, one half-filled) scores over both items' fields; an absent nested model is one unanswered field, a present one is scored by its own fields; `NotApplicable` on a list is one answered field.
+- Build + render of the sample document (body + `.DocumentControl` + `.RevisionHistory`) matches the golden file; rendering twice gives identical bytes; a missing fact yields `MISSING` and a MissingInfo question; rendering with a missing `.DocumentControl` row fails with a clear error rather than a blank section.
 
 ## Repo layout
 
-```
-incoming/                    Drop zone: new facts AND answers to MissingInfo files
-store/<app>/<category>/...   Current documents. category = calls | emails | docs | answers
-store/_unclassified/         Ingestion could not decide; needs a human
-store/_archive/              Superseded/deleted versions (timestamped)
-knowledge/<app>/             Source of truth per application (see below)
-review/<app>/                Knowledge proposals: P-<app>-<date>-<nn>.json (+ .md rendering)
-templates/_shared/           Fragments reused by many templates
-templates/<TYPE>/            template.json + sections/ fragments
-output/<app>/                Generated documents and their -MissingInfo files
-db/docfactory.sqlite         Registry + change log (created by tools/db.py)
-tools/                       Deterministic Python scripts (stdlib only)
-.claude/agents/              Agent definitions (ingestion, knowledge-extractor, template-designer, doc-generator)
-.claude/commands/            Slash commands
-.github/copilot-instructions.md   Points Copilot at this file
-```
-
-## Knowledge base structure (per application, a group of small files)
+Proposed (created as phases land):
 
 ```
-knowledge/<app>/
-  _index.md        Short app description + auto-generated file map (facts/lines per file). ALWAYS read first.
-  conflicts.md     Open/resolved contradictions
-  history.md       Append-only log of every applied proposal (incl. old text of refined facts)
-  overview.md actors.md functional.md nonfunctional.md integrations.md data.md components.md
-  decisions.md open-questions.md glossary.md
-  operations.md sre.md monitoring.md incidents.md dependencies.md repositories.md
-  cicd.md releases.md security.md dr.md                    (all created on demand; names match the templates' `source=`)
-  components/<component>/<same topics>.md     for multi-component apps (e.g. KitchenHQ: dbmcp, agents, chatui, shared)
+.claude/agents/        pydantic-developer-agent.md
+.claude/commands/      Reusable prompts for the agent
+docfactory/            Python package (pydantic v2 is the only runtime dependency)
+  models/              Common and shared models, one class per file: base model, NotApplicable, SaveResult, SaveError, ...
+  entitymodels/        EntityModels, one class per file: entities and their nested item types
+  documentmodels/      DocumentModels, one class per file: documents, their sections and parts (DocumentControl, RevisionHistory, ...)
+  entitysaver/         One entity saver per file (write KnowledgeFacts)
+  documentsaver/       One document saver per file (write DocumentOutputs)
+  base_saver.py        BaseSaver
+  registry.py          key pattern -> model + saver
+  db.py                Connection, schema creation, upsert, reads
+  tools.py             save_* / get_* function wrappers
+  build.py render.py   build_document, render_markdown, MissingInfo
+seed/                  Hard-coded seed scripts (Phase 1)
+tests/                 pytest
+db/docfactory.sqlite   The database (gitignored once it holds real data)
+output/<app>/          Rendered documents and MissingInfo files
 ```
 
-- Agents read `_index.md` then only the topic files they need, so context stays small however big the app gets.
-- Split rule: a file over 300 lines or 60 active facts is flagged "split suggested" in `_index.md` (`python tools/kb.py stats <app>`). New facts then go to a themed file such as `functional--chat.md`. Fact ids are per app, stable and never reused, so moving facts between files is safe.
-- A fact is one bullet: `- [F-0042] Unread badge is shown per chat thread. — src: store/kitchenhq/calls/2026-09-23-chat-review.md; store/...`
-- Obsolete facts are struck through with reason and source, not deleted: `- ~~[F-0042] text~~ (obsolete 2026-10-01: reason; src: ...)`.
-- Multi-component apps: single-service/whole-app facts go in the top-level topic files; component-specific facts in `components/<name>/`.
+Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one).
 
-## Agents
+## Phase 2 roadmap (not designed; do not implement)
 
-Definitions in `.claude/agents/`; each command invokes one. Read the definition before acting as that agent.
-
-| Agent | Command | Does | Never does |
-|---|---|---|---|
-| `ingestion` | `/ingest` | Reads `incoming/`, decides app/category/name, files via `store_file.py` | guess unclear files; move files by hand; write SQL |
-| `knowledge-extractor` | `/extract` | Reads new/changed store docs, writes a proposal (add/confirm/refine/conflict/obsolete ops) and submits it for review | edit `knowledge/`; apply its own proposal; resolve conflicts |
-| (you) | `/approve` | Approve/reject a proposal or resolve a conflict (`kb.py apply/reject/resolve`) | |
-| `template-designer` | `/new-template` | Helps design templates as fragments; validates with `compose.py --check` | hard-code template logic into tools |
-| `doc-generator` | `/generate` | Composes skeleton, fills from knowledge, produces MissingInfo, scores, lints, registers | invent content to raise completeness |
-
-## Approval gate (knowledge merges)
-
-1. `/extract` writes `review/<app>/<id>.json` and runs `kb.py submit` (validates; refuses unknown facts, bad files, sources not in store).
-2. The user reads the rendering (ADD / CONFIRM / REFINE / CONFLICT / OBSOLETE with before/after text).
-3. Only on the user's explicit say-so: `python tools/kb.py apply <id> --approved-by <name>`. `apply` refuses if the proposal is not pending or the source document changed since (stale). Conflict ops never touch the existing fact; they land in `conflicts.md` until `kb.py resolve`.
-4. Rejecting marks the source as processed with no change. Both outcomes are logged.
-
-## Templates (decoupled, generic)
-
-A template is a folder, not a file:
-
-```
-templates/SRS/template.json          {type, title, version, numbering, sections:[fragment paths in order]}
-templates/SRS/sections/*.md          fragments (any size: one field or a whole chapter)
-templates/SRS/sections/03-specific/  sub-fragments pulled in by a parent fragment
-templates/_shared/*.md               document-control, revision-history, glossary, references, sources
-```
-
-Fragment syntax (this is the whole "language"; `tools/compose.py` implements only this):
-- `<!-- include: path shift=1 -->` include another fragment. Path is relative to the including file; `@/` means `templates/`. `shift` demotes its headings so one fragment can sit at any depth. Cycles/missing files are errors.
-- A fillable heading has one directive directly under it and no body text:
-  `<!-- field id=srs.purpose required=yes na=no source=overview hint="what a good answer contains" -->`
-  - `id` unique per composed document, stable forever (answers/questions are keyed on it)
-  - `required` yes|no - only required fields count toward completeness
-  - `na` allowed|no - whether "N/A - reason" is a legal answer
-  - `source` knowledge topic that normally answers it; `hint` doubles as the question when info is missing
-- Headings without a directive are pure structure. `numbering: true` auto-numbers headings (1, 1.1, 1.1.1) at compose time, so fragments are never renumbered by hand.
-
-Field outcomes in a generated document: content, `N/A - <reason>`, `PARTIAL - ...`, `MISSING (see Q-...)`. Completeness % = (filled + 0.5 x partial) / (required fields - required N/A). Optional fields never reduce it.
-
-Managing templates: change fragments, not generated docs; bump `version` in `template.json` for any structural change. A generated doc records `template_version` and `template_hash`, so `lint_doc.py` reports drift. Sample templates: BRD, SRS, SOP, SMTD.
-
-**SMTD = Software Maintenance Technical Document**: everything a maintenance/support team needs to run an application in production. 12 chapters / 65 fields: support model and escalation; SLA/SLIs/SLOs, error budget, MTTD/MTTA/MTTR/MTBF, severity definitions; architecture and environments; upstream/downstream dependencies and failure impact; code/artifact/config repositories; CI/CD pipelines, releases, deployment strategy, rollback; monitoring, logging and configured alerts; incident SOPs, known errors, diagnostics; routine operations and scheduled jobs; security; backup, RTO/RPO and DR; risks and roadmap. Most of this rarely appears in READMEs, so expect low completeness and a long MissingInfo file the first time; that file is the checklist for gathering it from the ops/SRE team.
-
-## Tools (`tools/`, Python 3, stdlib only; run from repo root as `python tools/<x>.py`)
-
-| Script | Purpose |
-|---|---|
-| `store_file.py` | File a doc into `store/`: SHA-256 dedupe, ADD/UPDATE(archive old, version+1)/DUPLICATE/DELETE, DB log |
-| `db.py` | Schema, `status`, `pending-extraction`, `find`, `history`, `next-id`, `register-output`, `stale-outputs` |
-| `kb.py` | `submit/show/apply/reject/resolve` proposals, `facts`, `stats`, `reindex`, `new-app` |
-| `compose.py` | Assemble a template into a document skeleton; `--check` validates a template; `--list` |
-| `completeness.py` | Field statuses and % from a generated doc; `--write` stores it in front matter |
-| `missing_info.py` | Mark gaps in the doc and write `<doc>-MissingInfo.md` with stable `Q-<DocID>-<nn>` ids |
-| `lint_doc.py` | Doc still matches its template exactly; Sources links resolve; no invalid N/A |
-
-SQLite tables: `documents` (path, sha256, version, is_answer, extracted_sha), `changes` (append-only log: ADD/UPDATE/DUPLICATE/DELETE/KNOWLEDGE/REJECT/RESOLVE/OUTPUT), `proposals`, `counters` (fact/conflict/doc ids), `outputs`, `output_sources` (sha of each source at generation time -> `stale-outputs` lists generated docs whose sources have since changed, i.e. what needs regenerating).
-
-Env `DOCFACTORY_ROOT` points every script at another root (used for testing without touching real data).
-
-## Formats
-
-Generated doc front matter: `doc_id, title, app, template, template_version, template_hash, generated, status, completeness, completeness_detail`. The last section is always **Sources**: relative links to the store documents used.
-
-MissingInfo file: one `## Q-<DocID>-<nn>  (field: <id> - <heading>)` entry each with Status/Hint/Question/Suggested source/`Answer:`. To answer: fill `Answer:` lines, save into `incoming/` with first line `MissingInfo-Ref: <DocID>`. Ingestion files it as an answer; extraction turns answers into facts (proposal, approval), and the next `/generate` fills the fields.
+- Ingest original documents, chunk and index them for retrieval (RAG).
+- An LLM agent reads the model schemas, retrieves relevant chunks and calls the same `save_*` tools; `REJECTED` results and low completeness drive follow-up retrieval or a question to a human.
+- Add provenance and evidence quotes (every fact traceable to a source passage), history of replaced values, and conflict handling when new information contradicts a stored value.
+- Add the human approval gate: agents propose, humans approve, tools apply.
+- Answers to MissingInfo questions re-enter as documents.
 
 ## Working rules
 
-- Read this file, then `knowledge/<app>/_index.md`, before doing anything for an app.
-- Never edit `store/` by hand (use `store_file.py`) or `knowledge/` by hand (use proposals). Never edit generated docs' headings/directives.
-- If uncertain (app identity, classification, conflict), stop and ask or park it.
-- Dates are ISO `YYYY-MM-DD`. Paths in documents are relative with forward slashes. IDs: `F-nnnn` facts, `C-nnnn` conflicts, `P-...` proposals, `<PREFIX><n>` documents.
-- Keep the repo in git once initialised so knowledge changes are diffable and revertible.
-
-## Copilot compatibility
-
-`.github/copilot-instructions.md` tells Copilot to follow this file and the role files in `.claude/agents/`. Mirror them as `.github/agents/*.agent.md` / `.github/prompts/*.prompt.md` if you want Copilot slash prompts. All logic lives in `tools/`, so both assistants behave the same.
-
-## Limits
-
-- Manual trigger: "arrives in incoming" means "processed at next `/ingest`". A scheduled `claude -p "/ingest"` can automate ingestion and proposal drafting; approval stays human.
-- Text only; scanned PDFs, audio and Office files need conversion outside this system.
-- LLM extraction is fallible; provenance, the approval gate, `history.md` and the change log exist so anything can be audited and reverted.
+- Read this file first. When something is unclear, ask the user.
+- One class per file, in the right folder (Principle 1). Create models and savers through the `pydantic-developer-agent`.
+- Write to the database only through the tools. Never edit generated documents by hand; change the models or documents and regenerate.
+- Changing a model changes stored data's meaning: say so and update the tests and golden files in the same change.
+- Descriptions on models and fields are part of the product: write them for an LLM reader (meaning, example of a good value, what to ask if missing).
+- Dates are ISO `YYYY-MM-DD`. Paths in documents are relative with forward slashes.
+- Keep the repo in git so data-shape changes are diffable.
