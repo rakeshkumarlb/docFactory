@@ -1,0 +1,35 @@
+{
+  "application_name": "ReadmeForge",
+  "purpose": "Automatically generates and keeps README.md files up to date for other teams' software repositories by scanning source code for entry points, dependencies, config and CI setup, so engineering teams no longer let docs drift out of sync with the codebase.",
+  "business_overview": "ReadmeForge supports internal developer-experience initiatives by removing the recurring, low-value chore of writing and maintaining README files across dozens of internal repositories. It reduces onboarding time for new engineers and cuts the number of 'how do I run this' questions in team channels by keeping documentation synchronized with the actual state of the code.",
+  "business_owner": "Head of Developer Experience",
+  "target_users": [
+    "Engineering team leads",
+    "New hires onboarding onto a repo",
+    "Platform/DevEx engineers",
+    "Open-source maintainers"
+  ],
+  "key_capabilities": [
+    "Connect a GitHub or GitLab repository via a read-only integration",
+    "Extract structured facts about entry points, dependencies, configuration and CI pipelines",
+    "Generate a polished, human-editable README.md from those facts",
+    "Detect material changes to the repo and propose a suggested diff to the README",
+    "Let maintainers accept, edit or reject suggested README changes before they are committed"
+  ],
+  "out_of_scope": [
+    "Editing or generating any documentation other than the top-level README (e.g. API reference docs, wikis)",
+    "Writing code comments or docstrings inside source files",
+    "Making commits or pull requests without explicit maintainer approval"
+  ],
+  "business_criticality": "Tier 3 - developer productivity tool; an outage delays documentation updates but does not affect any production system or customer-facing service.",
+  "lifecycle_status": "In production (GA since Q2 2025), actively used by internal teams and a small external beta cohort",
+  "go_live_date": "2025-04-14",
+  "technology_summary": "Python FastAPI backend with a Postgres metadata store and a queue-based worker fleet that clones repos read-only, parses them with tree-sitter, and calls an LLM to draft README prose; packaged as a hosted SaaS with a GitHub App and GitLab integration.",
+  "related_systems": [
+    "GitHub",
+    "GitLab",
+    "Slack (change notifications)",
+    "Anthropic API (LLM drafting)",
+    "Internal SSO (Okta)"
+  ]
+}

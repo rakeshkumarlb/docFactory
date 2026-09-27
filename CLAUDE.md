@@ -29,7 +29,7 @@ Nothing described here exists until it appears in the repo. If something is uncl
 
 ```
 seed data (Phase 1)  ----\
-                          >-- save_<entity>() tool --validate--> KnowledgeFacts (JSON, hash, completeness, version)
+                          >-- XSaver.save() --validate--> KnowledgeFacts (JSON, hash, completeness, version)
 LLM over RAG (Phase 2) --/                                              |
                                                                         v
               document models (composed Pydantic) --build--> document objects --> DocumentOutputs
@@ -75,7 +75,7 @@ Two tables with the same shape, plus completeness and version columns.
 
 Rules enforced by code, not by convention:
 - `AppID` is NULL exactly when the key scope is `Shared`; otherwise it equals the key's first segment, case-sensitive.
-- The key must match a registered pattern; the pattern selects the Pydantic model that validates the value.
+- The key must match one of the saver's own key patterns; the saver's model validates the value. (A registry that picks the saver from the key is Phase 2.)
 - **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row, its `Version` and its `Completeness` are untouched. A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
 - `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (Phase 2).
 - **Multi-component applications:** each component has its own keys, `<App>.Components.<Component>.<Entity>`, e.g. `KitchenHQ.Components.dbmcp.Architecture`, `KitchenHQ.Components.chatui.Environments`. `AppID` is still the application (`KitchenHQ`). The application-level keys (`KitchenHQ.Architecture`, `KitchenHQ.Environments`, ...) hold the high-level view of the whole application. Component keys reuse the same models as application keys. The component name is free text and is not validated.
@@ -95,13 +95,12 @@ A field is **answered** when its value differs from its default, or it holds a l
 - For a document object, "fields" are the document model's fields (a field filled from a fact is answered, a missing fact is not).
 - Fields marked `scored=False` (e.g. purely technical ones) are excluded from both counts.
 
-## Savers and tools
+## Savers
 
-Plain Python, no framework. Everything is deterministic and callable from tests, seed scripts or (Phase 2) an LLM tool loop.
+Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); there is no registry and no generic dispatcher (both Phase 2).
 
-- A **registry** maps each fact-key pattern to its model and saver, and each document key pattern to its model and saver.
 - **`BaseSaver`** (`docfactory/base_saver.py`, generic over the model) owns all shared behaviour, so concrete savers contain no logic of their own:
-  1. resolve and check the key against the pattern; derive `AppID` (NULL for `Shared`)
+  1. check the key against the saver's own `key_patterns`; derive `AppID` (NULL for `Shared`)
   2. validate the payload with the Pydantic model
   3. canonical JSON -> SHA-256 hash
   4. read the existing row: same hash -> `UNCHANGED`; no row -> `CREATED`, `Version = 1`; different hash -> `UPDATED`, `Version + 1`
@@ -109,7 +108,6 @@ Plain Python, no framework. Everything is deterministic and callable from tests,
   6. write in one transaction (never on `REJECTED`)
 - **Entity savers** (`docfactory/entitysaver/`, one file each, e.g. `application_overview_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `KnowledgeFacts`.
 - **Document savers** (`docfactory/documentsaver/`, one file each, e.g. `document_control_saver.py`, `revision_history_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`).
-- Thin function wrappers for callers and LLM tool definitions: `save_<entity>(app, payload)` per entity and generic `save_fact(key, payload)` / `save_document(key, payload)` dispatchers, all delegating to the savers.
 - Return value is always a `SaveResult` model, never an exception for bad input:
 
 ```
@@ -118,7 +116,7 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 ```
 
 - On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
-- Read side: `get_fact(key)`, `list_facts(app=None)` (an app's facts plus `Shared`), `get_document(key)`.
+- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `get_document` wrappers are Phase 2.
 
 ## Documents
 
@@ -138,13 +136,14 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 Before any model or saver is written, we create a specialized agent, `.claude/agents/pydantic-developer-agent.md`, with reusable prompts, built strongly around the principles above. All models and savers are then produced through it, so they come out uniform.
 
 - **The agent** knows and enforces: single responsibility (one class per file, file name = snake_case of the class, correct folder), the base model, descriptions and questions on every field, honest defaults and minimal mandatory fields, typed lists and no `dict`/`Any`, `NotApplicable` only where `na_allowed`, scoring rules, and that savers inherit `BaseSaver` and contain no logic. It writes a test with every class it creates and runs the suite before it reports done.
-- **Reusable prompts** (in `.claude/commands/`), one per repeatable task. Planned set: create an entity model (entity or nested item), create a document model (document, section or part), create a shared model, create an entity saver, create a document saver, review existing models against the principles, and add a field to a model. Their exact wording is agreed with the user when the agent is created.
+- **Entry skills** (in `.claude/skills/`, invoked as `/name`), one per repeatable task, each pinning the agent and model (`context: fork`, `agent: pydantic-developer-agent`, `model: sonnet`) and defining the exact step-by-step procedure: `create-shared-model` (base classes and package skeleton, or one shared model), `create-entity-model` and `create-document-model` (each also creates the saver where one belongs), `add-field`, `review-models`. Two reference skills (`docfactory-field-spec`, `docfactory-quality-gate`) are preloaded into the agent. Skills cannot be `.claude/commands/` files: only skills support `agent` and `context: fork`.
+- **Deterministic scripts** (`.claude/scripts/`, tested in `tests/scripts/`): the agent supplies judgment as a JSON spec; scripts resolve names and paths, generate models, savers and their tests, add fields, check structure and run the quality gate. Conventions the generated code relies on (base model `DocFactoryModel`, field helper `doc_field`, `BaseSaver`, key-pattern placeholders) are in `.claude/scripts/conventions.py`.
 - The agent never edits the database or generated documents by hand, and never invents field content.
 
 ## Phase 1 build order
 
 1. **Create the `pydantic-developer-agent` and its prompts** (above).
-2. Package skeleton via the agent: base model, `NotApplicable`, `SaveError`, `SaveResult`, `BaseSaver`, registry, canonical JSON + hash, database setup.
+2. Package skeleton via the agent: base model, `NotApplicable`, `SaveError`, `SaveResult`, `BaseSaver`, canonical JSON + hash, completeness, database setup.
 3. **One or two entities end to end**, with tests, before adding more. Proposed: `ApplicationOverview` (app-specific) and `Kpis` (shared, AppID NULL).
 4. One small document type over those entities, with its `DocumentControl` and `RevisionHistory`, `build_document` and `render_markdown`, checked against a golden `.md` file.
 5. Seed data as Python calling the save tools (hard-coded, no parsing of source documents).
@@ -159,7 +158,7 @@ Before any model or saver is written, we create a specialized agent, `.claude/ag
 - Component keys (`KitchenHQ.Components.dbmcp.Architecture`) store AppID `KitchenHQ` and validate with the same model as `KitchenHQ.Architecture`.
 - Key order in the payload does not change the hash.
 - Missing mandatory field, wrong type, bad enum, extra field -> `REJECTED`, nothing written, errors contain path, description and question.
-- `Shared.*` key stores NULL AppID; an app key with a mismatching or missing AppID is rejected; an unregistered key is rejected.
+- `Shared.*` key stores NULL AppID; an app key with a mismatching AppID is rejected; a key matching none of the saver's key patterns is rejected.
 - Defaults do not count as answered (even when passed explicitly); a legal `NotApplicable(reason)` does; `N/A` on a field without `na_allowed`, or with an empty reason, is rejected; completeness = answered / total.
 - Item-level scoring: an empty list is one unanswered field; a list of two items (one complete, one half-filled) scores over both items' fields; an absent nested model is one unanswered field, a present one is scored by its own fields; `NotApplicable` on a list is one answered field.
 - Build + render of the sample document (body + `.DocumentControl` + `.RevisionHistory`) matches the golden file; rendering twice gives identical bytes; a missing fact yields `MISSING` and a MissingInfo question; rendering with a missing `.DocumentControl` row fails with a clear error rather than a blank section.
@@ -170,7 +169,8 @@ Proposed (created as phases land):
 
 ```
 .claude/agents/        pydantic-developer-agent.md
-.claude/commands/      Reusable prompts for the agent
+.claude/skills/        Entry skills (procedures) and reference skills for the agent
+.claude/scripts/       Deterministic scripts the skills call (scaffold, check, gate)
 docfactory/            Python package (pydantic v2 is the only runtime dependency)
   models/              Common and shared models, one class per file: base model, NotApplicable, SaveResult, SaveError, ...
   entitymodels/        EntityModels, one class per file: entities and their nested item types
@@ -178,9 +178,9 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
   entitysaver/         One entity saver per file (write KnowledgeFacts)
   documentsaver/       One document saver per file (write DocumentOutputs)
   base_saver.py        BaseSaver
-  registry.py          key pattern -> model + saver
   db.py                Connection, schema creation, upsert, reads
-  tools.py             save_* / get_* function wrappers
+  canonical.py         canonical JSON + SHA-256
+  completeness.py      completeness scoring
   build.py render.py   build_document, render_markdown, MissingInfo
 seed/                  Hard-coded seed scripts (Phase 1)
 tests/                 pytest
@@ -192,6 +192,7 @@ Env `DOCFACTORY_DB` points the code at another database file (tests use a tempor
 
 ## Phase 2 roadmap (not designed; do not implement)
 
+- A **registry** that maps key patterns to models and savers (built by discovering the `BaseSaver` subclasses in `entitysaver/` and `documentsaver/`), generic `save_fact(key, payload)` / `save_document(key, payload)` dispatchers and typed read wrappers (`get_fact`, `list_facts`, `get_document`) on top of it, and per-entity `save_<entity>` wrappers as LLM tool definitions.
 - Ingest original documents, chunk and index them for retrieval (RAG).
 - An LLM agent reads the model schemas, retrieves relevant chunks and calls the same `save_*` tools; `REJECTED` results and low completeness drive follow-up retrieval or a question to a human.
 - Add provenance and evidence quotes (every fact traceable to a source passage), history of replaced values, and conflict handling when new information contradicts a stored value.

@@ -1,0 +1,14 @@
+{
+  "application_name": "ReadmeForge",
+  "purpose": "Automatically generates and keeps README.md files up to date for other teams' software repositories by scanning source code for entry points, dependencies, config and CI setup, so engineering teams no longer let docs drift out of sync with the codebase.",
+  "business_overview": "",
+  "business_owner": "",
+  "target_users": [],
+  "key_capabilities": [],
+  "out_of_scope": [],
+  "business_criticality": "",
+  "lifecycle_status": "",
+  "go_live_date": null,
+  "technology_summary": "",
+  "related_systems": []
+}
