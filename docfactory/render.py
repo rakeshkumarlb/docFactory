@@ -20,6 +20,10 @@ NOT_PROVIDED = "_Not provided._"
 ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs"}
 
 
+def _extra(field) -> dict:
+    return field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
+
+
 class RenderError(Exception):
     """Raised when render_markdown cannot find a DocumentOutputs row it needs."""
 
@@ -52,6 +56,23 @@ def _item_lines(item: DocFactoryModel) -> list[str]:
     return lines
 
 
+def _table_cell(value) -> str:
+    text = ", ".join(str(v) for v in value) if isinstance(value, list) else _scalar_text(value)
+    text = (text if text else NOT_PROVIDED).replace("|", "\\|").replace("\n", " ")
+    return text
+
+
+def _item_table(items: list[DocFactoryModel]) -> list[str]:
+    fields = list(type(items[0]).model_fields)
+    headers = [_title(name) for name in fields]
+    lines = [f"| {' | '.join(headers)} |", f"|{'|'.join(['---'] * len(headers))}|"]
+    for item in items:
+        cells = [_table_cell(getattr(item, name)) for name in fields]
+        lines.append(f"| {' | '.join(cells)} |")
+    lines.append("")
+    return lines
+
+
 def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
     lines = []
     for name in type(model).model_fields:
@@ -64,10 +85,14 @@ def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
             lines.append("")
         elif isinstance(value, list) and value and isinstance(value[0], DocFactoryModel):
             lines.append(f"**{label}:**")
-            for index, item in enumerate(value, start=1):
-                lines.append(f"{index}.")
-                lines += _item_lines(item)
-            lines.append("")
+            if _extra(type(model).model_fields[name]).get("render_as") == "table":
+                lines.append("")
+                lines += _item_table(value)
+            else:
+                for index, item in enumerate(value, start=1):
+                    lines.append(f"{index}.")
+                    lines += _item_lines(item)
+                lines.append("")
         elif isinstance(value, list):
             lines.append(f"**{label}:**" if value else f"**{label}:** {NOT_PROVIDED}")
             lines += [f"- {item}" for item in value]

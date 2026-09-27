@@ -82,3 +82,30 @@ def test_missing_revision_history_row_raises_a_clear_error():
 def test_unknown_doc_type_raises_a_clear_error():
     with pytest.raises(RenderError, match="doc_type"):
         render_markdown(APP, "NoSuchDoc")
+
+
+def test_kpis_render_as_a_table_with_one_row_per_kpi_and_other_lists_stay_bulleted():
+    ApplicationOverviewSaver().save(f"{APP}.ApplicationOverview", OVERVIEW_FACT)
+    KpisSaver().save(
+        "Shared.Kpis",
+        {
+            "kpis": [
+                {"name": "Pass rate", "definition": "Share of tests passing.", "unit": "%"},
+                {"name": "Escaped | pipe", "definition": "Has a | in it and a\nnewline.", "data_source": {"reason": "Tracked manually, no dashboard yet."}},
+            ]
+        },
+    )
+    document, _ = build_document(OverviewDocument, APP)
+    OverviewDocumentSaver().save(f"{APP}.Outputs.Overview", document.model_dump(mode="json"))
+    DocumentControlSaver().save(f"{APP}.Outputs.Overview.DocumentControl", CONTROL)
+    RevisionHistorySaver().save(f"{APP}.Outputs.Overview.RevisionHistory", HISTORY)
+
+    rendered = render_markdown(APP, "Overview")
+
+    assert "| Name | Definition | Unit | Target | Current Value | Measurement Frequency | Owner | Data Source |" in rendered
+    assert "| Pass rate | Share of tests passing. | % | _Not provided._ | _Not provided._ | _Not provided._ | _Not provided._ | _Not provided._ |" in rendered
+    assert "Escaped \\| pipe" in rendered
+    assert "Has a \\| in it and a newline." in rendered
+    assert "_N/A — Tracked manually, no dashboard yet._" in rendered
+    assert "\n1.\n" not in rendered
+    assert "**Target Users:**\n- Testers" in rendered

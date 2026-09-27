@@ -22,10 +22,32 @@ def test_description_is_the_field_description():
 
 
 def test_metadata_reads_back_from_json_schema_extra():
-    assert _extra("required") == {"question": "What is it?", "na_allowed": False, "scored": True, "binding": None}
+    assert _extra("required") == {
+        "question": "What is it?",
+        "na_allowed": False,
+        "scored": True,
+        "binding": None,
+        "render_as": "list",
+    }
     assert _extra("optional")["na_allowed"] is True
     assert _extra("items")["scored"] is False
     assert _extra("items")["binding"] == "Thing.items"
+
+
+def test_render_as_defaults_to_list_and_accepts_table():
+    assert _extra("items")["render_as"] == "list"
+
+    class _WithTable(DocFactoryModel):
+        """Test-only model."""
+
+        rows: list[str] = doc_field(default_factory=list, description="Rows, e.g. one.", render_as="table")
+
+    assert _WithTable.model_fields["rows"].json_schema_extra["render_as"] == "table"
+
+
+def test_render_as_rejects_an_unknown_style():
+    with pytest.raises(ValueError, match="render_as"):
+        doc_field(default_factory=list, description="Rows, e.g. one.", render_as="chart")
 
 
 def test_question_falls_back_to_description():

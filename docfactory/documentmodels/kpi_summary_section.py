@@ -11,6 +11,7 @@ class KpiSummarySection(DocFactoryModel):
         description="The KPIs tracked, one entry per indicator, e.g. a KPI named 'On-time order fulfillment rate'. An empty list means no KPI has been defined yet.",
         question="Which KPIs are tracked?",
         binding="Kpis.kpis",
+        render_as="table",
     )
     notes: str = doc_field(
         default='',

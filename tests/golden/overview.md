@@ -34,14 +34,9 @@
 ## KPI Summary
 
 **KPIs:**
-1.
-  - **Name:** Pass rate
-  - **Definition:** Share of tests passing.
-  - **Unit:** _Not provided._
-  - **Target:** _Not provided._
-  - **Current Value:** _Not provided._
-  - **Measurement Frequency:** _Not provided._
-  - **Owner:** _Not provided._
-  - **Data Source:** _Not provided._
+
+| Name | Definition | Unit | Target | Current Value | Measurement Frequency | Owner | Data Source |
+|---|---|---|---|---|---|---|---|
+| Pass rate | Share of tests passing. | _Not provided._ | _Not provided._ | _Not provided._ | _Not provided._ | _Not provided._ | _Not provided._ |
 
 **Notes:** Reviewed weekly.
