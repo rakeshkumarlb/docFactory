@@ -30,6 +30,11 @@
 
 **Business Criticality:** Tier 1
 
+**Out Of Scope:**
+- Payroll processing
+
+**Technology Summary:** Test stack.
+
 
 ## KPI Summary
 

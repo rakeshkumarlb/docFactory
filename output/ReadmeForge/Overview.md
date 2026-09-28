@@ -38,6 +38,13 @@
 
 **Business Criticality:** Tier 3 - developer productivity tool; an outage delays documentation updates but does not affect any production system or customer-facing service.
 
+**Out Of Scope:**
+- Editing or generating any documentation other than the top-level README (e.g. API reference docs, wikis)
+- Writing code comments or docstrings inside source files
+- Making commits or pull requests without explicit maintainer approval
+
+**Technology Summary:** Python FastAPI backend with a Postgres metadata store and a queue-based worker fleet that clones repos read-only, parses them with tree-sitter, and calls an LLM to draft README prose; packaged as a hosted SaaS with a GitHub App and GitLab integration.
+
 
 ## KPI Summary
 

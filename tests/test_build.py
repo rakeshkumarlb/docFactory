@@ -16,6 +16,8 @@ FULL_OVERVIEW = {
     "target_users": ["Testers"],
     "key_capabilities": ["Run tests"],
     "business_criticality": "Tier 1",
+    "out_of_scope": ["Payroll processing"],
+    "technology_summary": "Test stack.",
 }
 
 FULL_KPIS = {"kpis": [{"name": "Pass rate", "definition": "Share of tests passing."}], "notes": "Reviewed weekly."}

@@ -16,6 +16,8 @@ FULL = {
     "target_users": ["Test users"],
     "key_capabilities": ["Test capability"],
     "business_criticality": "Test criticality.",
+    "out_of_scope": ["Test exclusion"],
+    "technology_summary": "Test technology summary.",
 }
 
 
@@ -47,6 +49,8 @@ def test_optional_fields_default_to_their_declared_defaults():
     assert obj.target_users == []
     assert obj.key_capabilities == []
     assert obj.business_criticality == ''
+    assert obj.out_of_scope == []
+    assert obj.technology_summary == ''
 
 
 @pytest.mark.parametrize("field", ["application_name", "purpose"])
@@ -55,7 +59,12 @@ def test_empty_text_is_rejected_where_min_length_is_set(field):
         ApplicationSummarySection.model_validate({**FULL, field: ""})
 
 
-@pytest.mark.parametrize("field", ["application_name", "purpose", "business_overview", "target_users", "key_capabilities", "business_criticality"])
+@pytest.mark.parametrize("field", ["application_name", "purpose", "business_overview", "target_users", "key_capabilities", "business_criticality", "technology_summary"])
 def test_not_applicable_is_rejected_where_not_allowed(field):
     with pytest.raises(ValidationError):
         ApplicationSummarySection.model_validate({**FULL, field: NotApplicable(reason="Not relevant for this test.")})
+
+
+def test_out_of_scope_accepts_not_applicable_with_a_reason():
+    obj = ApplicationSummarySection.model_validate({**FULL, "out_of_scope": NotApplicable(reason="No exclusions were defined.")})
+    assert isinstance(obj.out_of_scope, NotApplicable)
