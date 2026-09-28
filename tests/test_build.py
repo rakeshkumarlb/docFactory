@@ -1,7 +1,7 @@
 import pytest
 
 from docfactory.build import BuildError, build_document
-from docfactory.documentmodels.overview_document import OverviewDocument
+from docfactory.documentmodels.documents.overview_document import OverviewDocument
 from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
 from docfactory.entitysaver.kpis_saver import KpisSaver
 

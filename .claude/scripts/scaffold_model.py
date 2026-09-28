@@ -5,6 +5,10 @@ kind: entity-model | document-model | shared-model
 Validates the spec (see field_spec.py), then writes the model file and its test file. With a saver
 option it also writes the saver and its test file, all or nothing. Never overwrites.
 
+A document-model spec carries a `role` that picks the sub-folder: documents/ (a document body), shared/
+(reused by every document type) or entitybound/ (a section bound to entity facts). Its saver mirrors it in
+documentsaver/<role>/; an entitybound section gets no saver.
+
 Saver options (entity-model and document-model only; nested items, sections and shared models get none):
     --scope app|shared      entity: keys {app}.<Class> (+ {app}.Components.{component}.<Class>) or Shared.<Class>
     --doctype <Name>        document body: key {app}.Outputs.<Name>
@@ -57,7 +61,7 @@ def main(argv) -> int:
     except field_spec.SpecError as error:
         print("SPEC REJECTED:", *error.problems, sep="\n  - ")
         return 1
-    info = naming.resolve(kind, spec["class"])
+    info = naming.resolve(kind, spec["class"], spec.get("role"))
     problems = list(info["errors"])
     if kind == "document-model":
         problems += field_spec.binding_problems(spec["fields"])
@@ -71,11 +75,13 @@ def main(argv) -> int:
     if wants_saver:
         if kind == "shared-model":
             problems.append("shared models get no saver")
+        elif spec.get("role") not in (None, *C.SAVER_ROLES):
+            problems.append(f"a {spec['role']} model gets no saver: it is stored inside its document body")
         else:
             patterns, pattern_errors = saver_patterns(args, kind, spec["class"])
             problems += pattern_errors
             problems += [p for pattern in patterns for p in naming.pattern_problems(kind, pattern)]
-            saver = naming.saver_target(kind, spec["class"], info["module"])
+            saver = naming.saver_target(kind, spec["class"], info["module"], spec.get("role"))
             if saver["exists"] or (C.ROOT / saver["test_file"]).exists():
                 problems.append(f"{saver['file']} or {saver['test_file']} already exists")
             if render_saver.changed_field(spec) is None:
@@ -97,8 +103,12 @@ def main(argv) -> int:
             print(f"# {name}\n{text}")
         return 0
 
-    folders = [C.PACKAGE, f"{C.PACKAGE}/{C.KINDS[kind]['folder']}"] + ([saver["folder"]] if saver else [])
-    for folder in folders:
+    leaves = [info["folder"]] + ([saver["folder"]] if saver else [])
+    folders = {C.PACKAGE}
+    for leaf in leaves:  # every package on the way down gets an __init__.py
+        parts = leaf.split("/")
+        folders |= {"/".join(parts[:n]) for n in range(1, len(parts) + 1)}
+    for folder in sorted(folders):
         (C.ROOT / folder).mkdir(parents=True, exist_ok=True)
         (C.ROOT / folder / "__init__.py").touch()
     for name, text in files.items():

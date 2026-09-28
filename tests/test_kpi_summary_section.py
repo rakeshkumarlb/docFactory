@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.documentmodels.kpi_summary_section import KpiSummarySection
+from docfactory.documentmodels.entitybound.kpi_summary_section import KpiSummarySection
 from docfactory.models.not_applicable import NotApplicable
 from docfactory.models.kpi import Kpi
 

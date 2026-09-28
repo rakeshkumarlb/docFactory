@@ -1,10 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.documentmodels.overview_document import OverviewDocument
+from docfactory.documentmodels.documents.overview_document import OverviewDocument
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.documentmodels.application_summary_section import ApplicationSummarySection
-from docfactory.documentmodels.kpi_summary_section import KpiSummarySection
+from docfactory.documentmodels.entitybound.application_summary_section import ApplicationSummarySection
+from docfactory.documentmodels.entitybound.kpi_summary_section import KpiSummarySection
 
 MINIMAL = {
     "application_summary": {"application_name": "Test-App", "purpose": "Test purpose statement."},

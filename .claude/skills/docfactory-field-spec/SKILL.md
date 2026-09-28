@@ -29,7 +29,9 @@ You supply the **judgment**: names, types, descriptions, questions, defaults. Th
 }
 ```
 
-Unknown keys are errors. Keys: `class`, `doc`, `imports`, `fields`; per field `name`, `type`, `description`, `default`, `question`, `na_allowed`, `scored`, `binding`, `min_length`, `example`.
+Unknown keys are errors. Keys: `class`, `doc`, `role`, `imports`, `fields`; per field `name`, `type`, `description`, `default`, `question`, `na_allowed`, `scored`, `binding`, `min_length`, `example`.
+
+`role` is for **document models only, and required there**: `documents` (a document body), `shared` (reused by every document type, supplied by the caller) or `entitybound` (a section whose fields bind to entity facts). It picks the sub-folder of `documentmodels/`. Other kinds must not have it.
 
 ## Rules per key (all checked by `field_spec.py`)
 
@@ -56,4 +58,4 @@ Unknown keys are errors. Keys: `class`, `doc`, `imports`, `fields`; per field `n
 
 ## Enums
 
-An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/`, `documentmodels/` or `models/`), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.
+An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/`, `documentmodels/<role>/` or `models/`), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.

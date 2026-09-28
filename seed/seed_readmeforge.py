@@ -13,10 +13,10 @@ import json
 from pathlib import Path
 
 from docfactory.build import build_document
-from docfactory.documentmodels.overview_document import OverviewDocument
-from docfactory.documentsaver.document_control_saver import DocumentControlSaver
-from docfactory.documentsaver.overview_document_saver import OverviewDocumentSaver
-from docfactory.documentsaver.revision_history_saver import RevisionHistorySaver
+from docfactory.documentmodels.documents.overview_document import OverviewDocument
+from docfactory.documentsaver.shared.document_control_saver import DocumentControlSaver
+from docfactory.documentsaver.documents.overview_document_saver import OverviewDocumentSaver
+from docfactory.documentsaver.shared.revision_history_saver import RevisionHistorySaver
 from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
 from docfactory.entitysaver.kpis_saver import KpisSaver
 from docfactory.render import render_markdown

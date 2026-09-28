@@ -13,7 +13,7 @@ Nothing described here exists until it appears in the repo. If something is uncl
 
 1. **Single Responsibility (strongest rule).** Every class lives in its own file, and every module has one reason to change.
    - Every Pydantic class, including small nested item classes, is in its own file. Entity models go in `docfactory/entitymodels/`, document models in `docfactory/documentmodels/`, common and shared models in `docfactory/models/`.
-   - Every entity saver is in its own file under `docfactory/entitysaver/`; every document saver is in its own file under `docfactory/documentsaver/`.
+   - Every entity saver is in its own file under `docfactory/entitysaver/`; every document saver is in its own file under `docfactory/documentsaver/<role>/`.
    - The file is named after its class in snake_case (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`). A module never defines two classes.
    - A class does one thing: a model describes and validates data, a saver stores it, the renderer renders it, the database module talks to SQLite. None of them does another's job.
    - A test enforces the file and naming rule (see "Tests").
@@ -40,15 +40,25 @@ LLM over RAG (Phase 2) --/                                              |
 
 ## Models
 
-One Pydantic v2 model per file, in three flat folders (no sub-folders):
+One Pydantic v2 model per file, in three folders. `models/` and `entitymodels/` are flat; `documentmodels/` has one sub-folder per role (below):
 
 | Folder | Holds | Examples |
 |---|---|---|
 | `docfactory/entitymodels/` | **EntityModels**: knowledge facts and the nested item types that belong to them | `ApplicationOverview`, `Architecture`, `Environments`, `Environment`, `FunctionalRequirements`, `Requirement`, `NonFunctionalRequirements`, `Slo`, `Kpis` |
-| `docfactory/documentmodels/` | **DocumentModels**: output documents, their sections and their parts | `DocumentControl`, `RevisionHistory`, `SmtdDocument`, `SmtdSupportModel` (a section), `RevisionEntry` |
+| `docfactory/documentmodels/<role>/` | **DocumentModels**: output documents, their sections and their parts, in three role sub-folders (below) | `OverviewDocument`, `DocumentControl`, `RevisionHistory`, `ApplicationSummarySection`, `RevisionEntry` |
 | `docfactory/models/` | Common and shared models used by both sides, and by the savers | the base model, `NotApplicable`, `SaveResult`, `SaveError` |
 
 An item type used by both entities and documents belongs in `models/`.
+
+**Document model roles.** Every file in `documentmodels/` (and every document saver in `documentsaver/`) lives in exactly one role sub-folder, picked by what the class depends on:
+
+| Role folder | Holds | Fields bind to | May import from |
+|---|---|---|---|
+| `documents/` | A document body, composed of sections: one per document type (`OverviewDocument`, later `SmtdDocument`, ...) | `composed` sections | `entitybound/`, `shared/` |
+| `shared/` | Reusable parts every document type uses, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`, and `MissingInfo` | `caller` | nothing in `documentmodels/` |
+| `entitybound/` | A section in a specific format over entity facts: `ApplicationSummarySection`, `KpiSummarySection` | `Entity.field` | nothing in `documentmodels/` |
+
+Nothing goes deeper than the role folder. A document saver mirrors its model's role (`documentsaver/shared/document_control_saver.py` saves `documentmodels/shared/document_control.py`); `entitybound/` has no savers because a section is stored inside its document body. `shared/` here means "shared across document types"; a type shared with entities still goes in `docfactory/models/`.
 
 - An entity is an **aggregate**: list-like content (requirements, environments, components, SLOs) is a list of typed item models inside one object.
 - All models derive from one base model (`docfactory/models/`, its own file) that sets `extra="forbid"` (a hallucinated field is an error) and requires a description on every field (enforced by a test).
@@ -107,7 +117,7 @@ Plain Python, no framework. Everything is deterministic and callable from tests 
   5. compute completeness
   6. write in one transaction (never on `REJECTED`)
 - **Entity savers** (`docfactory/entitysaver/`, one file each, e.g. `application_overview_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `KnowledgeFacts`.
-- **Document savers** (`docfactory/documentsaver/`, one file each, e.g. `document_control_saver.py`, `revision_history_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`).
+- **Document savers** (`docfactory/documentsaver/documents/` and `docfactory/documentsaver/shared/`, one file each, e.g. `document_control_saver.py`, `revision_history_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`).
 - Return value is always a `SaveResult` model, never an exception for bad input:
 
 ```
@@ -120,7 +130,7 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 
 ## Documents
 
-- A document type (SMTD, SRS, BRD, SOP, ...) is a composed **DocumentModel**: it is made of section models, and each section is made of entity models or fields of them. Sections are reusable across document types (e.g. `DocumentControl` in every document). Each is its own file in `docfactory/documentmodels/`.
+- A document type (SMTD, SRS, BRD, SOP, ...) is a composed **DocumentModel**: it is made of section models, and each section is made of entity models or fields of them. Sections are reusable across document types (e.g. `DocumentControl` in every document). Each is its own file in the `docfactory/documentmodels/<role>/` folder for its role (see "Models").
 - Each document field declares its **binding**: which fact key(s) supply it (for example `Architecture.environments`) and the same field metadata as entities (description, question, `na_allowed`).
 - `build_document` is deterministic: it reads the app's facts and the shared facts, fills the document object, marks each field as content, `N/A - <reason>`, or missing, and computes completeness. It does not invent content.
 - Missing fields produce the **MissingInfo** list (field, question, expected source), generated from the model metadata, not written by hand.
@@ -151,7 +161,7 @@ Before any model or saver is written, we create a specialized agent, `.claude/ag
 
 ### Tests (pytest, every test uses a temporary database)
 
-- **Structure:** every module in `models/`, `entitymodels/`, `documentmodels/`, `entitysaver/` and `documentsaver/` defines exactly one class, named after the file (snake_case); every Pydantic class is under `models/`, `entitymodels/` or `documentmodels/`, and entity and document models are in the right one; every field of every registered model has a description; no model contains `dict`, `Any` or untyped list items.
+- **Structure:** every module in `models/`, `entitymodels/`, `documentmodels/<role>/`, `entitysaver/` and `documentsaver/<role>/` defines exactly one class, named after the file (snake_case); documents and savers sit in a role folder, a document saver sits in the same role as its model, and `documentmodels/` roles only import as allowed by the role table; every Pydantic class is under `models/`, `entitymodels/` or `documentmodels/`, and entity and document models are in the right one; every field of every registered model has a description; no model contains `dict`, `Any` or untyped list items.
 - Valid payload -> `CREATED`, row has canonical JSON, correct SHA-256, correct AppID, completeness, `Version = 1`.
 - Same payload again -> `UNCHANGED`, `Version` and row untouched; changed payload -> `UPDATED`, new hash, `Version = 2`; changing back is a new change (`Version = 3`), not a revert.
 - A new saver subclass gets versioning and hash-skipping with no code of its own.
@@ -174,9 +184,14 @@ Proposed (created as phases land):
 docfactory/            Python package (pydantic v2 is the only runtime dependency)
   models/              Common and shared models, one class per file: base model, NotApplicable, SaveResult, SaveError, ...
   entitymodels/        EntityModels, one class per file: entities and their nested item types
-  documentmodels/      DocumentModels, one class per file: documents, their sections and parts (DocumentControl, RevisionHistory, ...)
+  documentmodels/      DocumentModels, one class per file, in role sub-folders:
+    documents/         document bodies (OverviewDocument, ...)
+    shared/            caller-supplied parts reused by every document (DocumentControl, RevisionHistory, RevisionEntry, MissingInfo)
+    entitybound/       sections bound to entity facts (ApplicationSummarySection, KpiSummarySection)
   entitysaver/         One entity saver per file (write KnowledgeFacts)
-  documentsaver/       One document saver per file (write DocumentOutputs)
+  documentsaver/       One document saver per file (write DocumentOutputs), mirroring the model's role
+    documents/         savers of document bodies
+    shared/            savers of DocumentControl, RevisionHistory
   base_saver.py        BaseSaver
   db.py                Connection, schema creation, upsert, reads
   canonical.py         canonical JSON + SHA-256

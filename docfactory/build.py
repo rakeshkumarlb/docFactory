@@ -12,7 +12,7 @@ from typing import get_args
 from pydantic import ValidationError
 
 from docfactory import db
-from docfactory.documentmodels.missing_info import MissingInfo
+from docfactory.documentmodels.shared.missing_info import MissingInfo
 from docfactory.entitymodels.application_overview import ApplicationOverview
 from docfactory.entitymodels.kpis import Kpis
 from docfactory.models.doc_factory_model import DocFactoryModel

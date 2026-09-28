@@ -20,9 +20,22 @@ BASE_SAVER = "BaseSaver"
 BASE_SAVER_MODULE = "docfactory.base_saver"
 BOOTSTRAP_CLASSES = {BASE_MODEL}  # cannot be scaffolded: they are what scaffolds derive from
 
+# Top-level folders of the package. models/, entitymodels/ and entitysaver/ are flat.
 MODEL_FOLDERS = ("models", "entitymodels", "documentmodels")
 SAVER_FOLDERS = ("entitysaver", "documentsaver")
 ALL_FOLDERS = MODEL_FOLDERS + SAVER_FOLDERS
+
+# documentmodels/ and documentsaver/ have one sub-folder per role, and every file lives in one of them:
+#   documents    a document body, composed of sections (one per document type)
+#   shared       reusable across every document type, supplied by the caller (document control, revision history)
+#   entitybound  a section in a specific format whose fields bind to entity facts
+DOCUMENT_ROLES = ("documents", "shared", "entitybound")
+ROLE_FOLDERS = ("documentmodels", "documentsaver")
+SAVER_ROLES = ("documents", "shared")  # an entity-bound section is stored inside its document body: no saver
+
+# Which roles a role may import from (inside documentmodels/): documents compose sections and shared parts,
+# entity-bound sections stand alone, shared parts stand alone.
+ROLE_MAY_IMPORT = {"documents": ("entitybound", "shared"), "entitybound": (), "shared": ()}
 
 KINDS = {
     "entity-model": {"folder": "entitymodels"},
@@ -39,7 +52,7 @@ SAVERS = {
         "key_column": "FactKey",
     },
     "document-model": {
-        "folder": "documentsaver",
+        "folder": "documentsaver",  # plus a role sub-folder, see SAVER_ROLES
         "table": "DocumentOutputs",
         "key_column": "DocumentKey",
     },

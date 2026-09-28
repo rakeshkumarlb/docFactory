@@ -36,8 +36,10 @@ def _model_classes():
     found = []
     for package_name in MODEL_PACKAGES:
         package = importlib.import_module(package_name)
-        for info in pkgutil.iter_modules(package.__path__):
-            module = importlib.import_module(f"{package_name}.{info.name}")
+        for info in pkgutil.walk_packages(package.__path__, prefix=f"{package_name}."):
+            if info.ispkg:
+                continue
+            module = importlib.import_module(info.name)
             for _, cls in inspect.getmembers(module, inspect.isclass):
                 if cls.__module__ == module.__name__ and issubclass(cls, DocFactoryModel):
                     found.append(cls)
@@ -74,6 +76,16 @@ def test_every_package_folder_has_an_init_file():
     package = Path(docfactory.__file__).parent
     for folder in ("models", "entitymodels", "documentmodels", "entitysaver", "documentsaver"):
         assert (package / folder / "__init__.py").is_file(), folder
+    for folder in ("documentmodels", "documentsaver"):
+        for role in ("documents", "shared", "entitybound") if folder == "documentmodels" else ("documents", "shared"):
+            assert (package / folder / role / "__init__.py").is_file(), f"{folder}/{role}"
+
+
+def test_every_document_model_class_is_found_in_its_role_folder():
+    roles = {cls.__name__: cls.__module__.split(".")[2] for cls in MODELS if cls.__module__.startswith("docfactory.documentmodels.")}
+    assert roles["OverviewDocument"] == "documents"
+    assert roles["ApplicationSummarySection"] == roles["KpiSummarySection"] == "entitybound"
+    assert {roles[name] for name in ("DocumentControl", "RevisionHistory", "RevisionEntry", "MissingInfo")} == {"shared"}
 
 
 @pytest.mark.parametrize("cls", MODELS, ids=lambda cls: cls.__name__)

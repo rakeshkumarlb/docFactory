@@ -1,9 +1,13 @@
 """Loads and validates the JSON specs the agent writes (the judgment part). Scripts do the rest.
 
 Model spec:
-    {"class": "Environment", "doc": "One deployment environment.",
+    {"class": "Environment", "doc": "One deployment environment.", "role": "entitybound",
      "imports": ["from docfactory.entitymodels.slo import Slo"],
      "fields": [ <field spec>, ... ]}
+
+    role          document models only, required: the sub-folder of documentmodels/, one of
+                  documents (a document body), shared (reused by every document type, supplied by the
+                  caller) or entitybound (a section whose fields bind to entity facts)
 
 Field spec (unknown keys are errors):
     name          snake_case identifier
@@ -25,7 +29,7 @@ import conventions as C
 import naming
 
 FIELD_KEYS = {"name", "type", "description", "default", "question", "na_allowed", "scored", "binding", "example", "min_length"}
-MODEL_KEYS = {"class", "doc", "imports", "fields"}
+MODEL_KEYS = {"class", "doc", "role", "imports", "fields"}
 REQUIRED = "REQUIRED"
 EXAMPLE_MARKER = re.compile(r"e\.g\.|for example|such as|example", re.IGNORECASE)
 
@@ -193,6 +197,7 @@ def validate_model_spec(spec, kind) -> list:
         problems.append("'doc' (class docstring, for an LLM reader) is required, min 10 characters")
     elif '"""' in spec["doc"] or "\\" in spec["doc"]:
         problems.append("'doc' must not contain triple quotes or backslashes")
+    problems += naming.role_problems(kind, spec.get("role"))
     for line in spec.get("imports", []):
         problems += validate_import(line)
     fields = spec.get("fields")

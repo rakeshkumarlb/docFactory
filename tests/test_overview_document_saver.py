@@ -4,10 +4,10 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.documentmodels.overview_document import OverviewDocument
-from docfactory.documentsaver.overview_document_saver import OverviewDocumentSaver
-from docfactory.documentmodels.application_summary_section import ApplicationSummarySection
-from docfactory.documentmodels.kpi_summary_section import KpiSummarySection
+from docfactory.documentmodels.documents.overview_document import OverviewDocument
+from docfactory.documentsaver.documents.overview_document_saver import OverviewDocumentSaver
+from docfactory.documentmodels.entitybound.application_summary_section import ApplicationSummarySection
+from docfactory.documentmodels.entitybound.kpi_summary_section import KpiSummarySection
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

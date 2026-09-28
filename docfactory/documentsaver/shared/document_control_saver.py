@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.documentmodels.document_control import DocumentControl
+from docfactory.documentmodels.shared.document_control import DocumentControl
 
 
 class DocumentControlSaver(BaseSaver[DocumentControl]):

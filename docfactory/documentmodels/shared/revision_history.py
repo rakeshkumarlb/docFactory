@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.documentmodels.revision_entry import RevisionEntry
+from docfactory.documentmodels.shared.revision_entry import RevisionEntry
 
 
 class RevisionHistory(DocFactoryModel):

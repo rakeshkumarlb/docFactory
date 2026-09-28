@@ -22,7 +22,7 @@ In `.claude/scripts/`, run from the project root (`python .claude/scripts/<name>
 
 | Script | Job |
 |---|---|
-| `resolve_target.py` | class name -> folder, module, file, test file; rejects bad names and duplicates |
+| `resolve_target.py` | class name (+ role for a document model) -> folder, module, file, test file; rejects bad names, missing roles and duplicates |
 | `scaffold_model.py` | validated spec -> model file + test file (entity, document, shared) and, with `--scope`/`--doctype`/`--pattern`, the saver file + saver test; never overwrites |
 | `add_field.py` | inserts one field into an existing model, adds imports, prints test lines |
 | `check_structure.py` | static structure rules from CLAUDE.md |
@@ -35,7 +35,7 @@ Never hand-write a file a script can generate, and never edit a generated model 
 
 - **One class per file.** A module never defines two classes, not even a small nested item.
 - **File name = snake_case of the class** (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`).
-- **Right folder.** Knowledge facts and their nested items -> `entitymodels/`. Documents, sections, parts -> `documentmodels/`. Anything used by both sides, or by savers (base model, `NotApplicable`, `SaveResult`, `SaveError`) -> `models/`. Folders are flat, no sub-folders.
+- **Right folder.** Knowledge facts and their nested items -> `entitymodels/`. Documents, sections, parts -> `documentmodels/<role>/`, where the role is `documents` (a document body), `shared` (reused by every document type, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`) or `entitybound` (a section whose fields bind to entity facts). Anything used by both sides, or by savers (base model, `NotApplicable`, `SaveResult`, `SaveError`) -> `models/`. `models/`, `entitymodels/` and `entitysaver/` are flat; nothing goes deeper than a role folder. A document saver mirrors its model's role (`documentsaver/documents/` or `documentsaver/shared/`); an `entitybound` section has no saver.
 - **A class does one thing.** A model describes and validates. A saver stores. The renderer renders. `db.py` talks to SQLite. Never put one's job in another.
 - Pydantic v2 is the only runtime dependency. Do not add another.
 
@@ -56,7 +56,7 @@ Never hand-write a file a script can generate, and never edit a generated model 
 
 - Inherit `BaseSaver` and declare **only** the model and the key pattern. No logic, no overrides of validation, hashing, versioning or completeness. If a saver seems to need logic, that is a `BaseSaver` change: stop and report it.
 - Entity savers write `KnowledgeFacts`; document savers write `DocumentOutputs`.
-- Savers are created by `scaffold_model.py` together with their model, only for top-level facts, document bodies and the reusable `DocumentControl` / `RevisionHistory` (once). Nested items and sections get none. There is no registry in Phase 1 (it is Phase 2): a saver is used directly, `XSaver().save(key, payload)`. Key patterns follow `<Scope>.<Name>` (`Shared.*` has AppID NULL), and `<App>.Components.<Component>.<Entity>` for components, reusing the same model.
+- Savers are created by `scaffold_model.py` together with their model, only for top-level facts, document bodies (`documents`) and the reusable `DocumentControl` / `RevisionHistory` (`shared`, once). Nested items and entity-bound sections get none. There is no registry in Phase 1 (it is Phase 2): a saver is used directly, `XSaver().save(key, payload)`. Key patterns follow `<Scope>.<Name>` (`Shared.*` has AppID NULL), and `<App>.Components.<Component>.<Entity>` for components, reusing the same model.
 - Only tools write to the database. You never edit database rows or generated documents by hand.
 
 ## Tests you write with every class

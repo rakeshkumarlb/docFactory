@@ -7,9 +7,9 @@ instead of producing a blank section.
 import json
 
 from docfactory import db
-from docfactory.documentmodels.document_control import DocumentControl
-from docfactory.documentmodels.overview_document import OverviewDocument
-from docfactory.documentmodels.revision_history import RevisionHistory
+from docfactory.documentmodels.shared.document_control import DocumentControl
+from docfactory.documentmodels.documents.overview_document import OverviewDocument
+from docfactory.documentmodels.shared.revision_history import RevisionHistory
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 

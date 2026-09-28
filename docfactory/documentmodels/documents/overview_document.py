@@ -1,7 +1,7 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.documentmodels.application_summary_section import ApplicationSummarySection
-from docfactory.documentmodels.kpi_summary_section import KpiSummarySection
+from docfactory.documentmodels.entitybound.application_summary_section import ApplicationSummarySection
+from docfactory.documentmodels.entitybound.kpi_summary_section import KpiSummarySection
 
 
 class OverviewDocument(DocFactoryModel):

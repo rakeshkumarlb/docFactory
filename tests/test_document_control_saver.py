@@ -4,8 +4,8 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.documentmodels.document_control import DocumentControl
-from docfactory.documentsaver.document_control_saver import DocumentControlSaver
+from docfactory.documentmodels.shared.document_control import DocumentControl
+from docfactory.documentsaver.shared.document_control_saver import DocumentControlSaver
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

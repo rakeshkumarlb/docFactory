@@ -19,11 +19,32 @@ def rel(path) -> str:
     return path.relative_to(C.ROOT).as_posix()
 
 
+def package_parts(path) -> tuple:
+    """The path below the package folder, e.g. ('documentmodels', 'shared', 'document_control.py'); () if outside it."""
+    try:
+        return path.relative_to(C.ROOT / C.PACKAGE).parts
+    except ValueError:
+        return ()
+
+
+def top_folder(path):
+    """`models`, `entitymodels`, `documentmodels`, ... for a file in the package, else None."""
+    parts = package_parts(path)
+    return parts[0] if len(parts) > 1 else None
+
+
+def role_of(path):
+    """The role sub-folder (documents, shared, entitybound) of a file under documentmodels/ or documentsaver/, else None."""
+    parts = package_parts(path)
+    return parts[1] if len(parts) > 2 and parts[0] in C.ROLE_FOLDERS else None
+
+
 def package_files(folders=C.ALL_FOLDERS):
+    """Every module in the given top-level folders, including the role sub-folders."""
     for folder in folders:
         directory = C.ROOT / C.PACKAGE / folder
         if directory.is_dir():
-            yield from sorted(p for p in directory.glob("*.py") if p.name != "__init__.py")
+            yield from sorted(p for p in directory.rglob("*.py") if p.name != "__init__.py" and "__pycache__" not in p.parts)
 
 
 def find_class(class_name: str, folders=C.ALL_FOLDERS) -> list:
@@ -39,15 +60,28 @@ def find_class(class_name: str, folders=C.ALL_FOLDERS) -> list:
     return found
 
 
-def resolve(kind: str, class_name: str) -> dict:
-    """Where the files for a model class go: folder, module, file and test file, plus any errors."""
+def role_problems(kind: str, role) -> list:
+    """A document model needs a role (its sub-folder); no other kind has one."""
+    if kind == "document-model":
+        if role not in C.DOCUMENT_ROLES:
+            return [f"a document model needs a role, one of {list(C.DOCUMENT_ROLES)} (got {role!r})"]
+    elif role is not None:
+        return [f"role is only for document models (got {role!r} for {kind})"]
+    return []
+
+
+def resolve(kind: str, class_name: str, role=None) -> dict:
+    """Where the files for a model class go: folder, module, file and test file, plus any errors.
+
+    `role` (documents, shared or entitybound) is required for a document model and selects its sub-folder.
+    """
     if kind not in C.KINDS:
         return {"errors": [f"unknown kind {kind!r}; expected one of {sorted(C.KINDS)}"]}
-    errors = []
+    errors = role_problems(kind, role)
     if not is_pascal(class_name):
         errors.append(f"{class_name!r} is not PascalCase (letters and digits, starts with a capital)")
     stem = to_snake(class_name)
-    folder = C.KINDS[kind]["folder"]
+    folder = C.KINDS[kind]["folder"] + (f"/{role}" if role in C.DOCUMENT_ROLES else "")
     path = C.ROOT / C.PACKAGE / folder / f"{stem}.py"
     if class_name.endswith("Saver"):
         errors.append("a model class name must not end with 'Saver'")
@@ -60,7 +94,8 @@ def resolve(kind: str, class_name: str) -> dict:
         "kind": kind,
         "class": class_name,
         "folder": f"{C.PACKAGE}/{folder}",
-        "module": f"{C.PACKAGE}.{folder}.{stem}",
+        "role": role,
+        "module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}",
         "file": rel(path),
         "test_file": f"tests/test_{stem}.py",
         "exists": path.exists(),
@@ -68,17 +103,20 @@ def resolve(kind: str, class_name: str) -> dict:
     }
 
 
-def saver_target(kind: str, model_class: str, model_module: str) -> dict:
-    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model or document-model)."""
+def saver_target(kind: str, model_class: str, model_module: str, role=None) -> dict:
+    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model or document-model).
+
+    A document saver mirrors its model's role sub-folder (documentsaver/<role>/).
+    """
     stem = to_snake(model_class)
-    folder = C.SAVERS[kind]["folder"]
+    folder = C.SAVERS[kind]["folder"] + (f"/{role}" if kind == "document-model" and role else "")
     path = C.ROOT / C.PACKAGE / folder / f"{stem}_saver.py"
     return {
         "kind": kind,
         "model_class": model_class,
         "model_module": model_module,
         "saver_class": f"{model_class}Saver",
-        "saver_module": f"{C.PACKAGE}.{folder}.{stem}_saver",
+        "saver_module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}_saver",
         "folder": f"{C.PACKAGE}/{folder}",
         "file": rel(path),
         "test_file": f"tests/test_{stem}_saver.py",

@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.documentmodels.revision_history import RevisionHistory
+from docfactory.documentmodels.shared.revision_history import RevisionHistory
 
 
 class RevisionHistorySaver(BaseSaver[RevisionHistory]):

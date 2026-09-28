@@ -3,8 +3,8 @@
 Static check of the CLAUDE.md structure rules. No paths = the five package folders plus a scan of the
 rest of the package for stray Pydantic classes. Prints `path:line: RULE message`, exit 1 on any finding.
 
-Rules: syntax, one-class, file-name, saver-name, saver-base, saver-body, base-model, field-helper,
-forbidden-type, layering, stray-model, class-docstring, test-missing.
+Rules: syntax, one-class, file-name, role-folder, saver-name, saver-base, saver-body, saver-mirror,
+base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing.
 """
 import ast
 import sys
@@ -27,13 +27,46 @@ def docstring_of(node):
     return ast.get_docstring(node)
 
 
+def imports_module(module: str, prefix: str) -> bool:
+    return module == prefix or module.startswith(prefix + ".")
+
+
+def forbidden_imports(folder: str, role) -> list:
+    """Module prefixes a file in this folder (and role sub-folder) must not import."""
+    if folder == "models":
+        return [f"{C.PACKAGE}.entitymodels", f"{C.PACKAGE}.documentmodels"]
+    if folder == "entitymodels":
+        return [f"{C.PACKAGE}.documentmodels"]
+    if folder == "documentmodels" and role in C.ROLE_MAY_IMPORT:
+        return [f"{C.PACKAGE}.documentmodels.{other}" for other in C.DOCUMENT_ROLES if other != role and other not in C.ROLE_MAY_IMPORT[role]]
+    return []
+
+
+def check_layout(path: Path, folder: str, role) -> list:
+    """`role-folder`: documentmodels/ and documentsaver/ files sit in a role sub-folder, the other folders are flat."""
+    parts = naming.package_parts(path)
+    if folder not in C.ROLE_FOLDERS:
+        return [f"{folder}/ has no sub-folders: move {path.name} out of {'/'.join(parts[1:-1])}/"] if len(parts) > 2 else []
+    allowed = C.DOCUMENT_ROLES if folder == "documentmodels" else C.SAVER_ROLES
+    if role is None:
+        return [f"{folder}/{path.name} must live in a role sub-folder: {'/'.join(allowed)}"]
+    if len(parts) > 3:
+        return [f"{folder}/{role}/ has no sub-folders"]
+    if role not in allowed:
+        return [f"{folder}/{role}/ is not allowed here: use one of {list(allowed)}" + (" (an entity-bound section has no saver)" if role == "entitybound" else "")]
+    return []
+
+
 def check_file(path: Path, folder: str, want_tests: bool) -> list:
     rel = naming.rel(path)
+    role = naming.role_of(path)
     out = []
 
     def add(line, rule, message):
         out.append((rel, line, rule, message))
 
+    for message in check_layout(path, folder, role):
+        add(1, "role-folder", message)
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as error:
@@ -52,7 +85,7 @@ def check_file(path: Path, folder: str, want_tests: bool) -> list:
     if is_saver_folder and not cls.name.endswith("Saver"):
         add(cls.lineno, "saver-name", f"class in {folder}/ must end with 'Saver' ({cls.name})")
     if not is_saver_folder and cls.name.endswith("Saver"):
-        add(cls.lineno, "saver-name", f"a Saver belongs in entitysaver/ or documentsaver/, not {folder}/")
+        add(cls.lineno, "saver-name", f"a Saver belongs in entitysaver/ or documentsaver/<role>/, not {folder}/")
     if not docstring_of(cls) and not bases & C.ENUM_BASES:
         add(cls.lineno, "class-docstring", f"{cls.name} has no docstring")
 
@@ -70,6 +103,10 @@ def check_file(path: Path, folder: str, want_tests: bool) -> list:
         for needed in ("model", "key_patterns"):
             if needed not in assigned:
                 add(cls.lineno, "saver-body", f"{cls.name} does not declare `{needed}`")
+        if folder == "documentsaver" and role and path.stem.endswith("_saver"):
+            mirror = C.ROOT / C.PACKAGE / "documentmodels" / role / f"{path.stem[:-len('_saver')]}.py"
+            if not mirror.exists():
+                add(cls.lineno, "saver-mirror", f"{cls.name} must sit in the same role as its model: expected {naming.rel(mirror)}")
     else:
         if not bases:
             add(cls.lineno, "base-model", f"{cls.name} has no base class")
@@ -95,11 +132,12 @@ def check_file(path: Path, folder: str, want_tests: bool) -> list:
                 )
                 if not described:
                     add(stmt.lineno, "field-helper", f"{stmt.target.id}: use {C.FIELD_HELPER}(description=...) with a non-empty description")
-        forbidden = {"models": ("entitymodels", "documentmodels"), "entitymodels": ("documentmodels",)}.get(folder, ())
+        forbidden = forbidden_imports(folder, role)
+        where = f"{folder}/{role}" if role else folder
         for node in ast.walk(tree):
             module = node.module if isinstance(node, ast.ImportFrom) else None
-            if module and any(module.startswith(f"{C.PACKAGE}.{f}") for f in forbidden):
-                add(node.lineno, "layering", f"{folder}/ must not import {module}")
+            if module and any(imports_module(module, prefix) for prefix in forbidden):
+                add(node.lineno, "layering", f"{where}/ must not import {module}")
 
     if want_tests and not (C.ROOT / "tests" / f"test_{path.stem}.py").exists():
         add(1, "test-missing", f"no tests/test_{path.stem}.py")
@@ -112,7 +150,7 @@ def stray_models() -> list:
     if not package.is_dir():
         return out
     for path in sorted(package.rglob("*.py")):
-        if path.parent.name in C.ALL_FOLDERS and path.parent.parent == package:
+        if naming.top_folder(path) in C.ALL_FOLDERS:
             continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -135,7 +173,7 @@ def collect(paths, want_tests):
         target = Path(raw).resolve()
         files = sorted(target.rglob("*.py")) if target.is_dir() else [target]
         for path in files:
-            folder = path.parent.name
+            folder = naming.top_folder(path)
             if folder in C.ALL_FOLDERS and path.name != "__init__.py":
                 findings += check_file(path, folder, want_tests)
     return findings

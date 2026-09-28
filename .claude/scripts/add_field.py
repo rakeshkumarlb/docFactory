@@ -36,7 +36,7 @@ def main(argv) -> int:
         print("CANNOT ADD:", *problems, sep="\n  - ")
         return 1
     path = files[0]
-    kind = "document-model" if path.parent.name == "documentmodels" else None
+    kind = "document-model" if naming.top_folder(path) == "documentmodels" else None
     problems += field_spec.validate_field(field, kind)
     for line in imports:
         problems += field_spec.validate_import(line)
