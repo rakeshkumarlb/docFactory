@@ -111,3 +111,16 @@ def test_kpis_render_as_a_table_with_one_row_per_kpi_and_other_lists_stay_bullet
     assert "_N/A — Tracked manually, no dashboard yet._" in rendered
     assert "\n1.\n" not in rendered
     assert "**Target Users:**\n- Testers" in rendered
+
+
+def test_lists_inside_items_render_as_nested_lists_and_steps_are_numbered():
+    from docfactory.models.sop_procedure import SopProcedure
+    from docfactory.render import _item_lines
+
+    item = SopProcedure(name="Test procedure", roles=["Test role"], steps=["Test step, with a comma", "Test step two"])
+
+    lines = _item_lines(item)
+
+    assert "  - **Roles:**" in lines and "    - Test role" in lines
+    assert lines[lines.index("  - **Steps:**") + 1:][:2] == ["    1. Test step, with a comma", "    2. Test step two"]
+    assert "  - **Prerequisites:** _Not provided._" in lines

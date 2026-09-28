@@ -71,3 +71,12 @@ def test_default_and_default_factory():
 def test_min_length_is_forwarded():
     with pytest.raises(ValidationError):
         _Sample.model_validate({"required": ""})
+
+
+def test_render_as_accepts_numbered_for_ordered_lists():
+    class _Ordered(DocFactoryModel):
+        """Test-only model."""
+
+        steps: list[str] = doc_field(default_factory=list, description="Steps, e.g. one.", render_as="numbered")
+
+    assert _Ordered.model_fields["steps"].json_schema_extra["render_as"] == "numbered"

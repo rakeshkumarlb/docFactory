@@ -9,15 +9,16 @@ import json
 from docfactory import db
 from docfactory.documentmodels.shared.document_control import DocumentControl
 from docfactory.documentmodels.documents.overview_document import OverviewDocument
+from docfactory.documentmodels.documents.smtd_document import SmtdDocument
 from docfactory.documentmodels.shared.revision_history import RevisionHistory
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 
 # The body model for each document type. A registry built from the document savers' key patterns is Phase 2.
-BODY_MODELS = {"Overview": OverviewDocument}
+BODY_MODELS = {"Overview": OverviewDocument, "SMTD": SmtdDocument}
 
 NOT_PROVIDED = "_Not provided._"
-ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs"}
+ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs", "sop": "SOP", "smtd": "SMTD", "ci": "CI", "cd": "CD", "rpo": "RPO", "rto": "RTO", "url": "URL"}
 
 
 def _extra(field) -> dict:
@@ -47,12 +48,25 @@ def _scalar_text(value) -> str:
     return str(value)
 
 
+def _list_lines(values: list, render_as: str, indent: str) -> list[str]:
+    """One line per entry: bullets, or an ordered list when the field is declared `render_as="numbered"`."""
+    if render_as == "numbered":
+        return [f"{indent}{index}. {value}" for index, value in enumerate(values, start=1)]
+    return [f"{indent}- {value}" for value in values]
+
+
 def _item_lines(item: DocFactoryModel) -> list[str]:
     lines = []
-    for name in type(item).model_fields:
+    for name, field in type(item).model_fields.items():
         value = getattr(item, name)
-        text = ", ".join(str(v) for v in value) if isinstance(value, list) else _scalar_text(value)
-        lines.append(f"  - **{_title(name)}:** {text if text else NOT_PROVIDED}")
+        if isinstance(value, list) and value:
+            lines.append(f"  - **{_title(name)}:**")
+            lines += _list_lines(value, _extra(field).get("render_as"), "    ")
+        elif isinstance(value, list):
+            lines.append(f"  - **{_title(name)}:** {NOT_PROVIDED}")
+        else:
+            text = _scalar_text(value)
+            lines.append(f"  - **{_title(name)}:** {text if text else NOT_PROVIDED}")
     return lines
 
 
@@ -78,7 +92,7 @@ def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
     for name in type(model).model_fields:
         value = getattr(model, name)
         label = _title(name)
-        if isinstance(value, DocFactoryModel):
+        if isinstance(value, DocFactoryModel) and not isinstance(value, NotApplicable):
             lines.append(f"{'#' * heading_level} {label}")
             lines.append("")
             lines += _field_lines(value, heading_level + 1)
@@ -95,7 +109,7 @@ def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
                 lines.append("")
         elif isinstance(value, list):
             lines.append(f"**{label}:**" if value else f"**{label}:** {NOT_PROVIDED}")
-            lines += [f"- {item}" for item in value]
+            lines += _list_lines(value, _extra(type(model).model_fields[name]).get("render_as"), "")
             lines.append("")
         else:
             lines.append(f"**{label}:** {_scalar_text(value)}")

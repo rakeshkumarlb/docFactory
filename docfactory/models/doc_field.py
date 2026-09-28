@@ -3,7 +3,7 @@ from typing import Any
 from pydantic import Field
 
 
-RENDER_STYLES = {"list", "table"}
+RENDER_STYLES = {"list", "table", "numbered"}
 
 
 def doc_field(
@@ -23,9 +23,10 @@ def doc_field(
     `description` becomes the Pydantic field description. `question` (falling back to the
     description), `na_allowed`, `scored`, `binding` and `render_as` are stored in `json_schema_extra`.
 
-    `render_as` is a presentation choice for a list-of-model field only: `"list"` (default) renders
-    each item as a numbered detail list, `"table"` renders all items as one Markdown table. It has no
-    effect on scalar fields or on validation/completeness; the renderer decides what to do with it.
+    `render_as` is a presentation choice for a list field only. On a list of models: `"list"` (default)
+    renders each item as a numbered detail list, `"table"` renders all items as one Markdown table.
+    On a list of strings: `"list"` renders bullets, `"numbered"` renders an ordered list (for steps).
+    It has no effect on scalar fields or on validation/completeness; the renderer decides what to do with it.
     """
     if render_as not in RENDER_STYLES:
         raise ValueError(f"render_as must be one of {sorted(RENDER_STYLES)}, got {render_as!r}")

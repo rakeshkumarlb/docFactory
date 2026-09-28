@@ -95,3 +95,16 @@ def test_min_length_rules():
     assert field_spec.validate_field(field(min_length="1"))
     assert field_spec.validate_field(field(type="int", min_length=1))
     assert field_spec.validate_field(field(type="str | None", default="None", min_length=1))
+
+
+def test_render_as_accepts_list_or_table_only():
+    assert field_spec.validate_field(field(render_as="table")) == []
+    assert field_spec.validate_field(field(render_as="list")) == []
+    assert field_spec.validate_field(field(render_as="grid"))
+
+
+def test_render_as_table_is_emitted_in_the_generated_field():
+    import render_model
+
+    assert 'render_as="table"' in render_model.render_field(field(render_as="table"))
+    assert "render_as" not in render_model.render_field(field())

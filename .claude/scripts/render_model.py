@@ -26,6 +26,8 @@ def render_field(field: dict) -> str:
         args.append("scored=False")
     if field.get("binding"):
         args.append(f"binding={q(field['binding'])}")
+    if field.get("render_as") in ("table", "numbered"):
+        args.append(f'render_as="{field["render_as"]}"')
     body = "".join(f"        {arg},\n" for arg in args)
     return f"    {field['name']}: {field['type']} = {C.FIELD_HELPER}(\n{body}    )"
 

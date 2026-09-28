@@ -19,31 +19,34 @@
 
 **Application Name:** ReadmeForge
 
-**Purpose:** Automatically generates and keeps README.md files up to date for other teams' software repositories by scanning source code for entry points, dependencies, config and CI setup, so engineering teams no longer let docs drift out of sync with the codebase.
+**Purpose:** Lets a developer connect a GitHub repository and have its README.md generated and kept up to date automatically: ReadmeForge scans every change pushed to the repository, rebuilds the README context (entry points, dependencies, configuration, CI setup) and proposes an updated README, so documentation no longer drifts out of sync with the code.
 
-**Business Overview:** ReadmeForge supports internal developer-experience initiatives by removing the recurring, low-value chore of writing and maintaining README files across dozens of internal repositories. It reduces onboarding time for new engineers and cuts the number of 'how do I run this' questions in team channels by keeping documentation synchronized with the actual state of the code.
+**Business Overview:** ReadmeForge is a subscription SaaS product with two plans. The Free plan links 1 repository and includes community support only. The Pro plan links up to 10 repositories and includes customer support through a support desk. It removes the recurring chore of writing and maintaining README files, shortens onboarding for new contributors and cuts the number of 'how do I run this' questions that maintainers answer by hand. Customer data stays in India.
 
 **Target Users:**
-- Engineering team leads
-- New hires onboarding onto a repo
-- Platform/DevEx engineers
-- Open-source maintainers
+- Individual developers and open-source maintainers on the Free plan
+- Engineering team leads and small teams on the Pro plan
+- New contributors onboarding onto a connected repository
+- ReadmeForge support engineers
 
 **Key Capabilities:**
-- Connect a GitHub or GitLab repository via a read-only integration
+- Connect a GitHub repository through the ReadmeForge GitHub App with read-only access
+- Automatically detect pushed changes to a connected repository and re-scan it
 - Extract structured facts about entry points, dependencies, configuration and CI pipelines
-- Generate a polished, human-editable README.md from those facts
-- Detect material changes to the repo and propose a suggested diff to the README
-- Let maintainers accept, edit or reject suggested README changes before they are committed
+- Draft README.md content from those facts and show a suggested diff
+- Let the maintainer accept, edit or reject each suggested README change before anything is committed
+- Enforce plan limits: 1 linked repository on Free, up to 10 on Pro
+- Provide customer support for Pro subscribers through a support desk
 
-**Business Criticality:** Tier 3 - developer productivity tool; an outage delays documentation updates but does not affect any production system or customer-facing service.
+**Business Criticality:** Tier 2 - paying Pro customers rely on it for documentation updates, but an outage delays README updates only and does not stop any customer's production system.
 
 **Out Of Scope:**
-- Editing or generating any documentation other than the top-level README (e.g. API reference docs, wikis)
+- Hosting or generating any documentation other than the top-level README (for example API reference docs or wikis)
+- Source hosting providers other than GitHub
 - Writing code comments or docstrings inside source files
-- Making commits or pull requests without explicit maintainer approval
+- Committing or opening pull requests without explicit maintainer approval
 
-**Technology Summary:** Python FastAPI backend with a Postgres metadata store and a queue-based worker fleet that clones repos read-only, parses them with tree-sitter, and calls an LLM to draft README prose; packaged as a hosted SaaS with a GitHub App and GitLab integration.
+**Technology Summary:** Python FastAPI backend and React dashboard running as Azure Container Apps in four Azure locations in India (Central, South, West and Jio India West), backed by Azure Database for PostgreSQL, Azure Service Bus, Redis and Blob Storage, with an LLM used to draft README prose.
 
 
 ## KPI Summary

@@ -14,7 +14,16 @@ from pydantic import ValidationError
 from docfactory import db
 from docfactory.documentmodels.shared.missing_info import MissingInfo
 from docfactory.entitymodels.application_overview import ApplicationOverview
+from docfactory.entitymodels.architecture import Architecture
+from docfactory.entitymodels.backup_recovery import BackupRecovery
+from docfactory.entitymodels.deployment import Deployment
+from docfactory.entitymodels.environments import Environments
+from docfactory.entitymodels.known_errors import KnownErrors
 from docfactory.entitymodels.kpis import Kpis
+from docfactory.entitymodels.monitoring import Monitoring
+from docfactory.entitymodels.slo import Slo
+from docfactory.entitymodels.sop import Sop
+from docfactory.entitymodels.support import Support
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 
@@ -23,6 +32,15 @@ from docfactory.models.not_applicable import NotApplicable
 FACT_SPECS = {
     "ApplicationOverview": {"model": ApplicationOverview, "shared": False},
     "Kpis": {"model": Kpis, "shared": True},
+    "Architecture": {"model": Architecture, "shared": False},
+    "BackupRecovery": {"model": BackupRecovery, "shared": False},
+    "Deployment": {"model": Deployment, "shared": False},
+    "Environments": {"model": Environments, "shared": False},
+    "KnownErrors": {"model": KnownErrors, "shared": False},
+    "Monitoring": {"model": Monitoring, "shared": False},
+    "Slo": {"model": Slo, "shared": True},
+    "Sop": {"model": Sop, "shared": False},
+    "Support": {"model": Support, "shared": False},
 }
 
 
