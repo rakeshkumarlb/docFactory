@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.backup_recovery import BackupRecovery
+from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
 
 
 class BackupRecoverySaver(BaseSaver[BackupRecovery]):

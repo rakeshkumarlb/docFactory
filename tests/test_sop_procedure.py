@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.models.sop_procedure import SopProcedure
+from docfactory.entitymodels.items.sop_procedure import SopProcedure
 from docfactory.models.not_applicable import NotApplicable
 
 MINIMAL = {

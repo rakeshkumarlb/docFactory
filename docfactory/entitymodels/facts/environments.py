@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.environment import Environment
+from docfactory.entitymodels.items.environment import Environment
 
 
 class Environments(DocFactoryModel):

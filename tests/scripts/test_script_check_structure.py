@@ -24,27 +24,27 @@ def rules_of(project, files, target):
 
 
 def test_clean_project_has_no_findings(project):
-    assert rules(project, {"docfactory/entitymodels/widget.py": GOOD_MODEL}) == set()
+    assert rules(project, {"docfactory/entitymodels/items/widget.py": GOOD_MODEL}) == set()
 
 
 def test_two_classes_and_wrong_file_name(project):
     content = GOOD_MODEL + "\n\nclass Other(DocFactoryModel):\n    '''x'''\n"
-    assert {"one-class"} <= rules(project, {"docfactory/entitymodels/widget.py": content})
-    assert {"file-name"} <= rules(project, {"docfactory/entitymodels/gadget.py": GOOD_MODEL})
+    assert {"one-class"} <= rules(project, {"docfactory/entitymodels/items/widget.py": content})
+    assert {"file-name"} <= rules(project, {"docfactory/entitymodels/items/gadget.py": GOOD_MODEL})
 
 
 def test_field_rules(project):
     bad = GOOD_MODEL.replace('doc_field(description="Name of the widget, e.g. Left.")', "None")
-    assert "field-helper" in rules(project, {"docfactory/entitymodels/widget.py": bad})
+    assert "field-helper" in rules(project, {"docfactory/entitymodels/items/widget.py": bad})
     bad = GOOD_MODEL.replace("name: str", "name: dict[str, str]")
-    assert "forbidden-type" in rules(project, {"docfactory/entitymodels/widget.py": bad})
+    assert "forbidden-type" in rules(project, {"docfactory/entitymodels/items/widget.py": bad})
     bad = GOOD_MODEL.replace("DocFactoryModel)", "BaseModel)")
-    assert "base-model" in rules(project, {"docfactory/entitymodels/widget.py": bad})
+    assert "base-model" in rules(project, {"docfactory/entitymodels/items/widget.py": bad})
 
 
 def test_layering_and_stray_models(project):
     bad = "from docfactory.documentmodels.shared.x import X\n" + GOOD_MODEL
-    assert "layering" in rules(project, {"docfactory/entitymodels/widget.py": bad})
+    assert "layering" in rules(project, {"docfactory/entitymodels/items/widget.py": bad})
     stray = "from docfactory.models.doc_factory_model import DocFactoryModel\n\n\nclass Loose(DocFactoryModel):\n    '''x'''\n"
     assert "stray-model" in rules(project, {"docfactory/loose.py": stray})
 
@@ -64,7 +64,7 @@ def test_saver_must_only_declare_model_and_patterns(project):
 
 
 def test_document_models_and_savers_must_sit_in_a_role_folder(project):
-    for bad in ("documentmodels/widget.py", "documentmodels/sections/widget.py", "entitymodels/nested/widget.py"):
+    for bad in ("documentmodels/widget.py", "documentmodels/sections/widget.py", "entitymodels/widget.py", "entitymodels/nested/widget.py", "entitymodels/items/deeper/widget.py"):
         target = f"docfactory/{bad}"
         assert "role-folder" in rules_of(project, {target: GOOD_MODEL}, target), bad
     good = "docfactory/documentmodels/entitybound/widget.py"
@@ -102,6 +102,35 @@ def test_document_saver_mirrors_its_models_role_and_entitybound_has_no_saver(pro
 
 
 def test_missing_test_file_is_reported(project):
-    (project / "docfactory/entitymodels/widget.py").write_text(GOOD_MODEL, encoding="utf-8")
+    (project / "docfactory/entitymodels/items").mkdir(parents=True)
+    (project / "docfactory/entitymodels/items/widget.py").write_text(GOOD_MODEL, encoding="utf-8")
     findings = check_structure.collect([], want_tests=True)
     assert any(rule == "test-missing" and "widget" in message for _, _, rule, message in findings)
+
+
+
+SAVER = """from docfactory.base_saver import BaseSaver
+
+
+class WidgetSaver(BaseSaver[Widget]):
+    '''Saves widgets.'''
+
+    model = Widget
+    key_patterns = ("{app}.Widget",)
+"""
+
+
+def test_fact_item_placement(project):
+    fact = "docfactory/entitymodels/facts/widget.py"
+    item = "docfactory/entitymodels/items/widget.py"
+    saver = "docfactory/entitysaver/widget_saver.py"
+    assert "fact-item-placement" in rules_of(project, {fact: GOOD_MODEL}, fact)  # a fact without a saver
+    assert "fact-item-placement" not in rules_of(project, {saver: SAVER}, fact)  # now it has one
+    assert "fact-item-placement" in rules_of(project, {item: GOOD_MODEL}, item)  # an item whose saver exists
+    (project / saver).unlink()
+    assert "fact-item-placement" not in rules_of(project, {}, item)  # an item without a saver is right
+
+
+def test_entity_model_directly_in_entitymodels_is_rejected(project):
+    target = "docfactory/entitymodels/widget.py"
+    assert "role-folder" in rules_of(project, {target: GOOD_MODEL}, target)

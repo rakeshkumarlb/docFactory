@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.models.environment import Environment
+from docfactory.entitymodels.items.environment import Environment
 from docfactory.models.not_applicable import NotApplicable
 
 MINIMAL = {

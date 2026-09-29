@@ -1,0 +1,43 @@
+{
+  "summary": "ReadmeForge keeps a repository README current by scanning the repository after each push and proposing README updates that a maintainer reviews and accepts or rejects.",
+  "requirements": [
+    {
+      "id": "FR-001",
+      "title": "Scan a repository on push",
+      "description": "The system shall start a scan of a connected repository whenever a commit is pushed to its default branch.",
+      "priority": "MUST",
+      "rationale": "Maintainers should not have to trigger README updates by hand.",
+      "acceptance_criteria": [
+        "A scan starts within 60 seconds of a push to the default branch",
+        "The scan result is visible in the dashboard"
+      ]
+    },
+    {
+      "id": "FR-002",
+      "title": "Propose README changes",
+      "description": "The system shall generate a proposed README update from the scan result and present it to the maintainer as a diff.",
+      "priority": "MUST",
+      "rationale": "A reviewable diff keeps the maintainer in control of what is published.",
+      "acceptance_criteria": [
+        "A proposal is shown as a diff against the current README",
+        "The maintainer can accept or reject each proposal"
+      ]
+    },
+    {
+      "id": "FR-003",
+      "title": "Exclude paths from scanning",
+      "description": "The system shall let a maintainer exclude directories from scanning using a .readmeforge-ignore file in the repository root.",
+      "priority": "SHOULD",
+      "rationale": {
+        "reason": "The need is self-evident from FR-001 and no separate rationale has been recorded."
+      },
+      "acceptance_criteria": [
+        "Paths listed in .readmeforge-ignore are not read during a scan"
+      ]
+    }
+  ],
+  "out_of_scope": [
+    "Editing any file other than the README",
+    "Generating documentation for repositories that are not connected through GitHub"
+  ]
+}

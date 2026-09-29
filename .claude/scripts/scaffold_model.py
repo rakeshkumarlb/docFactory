@@ -9,6 +9,9 @@ A document-model spec carries a `role` that picks the sub-folder: documents/ (a 
 (reused by every document type) or entitybound/ (a section bound to entity facts). Its saver mirrors it in
 documentsaver/<role>/; an entitybound section gets no saver.
 
+An entity-model with a saver is a fact and goes to entitymodels/facts/; without one it is an item and goes
+to entitymodels/items/.
+
 Saver options (entity-model and document-model only; nested items, sections and shared models get none):
     --scope app|shared      entity: keys {app}.<Class> (+ {app}.Components.{component}.<Class>) or Shared.<Class>
     --doctype <Name>        document body: key {app}.Outputs.<Name>
@@ -61,7 +64,7 @@ def main(argv) -> int:
     except field_spec.SpecError as error:
         print("SPEC REJECTED:", *error.problems, sep="\n  - ")
         return 1
-    info = naming.resolve(kind, spec["class"], spec.get("role"))
+    info = naming.resolve(kind, spec["class"], spec.get("role"), fact=wants_saver)
     problems = list(info["errors"])
     if kind == "document-model":
         problems += field_spec.binding_problems(spec["fields"])

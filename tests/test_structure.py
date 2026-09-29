@@ -76,6 +76,9 @@ def test_every_package_folder_has_an_init_file():
     package = Path(docfactory.__file__).parent
     for folder in ("models", "entitymodels", "documentmodels", "entitysaver", "documentsaver"):
         assert (package / folder / "__init__.py").is_file(), folder
+    for sub in ("facts", "items"):
+        assert (package / "entitymodels" / sub / "__init__.py").is_file(), f"entitymodels/{sub}"
+    assert sorted(p.name for p in (package / "entitymodels").glob("*.py")) == ["__init__.py"]
     for folder in ("documentmodels", "documentsaver"):
         for role in ("documents", "shared", "entitybound") if folder == "documentmodels" else ("documents", "shared"):
             assert (package / folder / role / "__init__.py").is_file(), f"{folder}/{role}"

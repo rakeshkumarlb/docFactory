@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.architecture import Architecture
+from docfactory.entitymodels.facts.architecture import Architecture
 
 
 class ArchitectureSaver(BaseSaver[Architecture]):

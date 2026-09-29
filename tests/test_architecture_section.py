@@ -3,9 +3,9 @@ from pydantic import ValidationError
 
 from docfactory.documentmodels.entitybound.architecture_section import ArchitectureSection
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.component import Component
-from docfactory.models.data_store import DataStore
-from docfactory.models.integration import Integration
+from docfactory.entitymodels.items.component import Component
+from docfactory.entitymodels.items.data_store import DataStore
+from docfactory.entitymodels.items.integration import Integration
 
 MINIMAL = {}
 
@@ -57,7 +57,7 @@ def test_not_applicable_is_rejected_where_not_allowed(field):
 
 
 # --- Mirror of the entity (hand-written) ---
-from docfactory.entitymodels.architecture import Architecture  # noqa: E402
+from docfactory.entitymodels.facts.architecture import Architecture  # noqa: E402
 
 
 def test_section_mirrors_every_entity_field():

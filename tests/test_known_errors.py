@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.entitymodels.known_errors import KnownErrors
+from docfactory.entitymodels.facts.known_errors import KnownErrors
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.known_error import KnownError
+from docfactory.entitymodels.items.known_error import KnownError
 
 MINIMAL = {}
 

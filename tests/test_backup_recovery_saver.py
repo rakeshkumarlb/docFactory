@@ -4,7 +4,7 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.backup_recovery import BackupRecovery
+from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
 from docfactory.entitysaver.backup_recovery_saver import BackupRecoverySaver
 
 pytestmark = pytest.mark.usefixtures("tmp_db")

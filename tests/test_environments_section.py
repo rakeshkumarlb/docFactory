@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from docfactory.documentmodels.entitybound.environments_section import EnvironmentsSection
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.environment import Environment
+from docfactory.entitymodels.items.environment import Environment
 
 MINIMAL = {}
 
@@ -40,7 +40,7 @@ def test_not_applicable_is_rejected_where_not_allowed(field):
 
 
 # --- Mirror of the entity (hand-written) ---
-from docfactory.entitymodels.environments import Environments  # noqa: E402
+from docfactory.entitymodels.facts.environments import Environments  # noqa: E402
 
 
 def test_section_mirrors_every_entity_field():

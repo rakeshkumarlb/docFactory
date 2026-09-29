@@ -20,7 +20,8 @@ BASE_SAVER = "BaseSaver"
 BASE_SAVER_MODULE = "docfactory.base_saver"
 BOOTSTRAP_CLASSES = {BASE_MODEL}  # cannot be scaffolded: they are what scaffolds derive from
 
-# Top-level folders of the package. models/, entitymodels/ and entitysaver/ are flat.
+# Top-level folders of the package. models/ (machinery only) and entitysaver/ are flat; entitymodels/ and
+# documentmodels/ have sub-folders (below).
 MODEL_FOLDERS = ("models", "entitymodels", "documentmodels")
 SAVER_FOLDERS = ("entitysaver", "documentsaver")
 ALL_FOLDERS = MODEL_FOLDERS + SAVER_FOLDERS
@@ -29,6 +30,12 @@ ALL_FOLDERS = MODEL_FOLDERS + SAVER_FOLDERS
 #   documents    a document body, composed of sections (one per document type)
 #   shared       reusable across every document type, supplied by the caller (document control, revision history)
 #   entitybound  a section in a specific format whose fields bind to entity facts
+# entitymodels/ has exactly two sub-folders and no module directly in it:
+#   facts   an entity model with a saver in entitysaver/ (a top-level knowledge fact)
+#   items   an entity model with no saver (nested item types and enums)
+ENTITY_SUBFOLDERS = ("facts", "items")
+ENTITY_FACTS, ENTITY_ITEMS = ENTITY_SUBFOLDERS
+
 DOCUMENT_ROLES = ("documents", "shared", "entitybound")
 ROLE_FOLDERS = ("documentmodels", "documentsaver")
 SAVER_ROLES = ("documents", "shared")  # an entity-bound section is stored inside its document body: no saver

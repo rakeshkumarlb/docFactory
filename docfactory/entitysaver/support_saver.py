@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.support import Support
+from docfactory.entitymodels.facts.support import Support
 
 
 class SupportSaver(BaseSaver[Support]):

@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.sop_procedure import SopProcedure
+from docfactory.entitymodels.items.sop_procedure import SopProcedure
 
 
 class Sop(DocFactoryModel):

@@ -13,17 +13,17 @@ from pydantic import ValidationError
 
 from docfactory import db
 from docfactory.documentmodels.shared.missing_info import MissingInfo
-from docfactory.entitymodels.application_overview import ApplicationOverview
-from docfactory.entitymodels.architecture import Architecture
-from docfactory.entitymodels.backup_recovery import BackupRecovery
-from docfactory.entitymodels.deployment import Deployment
-from docfactory.entitymodels.environments import Environments
-from docfactory.entitymodels.known_errors import KnownErrors
-from docfactory.entitymodels.kpis import Kpis
-from docfactory.entitymodels.monitoring import Monitoring
-from docfactory.entitymodels.slo import Slo
-from docfactory.entitymodels.sop import Sop
-from docfactory.entitymodels.support import Support
+from docfactory.entitymodels.facts.application_overview import ApplicationOverview
+from docfactory.entitymodels.facts.architecture import Architecture
+from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
+from docfactory.entitymodels.facts.deployment import Deployment
+from docfactory.entitymodels.facts.environments import Environments
+from docfactory.entitymodels.facts.known_errors import KnownErrors
+from docfactory.entitymodels.facts.kpis import Kpis
+from docfactory.entitymodels.facts.monitoring import Monitoring
+from docfactory.entitymodels.facts.slo import Slo
+from docfactory.entitymodels.facts.sop import Sop
+from docfactory.entitymodels.facts.support import Support
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 

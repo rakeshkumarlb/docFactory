@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.support import Support
+from docfactory.entitymodels.facts.support import Support
 from docfactory.entitysaver.support_saver import SupportSaver
-from docfactory.models.support_contact import SupportContact
+from docfactory.entitymodels.items.support_contact import SupportContact
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

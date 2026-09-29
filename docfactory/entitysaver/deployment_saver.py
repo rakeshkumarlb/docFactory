@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.deployment import Deployment
+from docfactory.entitymodels.facts.deployment import Deployment
 
 
 class DeploymentSaver(BaseSaver[Deployment]):

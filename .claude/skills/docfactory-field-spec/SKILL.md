@@ -14,7 +14,7 @@ You supply the **judgment**: names, types, descriptions, questions, defaults. Th
 {
   "class": "Environment",
   "doc": "One deployment environment of an application (e.g. Production).",
-  "imports": ["from docfactory.entitymodels.slo import Slo"],
+  "imports": ["from docfactory.entitymodels.facts.slo import Slo"],
   "fields": [
     {
       "name": "url",
@@ -58,4 +58,4 @@ Unknown keys are errors. Keys: `class`, `doc`, `role`, `imports`, `fields`; per 
 
 ## Enums
 
-An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/`, `documentmodels/<role>/` or `models/`), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.
+An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/facts/` or `entitymodels/items/`, `documentmodels/<role>/` or `models/`; an enum has no saver, so it is an item), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.

@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.environments import Environments
+from docfactory.entitymodels.facts.environments import Environments
 
 
 class EnvironmentsSaver(BaseSaver[Environments]):

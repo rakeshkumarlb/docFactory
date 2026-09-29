@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.entitymodels.backup_recovery import BackupRecovery
+from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
 from docfactory.models.not_applicable import NotApplicable
 
 MINIMAL = {}

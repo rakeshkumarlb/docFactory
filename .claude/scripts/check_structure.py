@@ -4,7 +4,8 @@ Static check of the CLAUDE.md structure rules. No paths = the five package folde
 rest of the package for stray Pydantic classes. Prints `path:line: RULE message`, exit 1 on any finding.
 
 Rules: syntax, one-class, file-name, role-folder, saver-name, saver-base, saver-body, saver-mirror,
-base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing.
+base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing,
+fact-item-placement (entitymodels/facts/ has a saver, entitymodels/items/ has none, nothing directly in entitymodels/).
 """
 import ast
 import sys
@@ -36,7 +37,7 @@ def forbidden_imports(folder: str, role) -> list:
     if folder == "models":
         return [f"{C.PACKAGE}.entitymodels", f"{C.PACKAGE}.documentmodels"]
     if folder == "entitymodels":
-        return [f"{C.PACKAGE}.documentmodels"]
+        return [f"{C.PACKAGE}.documentmodels"]  # entity models never import documentmodels
     if folder == "documentmodels" and role in C.ROLE_MAY_IMPORT:
         return [f"{C.PACKAGE}.documentmodels.{other}" for other in C.DOCUMENT_ROLES if other != role and other not in C.ROLE_MAY_IMPORT[role]]
     return []
@@ -45,6 +46,15 @@ def forbidden_imports(folder: str, role) -> list:
 def check_layout(path: Path, folder: str, role) -> list:
     """`role-folder`: documentmodels/ and documentsaver/ files sit in a role sub-folder, the other folders are flat."""
     parts = naming.package_parts(path)
+    if folder == "entitymodels":
+        sub = naming.entity_sub_of(path)
+        if sub is None:
+            return [f"entitymodels/{path.name} must live in a sub-folder: {'/'.join(C.ENTITY_SUBFOLDERS)}"]
+        if len(parts) > 3:
+            return [f"entitymodels/{sub}/ has no sub-folders"]
+        if sub not in C.ENTITY_SUBFOLDERS:
+            return [f"entitymodels/{sub}/ is not allowed here: use one of {list(C.ENTITY_SUBFOLDERS)}"]
+        return []
     if folder not in C.ROLE_FOLDERS:
         return [f"{folder}/ has no sub-folders: move {path.name} out of {'/'.join(parts[1:-1])}/"] if len(parts) > 2 else []
     allowed = C.DOCUMENT_ROLES if folder == "documentmodels" else C.SAVER_ROLES
@@ -54,6 +64,17 @@ def check_layout(path: Path, folder: str, role) -> list:
         return [f"{folder}/{role}/ has no sub-folders"]
     if role not in allowed:
         return [f"{folder}/{role}/ is not allowed here: use one of {list(allowed)}" + (" (an entity-bound section has no saver)" if role == "entitybound" else "")]
+    return []
+
+
+def check_placement(path: Path) -> list:
+    """`fact-item-placement`: a class in entitymodels/facts/ has a saver, one in entitymodels/items/ has none."""
+    sub = naming.entity_sub_of(path)
+    saver = C.ROOT / C.PACKAGE / "entitysaver" / f"{path.stem}_saver.py"
+    if sub == C.ENTITY_FACTS and not saver.exists():
+        return [f"{path.stem} is in entitymodels/facts/ but has no saver: expected {naming.rel(saver)}, or move it to entitymodels/items/"]
+    if sub == C.ENTITY_ITEMS and saver.exists():
+        return [f"{path.stem} is in entitymodels/items/ but has a saver ({naming.rel(saver)}): move it to entitymodels/facts/"]
     return []
 
 
@@ -67,6 +88,9 @@ def check_file(path: Path, folder: str, want_tests: bool) -> list:
 
     for message in check_layout(path, folder, role):
         add(1, "role-folder", message)
+    if folder == "entitymodels":
+        for message in check_placement(path):
+            add(1, "fact-item-placement", message)
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as error:

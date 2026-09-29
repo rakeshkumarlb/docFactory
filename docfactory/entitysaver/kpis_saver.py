@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.kpis import Kpis
+from docfactory.entitymodels.facts.kpis import Kpis
 
 
 class KpisSaver(BaseSaver[Kpis]):

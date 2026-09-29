@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.slo_objective import SloObjective
+from docfactory.entitymodels.items.slo_objective import SloObjective
 
 
 class Slo(DocFactoryModel):

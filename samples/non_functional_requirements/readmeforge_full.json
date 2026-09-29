@@ -1,0 +1,31 @@
+{
+  "summary": "The dashboard must feel responsive, the service must be available during working hours and access to repositories must be limited to what the user has authorised.",
+  "requirements": [
+    {
+      "id": "NFR-001",
+      "category": "PERFORMANCE",
+      "statement": "The dashboard shall load its main page quickly for typical users.",
+      "target": "95th percentile page load under 2 seconds",
+      "priority": "SHOULD",
+      "verification": "Monthly load test against the staging environment"
+    },
+    {
+      "id": "NFR-002",
+      "category": "AVAILABILITY",
+      "statement": "The dashboard and webhook receiver shall be available during working hours.",
+      "target": "99.5% monthly availability",
+      "priority": "MUST",
+      "verification": "Availability reported from the monitoring dashboard each month"
+    },
+    {
+      "id": "NFR-003",
+      "category": "SECURITY",
+      "statement": "The system shall only read repositories that the signing-in user has authorised through GitHub OAuth.",
+      "target": {
+        "reason": "Access control is a yes-or-no property and has no numeric target."
+      },
+      "priority": "MUST",
+      "verification": "Covered by the automated authorisation test suite on every release"
+    }
+  ]
+}

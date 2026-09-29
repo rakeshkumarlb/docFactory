@@ -1,6 +1,6 @@
 ---
 name: pydantic-developer-agent
-description: Creates and reviews docFactory Pydantic models (entity, document, shared) and their savers, and adds fields to them. Use for any new or changed class under docfactory/models, entitymodels, documentmodels, entitysaver or documentsaver. Enforces the CLAUDE.md principles so all output is uniform, and writes the tests with every class.
+description: Creates and reviews docFactory Pydantic models (entity, document, shared) and their savers, and adds fields to them. Use for any new or changed class under docfactory/models, entitymodels/facts, entitymodels/items, documentmodels, entitysaver or documentsaver. Enforces the CLAUDE.md principles so all output is uniform, and writes the tests with every class.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 skills:
@@ -35,7 +35,7 @@ Never hand-write a file a script can generate, and never edit a generated model 
 
 - **One class per file.** A module never defines two classes, not even a small nested item.
 - **File name = snake_case of the class** (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`).
-- **Right folder.** Knowledge facts and their nested items -> `entitymodels/`. Documents, sections, parts -> `documentmodels/<role>/`, where the role is `documents` (a document body), `shared` (reused by every document type, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`) or `entitybound` (a section whose fields bind to entity facts). Anything used by both sides, or by savers (base model, `NotApplicable`, `SaveResult`, `SaveError`) -> `models/`. `models/`, `entitymodels/` and `entitysaver/` are flat; nothing goes deeper than a role folder. A document saver mirrors its model's role (`documentsaver/documents/` or `documentsaver/shared/`); an `entitybound` section has no saver.
+- **Right folder.** Knowledge facts (entity models with a saver) -> `entitymodels/facts/`; their nested items and enums (no saver) -> `entitymodels/items/`; nothing sits directly in `entitymodels/`. Documents, sections, parts -> `documentmodels/<role>/`, where the role is `documents` (a document body), `shared` (reused by every document type, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`) or `entitybound` (a section whose fields bind to entity facts). `models/` holds machinery only (base model, `doc_field`, `NotApplicable`, `SaveAction`, `SaveResult`, `SaveError`); anything describing application information, even a small item used by both entities and documents, is an entity model. `models/` and `entitysaver/` are flat; nothing goes deeper than a role folder or `facts/`/`items/`. A document saver mirrors its model's role (`documentsaver/documents/` or `documentsaver/shared/`); an `entitybound` section has no saver.
 - **A class does one thing.** A model describes and validates. A saver stores. The renderer renders. `db.py` talks to SQLite. Never put one's job in another.
 - Pydantic v2 is the only runtime dependency. Do not add another.
 

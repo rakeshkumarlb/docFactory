@@ -4,11 +4,11 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.architecture import Architecture
+from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitysaver.architecture_saver import ArchitectureSaver
-from docfactory.models.component import Component
-from docfactory.models.data_store import DataStore
-from docfactory.models.integration import Integration
+from docfactory.entitymodels.items.component import Component
+from docfactory.entitymodels.items.data_store import DataStore
+from docfactory.entitymodels.items.integration import Integration
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

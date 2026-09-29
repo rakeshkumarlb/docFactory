@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.monitoring import Monitoring
+from docfactory.entitymodels.facts.monitoring import Monitoring
 
 
 class MonitoringSaver(BaseSaver[Monitoring]):

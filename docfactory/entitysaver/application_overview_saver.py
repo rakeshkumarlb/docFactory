@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.application_overview import ApplicationOverview
+from docfactory.entitymodels.facts.application_overview import ApplicationOverview
 
 
 class ApplicationOverviewSaver(BaseSaver[ApplicationOverview]):

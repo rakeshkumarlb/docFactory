@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.entitymodels.support import Support
+from docfactory.entitymodels.facts.support import Support
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.support_contact import SupportContact
+from docfactory.entitymodels.items.support_contact import SupportContact
 
 MINIMAL = {}
 

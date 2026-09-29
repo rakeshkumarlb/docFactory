@@ -4,7 +4,7 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.application_overview import ApplicationOverview
+from docfactory.entitymodels.facts.application_overview import ApplicationOverview
 from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
 
 pytestmark = pytest.mark.usefixtures("tmp_db")

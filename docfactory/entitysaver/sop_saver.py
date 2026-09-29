@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.sop import Sop
+from docfactory.entitymodels.facts.sop import Sop
 
 
 class SopSaver(BaseSaver[Sop]):

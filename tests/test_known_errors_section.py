@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from docfactory.documentmodels.entitybound.known_errors_section import KnownErrorsSection
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.known_error import KnownError
+from docfactory.entitymodels.items.known_error import KnownError
 
 MINIMAL = {}
 
@@ -40,7 +40,7 @@ def test_not_applicable_is_rejected_where_not_allowed(field):
 
 
 # --- Mirror of the entity (hand-written) ---
-from docfactory.entitymodels.known_errors import KnownErrors  # noqa: E402
+from docfactory.entitymodels.facts.known_errors import KnownErrors  # noqa: E402
 
 
 def test_section_mirrors_every_entity_field():

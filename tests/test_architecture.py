@@ -1,11 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.entitymodels.architecture import Architecture
+from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.component import Component
-from docfactory.models.data_store import DataStore
-from docfactory.models.integration import Integration
+from docfactory.entitymodels.items.component import Component
+from docfactory.entitymodels.items.data_store import DataStore
+from docfactory.entitymodels.items.integration import Integration
 
 MINIMAL = {}
 

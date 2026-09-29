@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.models.kpi import Kpi
+from docfactory.entitymodels.items.kpi import Kpi
 from docfactory.models.not_applicable import NotApplicable
 
 MINIMAL = {

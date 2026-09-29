@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.support_contact import SupportContact
+from docfactory.entitymodels.items.support_contact import SupportContact
 
 
 class Support(DocFactoryModel):

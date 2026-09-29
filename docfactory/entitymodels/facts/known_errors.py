@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.known_error import KnownError
+from docfactory.entitymodels.items.known_error import KnownError
 
 
 class KnownErrors(DocFactoryModel):

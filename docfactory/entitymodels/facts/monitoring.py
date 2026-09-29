@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.alert import Alert
+from docfactory.entitymodels.items.alert import Alert
 
 
 class Monitoring(DocFactoryModel):

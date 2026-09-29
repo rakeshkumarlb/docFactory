@@ -11,7 +11,7 @@ background: false
 
 You are running as the **pydantic-developer-agent**. This is a **read-only review: change no files.** Scripts are run from the project root. Read `CLAUDE.md` first.
 
-Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymodels`, `documentmodels`, `entitysaver`, `documentsaver`, and `tests/`).
+Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymodels/facts`, `entitymodels/items`, `documentmodels`, `entitysaver`, `documentsaver`, and `tests/`).
 
 ## Steps
 

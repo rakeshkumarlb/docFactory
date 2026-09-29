@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.monitoring import Monitoring
+from docfactory.entitymodels.facts.monitoring import Monitoring
 from docfactory.entitysaver.monitoring_saver import MonitoringSaver
-from docfactory.models.alert import Alert
+from docfactory.entitymodels.items.alert import Alert
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

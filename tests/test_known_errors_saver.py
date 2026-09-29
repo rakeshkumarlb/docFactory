@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.known_errors import KnownErrors
+from docfactory.entitymodels.facts.known_errors import KnownErrors
 from docfactory.entitysaver.known_errors_saver import KnownErrorsSaver
-from docfactory.models.known_error import KnownError
+from docfactory.entitymodels.items.known_error import KnownError
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

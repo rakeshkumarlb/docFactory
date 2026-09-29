@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from docfactory.documentmodels.entitybound.kpi_summary_section import KpiSummarySection
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.models.kpi import Kpi
+from docfactory.entitymodels.items.kpi import Kpi
 
 MINIMAL = {}
 

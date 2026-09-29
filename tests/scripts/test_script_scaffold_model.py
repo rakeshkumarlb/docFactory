@@ -30,7 +30,7 @@ def run_pytest(project, target):
 
 def test_scaffolded_model_and_its_generated_tests_pass(project):
     assert scaffold(project) == 0
-    model = (project / "docfactory/entitymodels/environment.py").read_text(encoding="utf-8")
+    model = (project / "docfactory/entitymodels/items/environment.py").read_text(encoding="utf-8")
     assert "class Environment(DocFactoryModel):" in model
     assert "from docfactory.models.not_applicable import NotApplicable" in model
     assert "default_factory=list" in model
@@ -60,7 +60,7 @@ def test_scaffold_refuses_to_overwrite_and_writes_nothing_on_bad_spec(project):
 def test_dry_run_writes_nothing(project, capsys):
     assert scaffold(project, None, "entity-model", "--dry-run") == 0
     assert "class Environment" in capsys.readouterr().out
-    assert not (project / "docfactory/entitymodels/environment.py").exists()
+    assert not (project / "docfactory/entitymodels/items/environment.py").exists()
 
 
 def test_document_model_needs_bindings_that_point_at_real_entity_fields(project):
@@ -124,11 +124,11 @@ def test_add_field_inserts_field_imports_and_reports_test_lines(project, capsys)
     }
     spec = copy.deepcopy(ENVIRONMENT_SPEC)
     spec["fields"] = [f for f in spec["fields"] if f["name"] != "url"]
-    (project / "docfactory/entitymodels/environment.py").unlink()
+    (project / "docfactory/entitymodels/items/environment.py").unlink()
     (project / "tests/test_environment.py").unlink()
     assert scaffold(project, spec) == 0
     assert add_field.main(["Environment", write_json(project / "field.json", field)]) == 0
-    model = (project / "docfactory/entitymodels/environment.py").read_text(encoding="utf-8")
+    model = (project / "docfactory/entitymodels/items/environment.py").read_text(encoding="utf-8")
     assert "region: str | NotApplicable = doc_field(" in model
     assert "from docfactory.models.not_applicable import NotApplicable" in model
     assert 'add_to_FULL' in capsys.readouterr().out
@@ -151,6 +151,9 @@ def with_conftest(project):
 def test_entity_saver_is_generated_with_the_model(project):
     with_conftest(project)
     assert scaffold(project, None, "entity-model", "--scope", "app") == 0
+    assert (project / "docfactory/entitymodels/facts/environment.py").exists()  # a model with a saver is a fact
+    assert not (project / "docfactory/entitymodels/items/environment.py").exists()
+    assert (project / "docfactory/entitymodels/facts/__init__.py").exists()
     saver = (project / "docfactory/entitysaver/environment_saver.py").read_text(encoding="utf-8")
     assert "class EnvironmentSaver(BaseSaver[Environment]):" in saver
     assert '"{app}.Environment", "{app}.Components.{component}.Environment"' in saver
@@ -236,5 +239,5 @@ def test_saver_refusals_write_nothing(project):
         f["example"] = "1" if f["name"] == "name" else f["example"]
     spec["fields"] = spec["fields"][:1]
     assert scaffold(project, spec, "entity-model", "--scope", "app") == 1  # no string example to change
-    assert not (project / "docfactory/entitymodels/environment.py").exists()
+    assert not (project / "docfactory/entitymodels/items/environment.py").exists()
     assert not (project / "docfactory/entitysaver/environment_saver.py").exists()

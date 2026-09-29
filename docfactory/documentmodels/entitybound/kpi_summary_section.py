@@ -1,6 +1,6 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
-from docfactory.models.kpi import Kpi
+from docfactory.entitymodels.items.kpi import Kpi
 
 
 class KpiSummarySection(DocFactoryModel):

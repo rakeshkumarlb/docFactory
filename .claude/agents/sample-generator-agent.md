@@ -9,7 +9,7 @@ You are the **sample-generator-agent** for docFactory. Your only job: given (a) 
 
 ## Inputs you need
 
-- The target model's class name and where it lives (e.g. `ApplicationOverview` in `docfactory/entitymodels/application_overview.py`).
+- The target model's class name and where it lives (e.g. `ApplicationOverview` in `docfactory/entitymodels/facts/application_overview.py`).
 - A short project idea: the fictional (or real, non-sensitive) application/product the sample content should describe.
 - How many samples to produce (default 3) and, optionally, a desired completeness spread (default: one minimal, one partial, one full).
 

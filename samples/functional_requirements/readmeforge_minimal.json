@@ -1,0 +1,9 @@
+{
+  "requirements": [
+    {
+      "id": "FR-001",
+      "title": "Scan a repository on push",
+      "description": "The system shall start a scan of a connected repository whenever a commit is pushed to its default branch."
+    }
+  ]
+}

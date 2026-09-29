@@ -33,12 +33,15 @@ def test_key_matching_and_app_id():
 
 
 def test_resolve_entity_model(project):
-    info = naming.resolve("entity-model", "ApplicationOverview")
+    info = naming.resolve("entity-model", "ApplicationOverview", fact=True)
     assert info["errors"] == []
-    assert info["file"] == "docfactory/entitymodels/application_overview.py"
+    assert info["file"] == "docfactory/entitymodels/facts/application_overview.py"
     assert info["test_file"] == "tests/test_application_overview.py"
-    assert info["module"] == "docfactory.entitymodels.application_overview"
+    assert info["module"] == "docfactory.entitymodels.facts.application_overview"
     assert info["exists"] is False
+    item = naming.resolve("entity-model", "Requirement")
+    assert item["file"] == "docfactory/entitymodels/items/requirement.py"
+    assert item["module"] == "docfactory.entitymodels.items.requirement"
 
 
 @pytest.mark.parametrize("role", ["documents", "shared", "entitybound"])
@@ -66,6 +69,9 @@ def test_path_helpers_read_the_folder_and_role(project):
     assert naming.role_of(package / "documentsaver" / "documents" / "x_saver.py") == "documents"
     assert naming.role_of(package / "documentmodels" / "x.py") is None
     assert naming.role_of(package / "entitymodels" / "x.py") is None
+    assert naming.entity_sub_of(package / "entitymodels" / "facts" / "x.py") == "facts"
+    assert naming.entity_sub_of(package / "entitymodels" / "x.py") is None
+    assert naming.entity_sub_of(package / "models" / "x.py") is None
 
 
 def test_resolve_rejects_bad_names_and_bootstrap_classes(project):
@@ -83,7 +89,7 @@ def test_resolve_detects_class_defined_elsewhere(project):
 
 
 def test_saver_target_and_sample_keys(project):
-    info = naming.saver_target("entity-model", "Environment", "docfactory.entitymodels.environment")
+    info = naming.saver_target("entity-model", "Environment", "docfactory.entitymodels.items.environment")
     assert info["saver_class"] == "EnvironmentSaver"
     assert info["file"] == "docfactory/entitysaver/environment_saver.py"
     assert info["test_file"] == "tests/test_environment_saver.py"

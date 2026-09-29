@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.sop import Sop
+from docfactory.entitymodels.facts.sop import Sop
 from docfactory.entitysaver.sop_saver import SopSaver
-from docfactory.models.sop_procedure import SopProcedure
+from docfactory.entitymodels.items.sop_procedure import SopProcedure
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

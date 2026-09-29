@@ -39,6 +39,12 @@ def role_of(path):
     return parts[1] if len(parts) > 2 and parts[0] in C.ROLE_FOLDERS else None
 
 
+def entity_sub_of(path):
+    """The sub-folder (facts, items) of a file under entitymodels/, else None."""
+    parts = package_parts(path)
+    return parts[1] if len(parts) > 2 and parts[0] == "entitymodels" else None
+
+
 def package_files(folders=C.ALL_FOLDERS):
     """Every module in the given top-level folders, including the role sub-folders."""
     for folder in folders:
@@ -70,10 +76,11 @@ def role_problems(kind: str, role) -> list:
     return []
 
 
-def resolve(kind: str, class_name: str, role=None) -> dict:
+def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
     """Where the files for a model class go: folder, module, file and test file, plus any errors.
 
     `role` (documents, shared or entitybound) is required for a document model and selects its sub-folder.
+    An entity model goes to entitymodels/facts/ when it gets a saver (`fact=True`), else entitymodels/items/.
     """
     if kind not in C.KINDS:
         return {"errors": [f"unknown kind {kind!r}; expected one of {sorted(C.KINDS)}"]}
@@ -82,6 +89,8 @@ def resolve(kind: str, class_name: str, role=None) -> dict:
         errors.append(f"{class_name!r} is not PascalCase (letters and digits, starts with a capital)")
     stem = to_snake(class_name)
     folder = C.KINDS[kind]["folder"] + (f"/{role}" if role in C.DOCUMENT_ROLES else "")
+    if kind == "entity-model":
+        folder += f"/{C.ENTITY_FACTS if fact else C.ENTITY_ITEMS}"
     path = C.ROOT / C.PACKAGE / folder / f"{stem}.py"
     if class_name.endswith("Saver"):
         errors.append("a model class name must not end with 'Saver'")
@@ -95,6 +104,7 @@ def resolve(kind: str, class_name: str, role=None) -> dict:
         "class": class_name,
         "folder": f"{C.PACKAGE}/{folder}",
         "role": role,
+        "fact": fact if kind == "entity-model" else None,
         "module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}",
         "file": rel(path),
         "test_file": f"tests/test_{stem}.py",

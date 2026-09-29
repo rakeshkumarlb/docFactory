@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.known_errors import KnownErrors
+from docfactory.entitymodels.facts.known_errors import KnownErrors
 
 
 class KnownErrorsSaver(BaseSaver[KnownErrors]):

@@ -4,7 +4,7 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.deployment import Deployment
+from docfactory.entitymodels.facts.deployment import Deployment
 from docfactory.entitysaver.deployment_saver import DeploymentSaver
 
 pytestmark = pytest.mark.usefixtures("tmp_db")

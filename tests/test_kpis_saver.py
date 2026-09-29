@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.entitymodels.kpis import Kpis
+from docfactory.entitymodels.facts.kpis import Kpis
 from docfactory.entitysaver.kpis_saver import KpisSaver
-from docfactory.models.kpi import Kpi
+from docfactory.entitymodels.items.kpi import Kpi
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

@@ -2,7 +2,7 @@
 
 Model spec:
     {"class": "Environment", "doc": "One deployment environment.", "role": "entitybound",
-     "imports": ["from docfactory.entitymodels.slo import Slo"],
+     "imports": ["from docfactory.entitymodels.facts.slo import Slo"],
      "fields": [ <field spec>, ... ]}
 
     role          document models only, required: the sub-folder of documentmodels/, one of

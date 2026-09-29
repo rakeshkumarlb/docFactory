@@ -1,5 +1,5 @@
 from docfactory.base_saver import BaseSaver
-from docfactory.entitymodels.slo import Slo
+from docfactory.entitymodels.facts.slo import Slo
 
 
 class SloSaver(BaseSaver[Slo]):
