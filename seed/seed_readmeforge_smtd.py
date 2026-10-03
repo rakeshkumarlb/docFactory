@@ -41,11 +41,11 @@ FACTS = (
     (ArchitectureSaver, f"{APP}.Architecture", "architecture", "readmeforge_full.json"),
     (EnvironmentsSaver, f"{APP}.Environments", "environments", "readmeforge_full.json"),
     (DeploymentSaver, f"{APP}.Deployment", "deployment", "readmeforge_full.json"),
-    (MonitoringSaver, f"{APP}.Monitoring", "monitoring", "readmeforge_full.json"),
+    (MonitoringSaver, f"{APP}.Monitoring", "monitoring", "readmeforge_datadog.json"),
     (BackupRecoverySaver, f"{APP}.BackupRecovery", "backup_recovery", "readmeforge_full.json"),
     (SupportSaver, f"{APP}.Support", "support", "readmeforge_full.json"),
     (KnownErrorsSaver, f"{APP}.KnownErrors", "known_errors", "readmeforge_full.json"),
-    (SopSaver, f"{APP}.Sop", "sop", "readmeforge_full.json"),
+    (SopSaver, f"{APP}.Sop", "sop", "readmeforge_datadog_runbooks.json"),
     (KpisSaver, "Shared.Kpis", "kpis", "shared_devex_kpis_full.json"),
     (SloSaver, "Shared.Slo", "slo", "shared_platform_slo_full.json"),
 )

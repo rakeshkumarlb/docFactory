@@ -10,15 +10,17 @@ from docfactory import db
 from docfactory.documentmodels.shared.document_control import DocumentControl
 from docfactory.documentmodels.documents.overview_document import OverviewDocument
 from docfactory.documentmodels.documents.smtd_document import SmtdDocument
+from docfactory.documentmodels.documents.sop_document import SopDocument
+from docfactory.documentmodels.documents.srs_document import SrsDocument
 from docfactory.documentmodels.shared.revision_history import RevisionHistory
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 
 # The body model for each document type. A registry built from the document savers' key patterns is Phase 2.
-BODY_MODELS = {"Overview": OverviewDocument, "SMTD": SmtdDocument}
+BODY_MODELS = {"Overview": OverviewDocument, "SMTD": SmtdDocument, "SOP": SopDocument, "SRS": SrsDocument}
 
 NOT_PROVIDED = "_Not provided._"
-ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs", "sop": "SOP", "smtd": "SMTD", "ci": "CI", "cd": "CD", "rpo": "RPO", "rto": "RTO", "url": "URL"}
+ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs", "sop": "SOP", "smtd": "SMTD", "srs": "SRS", "ci": "CI", "cd": "CD", "rpo": "RPO", "rto": "RTO", "url": "URL"}
 
 
 def _extra(field) -> dict:

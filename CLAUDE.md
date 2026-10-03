@@ -4,8 +4,8 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 
 ## Status
 
-- **Phase 1 (current): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
-- **Phase 2 (later, not designed yet): RAG + LLM.** Retrieval over the original documents, an LLM constructs the same tool calls, validation errors become feedback that tells it what to look for next. Provenance, evidence quotes, history and the approval gate are added then (see "Phase 2 roadmap").
+- **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
+- **Phase 2 (next, not designed yet): RAG + LLM.** Retrieval over the original documents, an LLM constructs the same tool calls, validation errors become feedback that tells it what to look for next. Provenance, evidence quotes, history and the approval gate are added then (see "Phase 2 roadmap").
 
 Nothing described here exists until it appears in the repo. If something is unclear, ask the user before coding.
 
@@ -55,7 +55,7 @@ One Pydantic v2 model per file, in three folders. `models/` is flat; `entitymode
 
 | Role folder | Holds | Fields bind to | May import from |
 |---|---|---|---|
-| `documents/` | A document body, composed of sections: one per document type (`OverviewDocument`, `SmtdDocument`) | `composed` sections | `entitybound/`, `shared/` |
+| `documents/` | A document body, composed of sections: one per document type (`OverviewDocument`, `SmtdDocument`, `SrsDocument`, `SopDocument`) | `composed` sections | `entitybound/`, `shared/` |
 | `shared/` | Reusable parts every document type uses, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`, and `MissingInfo` | `caller` | nothing in `documentmodels/` |
 | `entitybound/` | A section in a specific format over entity facts: `ApplicationSummarySection`, `KpiSummarySection` | `Entity.field` | nothing in `documentmodels/` |
 
@@ -158,7 +158,7 @@ Before any model or saver is written, we create a specialized agent, `.claude/ag
 3. **One or two entities end to end**, with tests, before adding more. Proposed: `ApplicationOverview` (app-specific) and `Kpis` (shared, AppID NULL).
 4. One small document type over those entities, with its `DocumentControl` and `RevisionHistory`, `build_document` and `render_markdown`, checked against a golden `.md` file.
 5. Seed data as Python calling the save tools (hard-coded, no parsing of source documents).
-6. Widen: more entities, and the SMTD (the document with the most fields). **Phase 1 scope is closed here:** two document types (Overview, SMTD) and one sample application (ReadmeForge). Further document types (SRS, BRD, standalone SOP) and further sample applications are out of scope.
+6. Widen: more entities, and the SMTD (the document with the most fields). 7. SRS and SOP document types over the requirements, monitoring, support and SOP facts, with ReadmeForge samples (SOP: Datadog-monitored production, five alert runbooks). **Phase 1 scope is closed here:** four document types (Overview, SMTD, SRS, SOP) and one sample application (ReadmeForge). Further document types (BRD, ...) and further sample applications are out of scope.
 
 ### Tests (pytest, every test uses a temporary database)
 
@@ -187,7 +187,7 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
     facts/             the facts, each with a saver: ApplicationOverview, Architecture, Environments, Deployment, Monitoring, BackupRecovery, KnownErrors, Sop, Support, Slo, Kpis, FunctionalRequirements, NonFunctionalRequirements
     items/             nested item types and enums, no saver: Environment, Requirement, Alert, Component, RequirementPriority, ...
   documentmodels/      DocumentModels, one class per file, in role sub-folders:
-    documents/         document bodies (OverviewDocument, SmtdDocument)
+    documents/         document bodies (OverviewDocument, SmtdDocument, SrsDocument, SopDocument)
     shared/            caller-supplied parts reused by every document (DocumentControl, RevisionHistory, RevisionEntry, MissingInfo)
     entitybound/       one section per entity fact (ApplicationSummarySection, ArchitectureSection, KpiSummarySection, ...)
   entitysaver/         One entity saver per file (write KnowledgeFacts)
@@ -200,7 +200,7 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
   completeness.py      completeness scoring
   build.py render.py   build_document, render_markdown, MissingInfo
 samples/<entity>/      Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo)
-seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase 1): overview, SMTD, requirements
+seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase 1): overview, SMTD, requirements, SRS and SOP
 tests/                 pytest; tests/golden/ holds the golden .md files, tests/scripts/ tests the .claude/scripts
 db/docfactory.sqlite   The database (gitignored)
 output/<app>/          Rendered documents and MissingInfo files

@@ -18,9 +18,11 @@ from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
 from docfactory.entitymodels.facts.deployment import Deployment
 from docfactory.entitymodels.facts.environments import Environments
+from docfactory.entitymodels.facts.functional_requirements import FunctionalRequirements
 from docfactory.entitymodels.facts.known_errors import KnownErrors
 from docfactory.entitymodels.facts.kpis import Kpis
 from docfactory.entitymodels.facts.monitoring import Monitoring
+from docfactory.entitymodels.facts.non_functional_requirements import NonFunctionalRequirements
 from docfactory.entitymodels.facts.slo import Slo
 from docfactory.entitymodels.facts.sop import Sop
 from docfactory.entitymodels.facts.support import Support
@@ -36,8 +38,10 @@ FACT_SPECS = {
     "BackupRecovery": {"model": BackupRecovery, "shared": False},
     "Deployment": {"model": Deployment, "shared": False},
     "Environments": {"model": Environments, "shared": False},
+    "FunctionalRequirements": {"model": FunctionalRequirements, "shared": False},
     "KnownErrors": {"model": KnownErrors, "shared": False},
     "Monitoring": {"model": Monitoring, "shared": False},
+    "NonFunctionalRequirements": {"model": NonFunctionalRequirements, "shared": False},
     "Slo": {"model": Slo, "shared": True},
     "Sop": {"model": Sop, "shared": False},
     "Support": {"model": Support, "shared": False},

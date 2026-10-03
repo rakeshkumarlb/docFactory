@@ -1,18 +1,18 @@
-# ReadmeForge System Maintenance and Technical Document
+# ReadmeForge Standard Operating Procedures (Datadog alert runbooks)
 
-- **Document ID:** ReadmeForge-SMTD-001
+- **Document ID:** ReadmeForge-SOP-001
 - **Version:** 1.0
 - **Status:** Draft
 - **Owner:** ReadmeForge Platform Engineering Lead
 - **Approvers:** Head of Developer Experience, ReadmeForge Platform Engineering Lead
-- **Created:** 2026-09-28
-- **Last Updated:** 2026-09-28
+- **Created:** 2026-10-03
+- **Last Updated:** 2026-10-03
 
 ## Revision History
 
 | Version | Date | Author | Summary |
 |---|---|---|---|
-| 1.0 | 2026-09-28 | docFactory seed | Initial SMTD generated from the seeded ReadmeForge facts (Azure Container Apps, four India locations). |
+| 1.0 | 2026-10-03 | docFactory seed | Initial SOP with five Datadog alert runbooks and the alert set-up standard. |
 
 ## Application Summary
 
@@ -46,92 +46,6 @@
 - Committing or opening pull requests without explicit maintainer approval
 
 **Technology Summary:** Python FastAPI backend and React dashboard running as Azure Container Apps in four Azure locations in India (Central, South, West and Jio India West), backed by Azure Database for PostgreSQL, Azure Service Bus, Redis and Blob Storage, with an LLM used to draft README prose.
-
-
-## Architecture
-
-**Architecture Style:** Event-driven microservices on Azure Container Apps: a React dashboard and a FastAPI REST API in front, with webhook-triggered scan and README-build workers decoupled through Azure Service Bus queues.
-
-**Technology Stack:**
-- React single-page application
-- Python 3.12
-- FastAPI
-- tree-sitter
-- Azure Container Apps
-- Azure Front Door with WAF
-- Azure Database for PostgreSQL Flexible Server
-- Azure Cache for Redis
-- Azure Service Bus (Standard)
-- Azure Blob Storage (RA-GRS)
-- Azure Key Vault
-- Azure Monitor, Application Insights and Log Analytics
-- Bicep
-- GitHub Actions
-
-**Components:**
-
-| Name | Purpose | Technology | Owner | Dependencies |
-|---|---|---|---|---|
-| web-app | React single-page dashboard where maintainers link repositories, review and accept, edit or reject README diff proposals, and manage their plan. | React single-page application served from Azure Container Apps | Frontend team | api |
-| api | REST API for authentication, repository linking, README proposals and tier-limit checks. Single backend entry point for the dashboard. | Python 3.12 / FastAPI | Platform team | Azure Database for PostgreSQL, Azure Cache for Redis, Azure Service Bus, billing-service, GitHub OAuth, Azure Key Vault |
-| webhook-receiver | Receives GitHub App push webhooks, validates their signatures and enqueues scan jobs on the scan-jobs queue. | Python 3.12 / FastAPI | Platform team | Azure Service Bus, Azure Cache for Redis, Azure Key Vault, GitHub |
-| repo-scanner-worker | Takes read-only shallow clones of linked repositories, parses them with tree-sitter and extracts structured facts (entry points, dependencies, configuration, CI setup). Scales on Service Bus queue depth. | Python 3.12 / tree-sitter | Scanner team | Azure Service Bus, Azure Blob Storage, Azure Database for PostgreSQL, GitHub |
-| readme-builder-worker | Assembles the README context from extracted facts, calls the LLM to draft prose and produces the README diff proposal for maintainer review. | Python 3.12 | Scanner team | Azure Service Bus, Azure Blob Storage, Azure Database for PostgreSQL, Anthropic API, Azure Key Vault |
-| billing-service | Enforces tier limits (Free 1 linked repository, Pro up to 10) and synchronises subscription state with Stripe. | Python 3.12 / FastAPI | Platform team | Azure Database for PostgreSQL, Stripe, Azure Key Vault |
-
-**Data Stores:**
-
-| Name | Store Type | Technology | Contents |
-|---|---|---|---|
-| ReadmeForge PostgreSQL database | relational database | Azure Database for PostgreSQL Flexible Server, zone-redundant, primary write region Central India (Pune) | Accounts, linked repositories, scan result metadata, README proposals and subscription state. |
-| Redis cache | in-memory cache | Azure Cache for Redis | User sessions, rate-limiting counters and scan job de-duplication keys. Holds no data that cannot be rebuilt. |
-| Service Bus messaging | message queue and topic | Azure Service Bus (Standard) | The scan-jobs queue with its dead-letter queue, and the proposal-events topic. |
-| Blob Storage | object storage | Azure Blob Storage with RA-GRS replication | Temporary repository snapshots (automatically deleted after 24 hours) and generated README artifacts. |
-| Key Vault | secrets store | Azure Key Vault | GitHub App private key, Stripe keys and the LLM API key. |
-
-**Integrations:**
-
-| Name | Direction | Protocol | Purpose | Data Exchanged | Authentication |
-|---|---|---|---|---|---|
-| GitHub (GitHub App) | bidirectional | Webhooks (inbound) and REST over HTTPS (outbound) | Notifies ReadmeForge of repository pushes and lets it read repository contents for scanning. | Push event payloads inbound; read-only repository contents and metadata outbound. | GitHub App installation tokens (private key held in Key Vault); webhook payloads verified by HMAC signature |
-| Anthropic API | outbound | REST over HTTPS | Drafts README prose from the structured facts extracted from a repository. | Extracted repository facts and prompt context outbound; drafted README text inbound. | API key stored in Key Vault |
-| Stripe | bidirectional | REST over HTTPS (outbound) and webhooks (inbound) | Bills Pro subscriptions and keeps subscription state in sync. | Customer and subscription identifiers, plan and payment status; no card data is handled by ReadmeForge. | Stripe secret API key in Key Vault outbound; Stripe webhook signing secret inbound |
-| Zendesk | outbound | REST over HTTPS | Creates and updates Pro customer support tickets. | Ticket subject, description, requester email and account plan. | Zendesk API token |
-| PagerDuty | outbound | Events API over HTTPS | Pages the engineering on-call rotation when Azure Monitor alerts fire. | Alert name, severity, affected environment and a link to the alert. | PagerDuty integration (routing) key |
-| GitHub OAuth | inbound | OAuth 2.0 authorization code flow over HTTPS | Lets users sign in to ReadmeForge with their GitHub identity. | Authorization code and access token exchange; GitHub user id, login and verified email. | OAuth client id and secret; client secret held in Key Vault |
-
-**Diagram Reference:** docs/architecture/readmeforge-azure.md
-
-**Notes:** All components run in Azure Container Apps, one Container Apps environment per location, with Azure Front Door routing traffic to the nearest healthy location. All data stays in India. The database has a single primary write region (Central India, Pune) with South India (Chennai) as the paired disaster-recovery region.
-
-
-## Environments
-
-**Environments:**
-
-| Name | Purpose | Hosting | URL | Access Control | Notes |
-|---|---|---|---|---|---|
-| dev | Development and integration testing by engineers, including feature branches deployed as short-lived revisions. | Azure Container Apps environment in Central India (Pune); ingress public IP 198.51.100.60, VNet 10.60.0.0/16 | https://dev.readmeforge.example | Engineering staff via Entra ID SSO group readmeforge-dev with Contributor rights; not reachable by customers. | Uses a small PostgreSQL instance and a GitHub App registered against test repositories only; data may be wiped at any time. |
-| staging | Pre-production verification of each release, including the weekly release candidate, smoke tests and canary checks before production rollout. | Azure Container Apps environment in Central India (Pune); ingress public IP 203.0.113.50, VNet 10.50.0.0/16 | https://staging.readmeforge.example | Engineering and QA via Entra ID SSO group readmeforge-staging; deployments only through the release pipeline. | First location in the rollout order; configuration mirrors production. Contains no customer data. |
-| prod-central-india | Production location in Central India (Pune) serving customers and hosting the primary write database. | Azure Container Apps environment in Central India (Pune); ingress public IP 203.0.113.10, VNet 10.10.0.0/16 | https://prod-central-india.readmeforge.example | Read-only for on-call and application support engineers via Azure RBAC and just-in-time elevation (Privileged Identity Management); changes only through the release pipeline. Customers reach it through Azure Front Door only. | Primary write region for PostgreSQL. Second in the rollout order. |
-| prod-south-india | Production location in South India (Chennai) serving customers and acting as the disaster-recovery region. | Azure Container Apps environment in South India (Chennai); ingress public IP 203.0.113.20, VNet 10.20.0.0/16 | https://prod-south-india.readmeforge.example | Read-only for on-call and application support engineers via Azure RBAC and just-in-time elevation (Privileged Identity Management); changes only through the release pipeline. Customers reach it through Azure Front Door only. | Paired disaster-recovery and geo-backup region; promoted to primary write region during a regional failure of Central India. Third in the rollout order. |
-| prod-west-india | Production location in West India (Mumbai) serving customers. | Azure Container Apps environment in West India (Mumbai); ingress public IP 198.51.100.30, VNet 10.30.0.0/16 | https://prod-west-india.readmeforge.example | Read-only for on-call and application support engineers via Azure RBAC and just-in-time elevation (Privileged Identity Management); changes only through the release pipeline. Customers reach it through Azure Front Door only. | Fourth in the rollout order. |
-| prod-jio-west | Production location in Jio India West (Jamnagar) serving customers. | Azure Container Apps environment in Jio India West (Jamnagar); ingress public IP 198.51.100.40, VNet 10.40.0.0/16 | https://prod-jio-west.readmeforge.example | Read-only for on-call and application support engineers via Azure RBAC and just-in-time elevation (Privileged Identity Management); changes only through the release pipeline. Customers reach it through Azure Front Door only. | Last in the rollout order. |
-
-**Notes:** All environments run on Azure in India only, keeping data resident in India. Global traffic enters through Azure Front Door (https://app.readmeforge.example, API at https://api.readmeforge.example) with WAF enabled, which routes to the nearest healthy production location. Dev and staging are both in Central India.
-
-
-## Deployment
-
-**Release Process:** GitHub Actions builds and tests the container images and pushes them to Azure Container Registry (readmeforgeacr.azurecr.io). The pipeline then deploys each image as a new Container Apps revision using blue/green traffic splitting: 10% canary traffic for 30 minutes, then 100% if health checks and alerts stay clean. Locations roll out one at a time in the order staging, prod-central-india, prod-south-india, prod-west-india, prod-jio-west.
-
-**CI CD Tooling:** GitHub Actions for build, test and deployment; Bicep for infrastructure as code; Azure Container Registry for images; Azure Container Apps revisions for releases.
-
-**Release Frequency:** Weekly on Tuesdays at 11:00 IST; hotfixes may be released on any day.
-
-**Rollback Procedure:** Re-activate the previous Container Apps revision and shift 100% of traffic back to it, which takes under 5 minutes. Database migrations are backward-compatible (expand/contract), so the previous revision keeps working against the migrated schema.
-
-**Configuration Management:** Container Apps secrets that reference Azure Key Vault hold all secrets. Environment-specific settings live in Bicep parameter files in the repository and are applied by the deployment pipeline.
 
 
 ## Monitoring
@@ -182,23 +96,6 @@
 - Azure Log Analytics workspace law-readmeforge-prod, table ContainerAppConsoleLogs_CL (raw container output, retention 90 days)
 
 
-## Backup Recovery
-
-**Backup Schedule:** PostgreSQL: automated continuous backups (a full snapshot daily plus continuous WAL archiving). Blob Storage: continuous through RA-GRS replication with soft delete enabled.
-
-**Backup Retention:** PostgreSQL: point-in-time restore window of 14 days. Blob Storage: soft delete retention of 7 days. Redis is a cache and is not backed up.
-
-**Backup Location:** PostgreSQL: geo-redundant backup stored in South India (Chennai), the paired disaster-recovery region. Blob Storage: RA-GRS, with the secondary copy in South India.
-
-**Restore Procedure:** PostgreSQL: use point-in-time restore to a new Flexible Server in Central India (or promote South India for a regional failure), then repoint the api and workers via Key Vault-backed connection secrets. Blob Storage: undelete soft-deleted blobs within 7 days, or read from the RA-GRS secondary. Redis is rebuilt empty on restart; users simply sign in again.
-
-**RPO:** 15 minutes
-
-**RTO:** 1 hour for regional failure
-
-**Disaster Recovery Plan:** On loss of Central India (Pune), promote South India (Chennai) as the primary write region for PostgreSQL, let Azure Front Door route traffic to the remaining healthy locations, and follow the database fail-over SOP at docs/runbooks/fail-over-database-to-south-india.md.
-
-
 ## Support
 
 **Support Model:** Three-level support for Pro customers: L1 Zendesk support desk, L2 application support engineers on the Platform team during business hours, and L3 engineering on-call 24x7 via PagerDuty for P1 incidents. Free-tier users are supported by the community forum and email on a best-effort basis with no SLA.
@@ -226,21 +123,6 @@
 - docs/runbooks/rotate-github-app-private-key.md
 - docs/runbooks/raise-customer-from-free-to-pro-repository-limit.md
 - docs/runbooks/add-a-new-production-location.md
-
-
-## Known Errors
-
-**Known Errors:**
-
-| Title | Error ID | Symptoms | Cause | Workaround | Permanent Fix | Severity | Status | Related Ticket |
-|---|---|---|---|---|---|---|---|---|
-| Duplicate scans triggered by GitHub webhook redelivery | KE-001 | A single push shows two or three scan runs for the same commit in the dashboard, and the maintainer receives duplicate README proposals for the same change. | GitHub redelivers a webhook when the webhook-receiver does not answer within 10 seconds. During load the receiver enqueues the scan job before responding, so redelivered deliveries create additional scan-jobs messages for the same commit. | Reject the surplus proposals in the dashboard. Support can purge duplicate messages from the scan-jobs queue in Azure Service Bus Explorer if a backlog builds up. | Acknowledge the webhook immediately and de-duplicate on the X-GitHub-Delivery id and commit SHA in Azure Cache for Redis before enqueueing (planned for the webhook-receiver in release 2.14). | Medium | Workaround available | RF-1423 |
-| Repositories larger than about 2 GB time out during scan | KE-002 | The scan for a large repository stays in Running and then fails after 30 minutes with the message 'Scan timed out'. No README proposal is created. | The repo-scanner-worker performs a shallow clone and parses with tree-sitter within the container's ephemeral storage and a fixed 30-minute job lock. Repositories above roughly 2 GB exceed the storage or time budget. | The maintainer can exclude large directories (for example vendored dependencies or assets) with a .readmeforge-ignore file in the repository root and retrigger the scan from the dashboard. | Introduce sparse checkout of only the files relevant to entry points, dependencies, config and CI, and move snapshots to Azure Blob Storage to lift the size limit. | Medium | Open | RF-1377 |
-| Users are signed out when Azure Cache for Redis fails over | KE-003 | During a Redis failover users are suddenly returned to the sign-in page and must sign in again with GitHub OAuth. Unsaved edits to a README proposal in the browser may be lost. | Sessions are stored only in Azure Cache for Redis. A failover to the replica drops connections and, because replication is asynchronous, the most recent session writes are not present on the new primary. | Sign in again; the proposal itself is stored in PostgreSQL and is still available. Support informs affected users through the status page when a failover is announced. | Issue signed, short-lived session tokens that can be re-validated against PostgreSQL after a cache miss so that a Redis failover no longer ends the session. | Low | Workaround available | RF-1290 |
-| CRLF-only changes produce noisy README diffs | KE-004 | A push that only converts line endings (CRLF to LF or the reverse) leads to a proposal in which large unchanged sections of README.md are shown as modified. | The readme-builder-worker compares the regenerated README.md text with the committed file byte by byte, and does not normalize line endings before computing the diff. | Reject the proposal in the dashboard. Repositories can add a .gitattributes file with 'README.md text eol=lf' so that line endings stay consistent. | _N/A — The behaviour is accepted as low impact and the .gitattributes workaround is sufficient; no permanent fix is planned at this time._ | Low | Accepted, no fix planned | _N/A — The issue is documented only in the support knowledge base and no engineering ticket has been raised for it._ |
-| LLM rate limiting (HTTP 429) delays README proposals | KE-005 | README proposals stay in the Drafting state for tens of minutes, mostly on weekday mornings after the weekly release. The readme-builder-worker logs show repeated 429 responses from the Anthropic API. | The combined request rate of the readme-builder-worker replicas exceeds the requests-per-minute quota of the Anthropic API key held in Azure Key Vault, so calls are throttled and retried with exponential backoff. | No action is needed from the customer, the proposal completes once capacity is available. Operations can follow 'SOP: Handle LLM API throttling' to lower readme-builder-worker concurrency. | Request a higher quota from the LLM provider and add a global token-bucket limiter with a priority queue so that Pro customers are drafted first. | Medium | Open | RF-1451 |
-
-**Notes:** The known errors are reviewed at every weekly release and at the monthly operations review. Errors are closed when the permanent fix has been deployed to all four production locations. Support engineers use the workarounds when answering Pro customer tickets in Zendesk.
 
 
 ## Standard Operating Procedures
@@ -360,32 +242,3 @@
   - **Escalation:** Escalate to the database engineer on-call after 20 minutes without improvement; inform the Platform Engineering Lead before any fail-over.
 
 **Notes:** Datadog alert set-up and documentation standard. (1) Every production monitor is defined as code in the repository folder infra/datadog (Terraform resource datadog_monitor) and reviewed in a pull request; monitors are not edited by hand in the Datadog UI. (2) Monitors are named '[ReadmeForge][prod] <what is wrong>' and carry the tags service:readmeforge-<component>, env:production, team:readmeforge-platform, priority:p1|p2|p3 and runbook:<runbook-slug>. (3) Priority decides routing: P1 (Critical) pages the PagerDuty service 'ReadmeForge Production' and posts to #readmeforge-alerts; P2 (Warning) and P3 (Info) post to #readmeforge-alerts only. Warning thresholds are set at roughly half of the critical threshold so that responders get early notice. (4) Every P1 and P2 monitor message has the same layout: what is wrong, the threshold and the current value ({{value}}), the affected {{location.name}}, a link to the dashboard, and the runbook name with its link, wrapped in {{#is_alert}}, {{#is_warning}} and {{#is_recovery}} blocks. (5) Every P1 and P2 monitor must have a runbook in this document whose name is the same as in the monitor message; a monitor without a runbook is not released to production. (6) Runbook content comes from the Sop knowledge fact, so this document is regenerated, never edited by hand, after a runbook changes; the monitor message link is updated in the same pull request. (7) Monitors are tested in staging by lowering the threshold or sending a test event, and are reviewed after every P1 incident and at least twice a year. Commands are examples for the production subscription; always check the resource group and location before running them.
-
-
-## Service Levels
-
-**Objectives:**
-
-| Name | Definition | Target | Measurement Window | Measurement Source | Breach Consequence |
-|---|---|---|---|---|---|
-| Production service availability | Share of successful requests (non-5xx responses to valid requests) out of all valid requests served by the production service through its public entry point, excluding announced maintenance windows. | 99.9% | Calendar month | Azure Monitor availability metric and Application Insights request telemetry, reported on the platform reliability dashboard | Post-incident review within 5 business days and a reliability action plan reviewed by the service owner; repeated breaches in consecutive months pause non-critical feature releases. |
-| API latency (p95) | 95th percentile server-side response time of interactive API requests, measured at the ingress, excluding long-running asynchronous jobs. | Under 800 ms | Rolling 7 days | Application Insights request duration percentiles, Grafana latency dashboard | Performance investigation opened as a high-priority backlog item; the owning team reports findings at the next weekly operations review. |
-| P1 incident response time | Time from the first automated alert or customer report of a priority 1 incident to acknowledgement by an on-call engineer who starts working on it. | Within 30 minutes, 24x7 | Per incident, reported quarterly | Paging tool acknowledgement timestamps compared with the incident record creation time | Escalation to the engineering manager on duty and a review of the on-call rota and alert routing in the post-incident review. |
-| P1 incident restoration time | Time from the start of a priority 1 incident to restoration of normal service for affected users, whether by fix, rollback or failover. | Within 4 hours | Per incident, reported quarterly | Incident record timeline (detected, mitigated, resolved timestamps) | Mandatory post-incident review with a written root cause analysis shared with the management team within 5 business days. |
-| P2 incident restoration time | Time from detection of a priority 2 incident (major degradation with a workaround available) to restoration of normal service. | Within 1 business day | Per incident, reported quarterly | Incident record timeline in the service management tool | Incident reviewed at the next weekly operations review and a corrective action assigned to the owning team. |
-
-**Notes:** These objectives apply to every production application on the platform unless a service owner agrees a stricter target. Free or community tiers of a product carry no contractual commitment. The targets are reviewed once a year by the service owners and the platform management team.
-
-
-## KPI Summary
-
-**KPIs:**
-
-| Name | Definition | Unit | Target | Current Value | Measurement Frequency | Owner | Data Source |
-|---|---|---|---|---|---|---|---|
-| Doc Change On-Time Delivery Rate | Percentage of documentation and internal-tooling change requests (docFactory templates, style-guide updates, model-schema docs) closed within their committed SLA due date, computed monthly from ticket open/close timestamps in the DevEx Jira project. | % | >= 90% | 87% | Monthly | DevEx Program Manager | Jira DevEx board - SLA report |
-| docFactory Adoption Rate | Percentage of engineering teams with at least one repository that generated a document (BRD, SRS, SMTD or SOP) through docFactory in the trailing 30 days, computed monthly from docFactory's own generation logs. | % | >= 75% of onboarded teams | 61% | Monthly | DevEx Product Lead | docFactory generation-event log |
-| Developer Hours Saved via Auto-Generated Docs | Estimated engineering hours saved per month by generating BRD/SRS/SMTD/SOP documents through docFactory instead of writing them by hand, computed by multiplying the number of documents generated by a per-document-type time estimate collected in the quarterly DevEx survey. | hours/month | >= 120 hours/month | 96 hours/month | Monthly | DevEx Product Lead | _N/A — The hours-saved figure is derived from a quarterly survey estimate multiplied against generation-log counts; there is no single dedicated dashboard for it yet._ |
-| Internal CI/CD Platform Uptime | Percentage of scheduled availability of the internal CI/CD platform (build, test and deploy pipelines) over a calendar month, excluding announced maintenance windows, computed from the platform's own health-check monitoring. | % | >= 99.5% | 99.71% | Monthly | CI/CD Platform Reliability Lead | Grafana - CI/CD platform SLO dashboard |
-
-**Notes:** Reviewed monthly by the DevEx leadership team; targets are re-baselined at the start of each fiscal year based on the previous year's actuals.
