@@ -337,6 +337,6 @@ Keys: `{app}.Support`, `{app}.Components.{component}.Support`
 
 **Tagging signals**
 
-- Heading terms: `support`, `maintenance and support`, `escalation`, `incident management`, `service desk`, `training`
+- Heading terms: `support model`, `maintenance and support`, `support and maintenance`, `technical support`, `customer support`, `production support`, `escalation`, `incident management`, `service desk`, `help desk`
 - Identifier patterns: _none_
 - Keywords: `helpdesk`, `help desk`, `escalation`, `on-call`, `incident`, `ticket`, `support`

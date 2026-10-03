@@ -39,8 +39,22 @@ def _split(lines: list[tuple[str, int | None]], max_chars: int) -> list[list[tup
     return parts
 
 
+def _title_block(elements: list[tuple]) -> list[tuple]:
+    """Leading headings with no body and no sub-sections (a document title styled as a heading, followed by a heading of the same
+    level) become front-matter text, so the title is kept in a chunk instead of vanishing with an empty section."""
+    elements = list(elements)
+    index = 0
+    while (index + 1 < len(elements) and elements[index][0] == "heading" and elements[index + 1][0] == "heading"
+           and elements[index + 1][1] <= elements[index][1]):
+        _, _, title, page = elements[index]
+        elements[index] = ("text", title, page)
+        index += 1
+    return elements
+
+
 def assemble_chunks(elements: list[tuple], max_chars: int | None = None) -> list[DocChunk]:
     """DocChunks from an element stream (see the module docstring)."""
+    elements = _title_block(elements)
     if max_chars is None:
         max_chars = MAX_CHARS if any(e[0] == "heading" for e in elements) else UNSTRUCTURED_MAX_CHARS
     sections: list[tuple[str, list[tuple[str, int | None]]]] = []

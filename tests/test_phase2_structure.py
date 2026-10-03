@@ -19,7 +19,7 @@ FUNCTION_MODULES = {"ingestion_tools", "ingest_operations", "paths", "file_hash"
                     "generation_tools", "run_generation",
                     "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild",
                     "signals", "ontology_render",
-                    "chunking", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
+                    "chunking", "tagging", "scope_rules", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
 
 
 def _snake(name: str) -> str:

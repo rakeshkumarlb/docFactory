@@ -49,7 +49,7 @@
   },
   {
     "entity": "Support",
-    "heading_terms": ["support", "maintenance and support", "escalation", "incident management", "service desk", "training"],
+    "heading_terms": ["support model", "maintenance and support", "support and maintenance", "technical support", "customer support", "production support", "escalation", "incident management", "service desk", "help desk"],
     "id_patterns": [],
     "keywords": ["helpdesk", "help desk", "escalation", "on-call", "incident", "ticket", "support"]
   },
