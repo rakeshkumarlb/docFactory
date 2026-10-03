@@ -15,7 +15,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 | Phase | State | Summary |
 |---|---|---|
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
-| 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar (PDF text is flat: no headings or tables). Verified live on `tests/corpus/`. |
+| 2 Ingest | **Done, redesigned** (2026-10-03) | `incoming/` -> `staging/` -> lookup (NEW / SAME / CHANGED / REPAIRED) -> deterministic chunking of the raw file (pdfplumber, python-docx, BeautifulSoup) -> entity tags from the ontology (`signals.json`, `docs/ontology.md`), a one-tool LLM fallback for unmapped chunks and unsure scopes -> `DocStore/<scope>/` with `DocChunks` / `DocChunkTags`. No markitdown, no sidecar, no ingestion agent. Real SRS: 76 chunks, 67 tagged by rules, scope from the Document Control title. Verified live on `tests/corpus/`. |
 | 3 Extract (OKF) | **Done** (closed 2026-10-03) | **3a (deterministic, no LLM):** `KnowledgeFacts` is OKF v0.2 compliant: OKF columns, `KnowledgeFactsHistory`, source index, one bundle file per fact under `bundles/` written by the entity savers (`save(..., meta=FactMeta)`), typed reads, `okf_check`, `bundle_rebuild`, ReadmeForge seeds regenerated (13 conformant files). **3b:** `extraction` tool package (pinned list, 13 typed `save_<entity>` tools, actor and source timestamps set by code), `AgentLoop` / `ExtractionAgent`, runtime prompt, `run_extraction`, key -> saver resolution, bodies in model field order; verified live on the corpus SRS and its revision. |
 | 4 Generate | **Built** (2026-10-03) | **4a (no LLM):** `FactIndex` vector index (SQLite + numpy) over the frontmatter behind `VectorIndex` / `Embedder` (Ollama `/api/embed`, `DOCFACTORY_EMBED_HOST` because Ollama Cloud has no embedding models), `RetrievalHit`, `DocumentRecord`, `get_document`, document saver resolution. **4b:** `generator` tool package (pinned list: search, read OKF file, reads, `get_document_schema`, `save_document`, 4 typed `save_<document>`), `GeneratorAgent`, runtime prompt, `run_generation`. Verified live: the ReadmeForge Overview came out at 100% with no value the facts do not state. |
 
@@ -69,7 +69,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 
 ## Tooling
 
-- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`, `docfactory-ingestion-agent` (runtime prompt of the Phase 2 agent).
+- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`, runtime prompts `docfactory-chunk-tagger-agent` and `docfactory-scope-agent` (Phase 2 fallback), `docfactory-okf-extraction-agent`, `docfactory-document-generator-agent`.
 - `.claude/skills/`: entry skills (`docfactory-create-shared-model`, `docfactory-create-entity-model`, `docfactory-create-document-model`, `docfactory-add-field`, `docfactory-review-models`) and reference skills (`docfactory-field-spec`, `docfactory-quality-gate`).
 - `.claude/scripts/`: deterministic scaffolding and gate scripts, tested in `tests/scripts/`.
 - Other directories: `samples/`, `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `output/<app>/` (gitignored).
@@ -83,10 +83,11 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Phases 1-3 committed and pushed; Phase 4 (4a, 4b, live test) committed locally, not yet pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`).
+- Phases 1-3 committed and pushed; Phase 4 and the Phase 2 redesign committed locally, not yet pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`).
 
 ## Next up
 
+- **Phase 3 redesign (next):** extraction per entity from the tagged chunks (`DocChunkTags`), one fresh small call per entity, code merges and saves; then generation (SRS template, MissingInfo even when incomplete).
 - Phase 4 leftovers: run SMTD, SRS and SOP live, a MissingInfo list for generated bodies, generating bundle links so recursive reading has something to follow, recording the generating actor on documents (Phase 5). Then Phase 5 design (approval workflow on LangGraph). Extraction can be tried: `python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"` (needs the file in DocStore and `DOCFACTORY_NUM_CTX=65536` in `.env`).
 - Before running the live tests: put the key in `.env` (copy `.env.example`); no key is needed for a local Ollama. For the generation live test also set `DOCFACTORY_EMBED_HOST` and `DOCFACTORY_EMBED_MODEL` (Ollama Cloud has no embedding models).
 
@@ -97,4 +98,5 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 - 2026-10-03: Phase 3 designed; 3a built. OKF columns, `KnowledgeFactsHistory`, `KnowledgeFactSources`, `FactMeta` / `FactSource` / `FactVerification` / `FactRecord` / `FactStatus`, bundle writer and checker, typed reads, seeds regenerated with `SEED_META`. `docfactory-create-shared-model` is now invocable by the model.
 - 2026-10-03: Phase 3b built. Extraction package and agent, `AgentLoop` refactor, saver resolution, `read_docstore_text`, `DOCFACTORY_NUM_CTX`, live test; bundle bodies in model field order.
 - 2026-10-03: Phase 3 closed. Added `README.md` (process explainer and commands).
+- 2026-10-03: Phase 2 redesigned after extraction failed on a real 50-page SRS: ontology (`EntitySignals`, `signals.json`, `docs/ontology.md`), format-aware chunkers, rule tagging, scope rules, staging pipeline with REPAIRED (fixes the stale-row data loss), `DocChunks` / `DocChunkTags`, single-tool LLM fallback, empty-reply check in `AgentLoop`; old ingestion agent, tools, markitdown and sidecars removed. Phase 3 extraction is redesigned next on top of the chunks.
 - 2026-10-03: Phase 4 built. `retrieval/` (embedders, vector index, frontmatter and link helpers, `index_rebuild`), `FactIndex` table, `documents.py`, document saver resolution, generator package and agent, `run_generation`, live test; `OllamaModelClient._post` is now public `post_json`; new dependency numpy; new settings `DOCFACTORY_EMBED_MODEL`, `DOCFACTORY_EMBED_HOST`, `DOCFACTORY_EMBED_API_KEY`.

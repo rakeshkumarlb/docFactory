@@ -2,7 +2,7 @@
 
 Keeps application documentation (Overview, SMTD, SRS, SOP) up to date from structured knowledge.
 
-Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: sorting incoming files and reading them for facts. Everything else (validation, hashing, versions, files, rendering) is plain code.
+Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: tagging what the ontology rules cannot, and reading documents for facts. Everything else (validation, hashing, versions, files, rendering) is plain code.
 
 `CLAUDE.md` is the authoritative spec. `STATUS.md` says where the project stands. This file is the map: the process and the commands.
 
@@ -14,8 +14,9 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
  you drop a file
        |
        v
- incoming/  --(1 ingest: LLM classifies, code moves)-->  DocStore/<scope>/<file>      tables: DocStore, DocStoreHistory
-                                                              |  (+ a .md text sidecar for PDF/Word/HTML)
+ incoming/ -> staging/  --(1 ingest: code chunks and tags,      DocStore/<scope>/<file>   tables: DocStore, DocStoreHistory,
+                              LLM only for what rules miss)-->                              DocChunks, DocChunkTags
+                                                              |
                                                               v
                                          (2 extract: LLM reads the text, calls the savers)
                                                               |
@@ -32,7 +33,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 
 | Step | Who does it | Status |
 |---|---|---|
-| 1. Ingest: sort originals into `DocStore/` | LLM classifies, code moves, hashes and records | Built (Phase 2) |
+| 1. Ingest: chunk, tag and store originals | Code stages, chunks, tags against the ontology, decides the scope and stores; a small LLM fallback tags what the rules miss and places files the rules cannot | Built (Phase 2, redesigned) |
 | 2. Extract: read a stored file and save facts | LLM reads and builds the call, savers validate and store | Built (Phase 3) |
 | 3. Generate: build documents from the facts | LLM searches the knowledge (RAG over the frontmatter), reads the facts and builds the body; the document saver validates it, code renders it. The seed scripts remain the deterministic path | Built (Phase 4) |
 
@@ -47,7 +48,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 
 ## One-time setup
 
-1. Python 3.11 or newer. Runtime packages: `pydantic`, `markitdown[pdf,docx]`. For tests and the corpus: `pytest`, `reportlab`, `python-docx`, `pyyaml`. (All listed in `pyproject.toml`.)
+1. Python 3.11 or newer. Runtime packages: `pydantic`, `pdfplumber`, `python-docx`, `beautifulsoup4`, `numpy`. For tests and the corpus: `pytest`, `reportlab`, `pyyaml`. (All listed in `pyproject.toml`.)
 2. Copy `.env.example` to `.env` and fill it in (`.env` is gitignored):
 
    | Setting | Meaning |
@@ -70,12 +71,21 @@ copy "C:\path\to\My Document.pdf" incoming\
 python -m docfactory.agents.run_ingestion
 ```
 
-The agent lists `incoming/`, reads each file, picks a scope folder (an application name, `shared` or `general`), compares with what is stored (`NEW`, `SAME`, `CHANGED`) and stores it. A file it cannot place confidently stays in `incoming/` with a stated reason: you decide. The summary at the end gives scope, outcome and version per file.
+Every file in `incoming/` moves to `staging/` and is processed there:
 
-Regenerate all text sidecars from the stored originals (for example after a converter upgrade):
+1. **Lookup** by name and hash: `SAME` (already stored, copy discarded), `REPAIRED` (row existed but the stored file was missing), `CHANGED` (new revision of a stored file, version + 1), or `NEW`.
+2. **Chunk** the original itself (PDF, Word, HTML, text): one chunk per section with its heading trail; table rows stay whole (`FR-85. | The system SHALL ...`).
+3. **Tag** each chunk with the entities it informs, using the ontology (`docs/ontology.md`, signals in `docfactory/ontology/signals.json`). Chunks the rules cannot tag go to one small LLM call.
+4. **Scope** (NEW files): from the document's title or document-control row, or `shared` when it only describes shared entities (SLOs, KPIs). If the rules are unsure, one small LLM call decides; if it is unsure too, the file waits in `staging/`.
+5. **Move** the file to `DocStore/<scope>/` and store its chunks and tags in the database.
+
+The report gives per file: outcome, scope, version, chunk count, entity -> chunk count (and how many the LLM tagged), unmapped chunks, and for a CHANGED file the entities to re-extract. Anything that needs your decision (unsure scope, duplicate content under another name, no extractable text) stays in `staging/` with the reason and is retried on the next run. `--no-llm` runs the rules only.
+
+After changing the chunkers or the signals, re-chunk and re-tag everything stored (rules only):
 
 ```
-python -m docfactory.ingest.sidecar_rebuild
+python -m docfactory.ingest.chunk_rebuild
+python -m docfactory.ontology.ontology_render     # regenerate docs/ontology.md after editing signals.json
 ```
 
 ### Step 2: extract
@@ -109,6 +119,8 @@ python -m docfactory.retrieval.index_rebuild
 | One fact with its raw JSON | `python -c "from docfactory import facts; f = facts.get_fact('ReadmeForge.FunctionalRequirements'); print(f.value)"` |
 | Which facts came from a file | `python -c "from docfactory import facts; print([f.key for f in facts.list_facts_by_source('ReadmeForge/ReadmeForge SRS v0.3.pdf')])"` |
 | What was stored and when | `python -c "from docfactory import db; [print(r['FullPath'], 'v%d' % r['Version'], r['Timestamp']) for r in db.list_docstore_rows()]"` |
+| The chunks of a stored file | `python -c "from docfactory import db; [print(c['ChunkNo'], c['Heading']) for c in db.list_doc_chunks('<scope>/<file>')]"` |
+| Its entity tags | `python -c "from docfactory import db; [print(t['ChunkNo'], t['Entity'], t['Origin'], t['Evidence']) for t in db.list_doc_chunk_tags('<scope>/<file>')]"` |
 | Change history of a fact | `python -c "from docfactory import db; print(db.list_fact_history('ReadmeForge.FunctionalRequirements'))"` |
 | Check the bundle files are OKF v0.2 conformant | `python -m docfactory.okf_check` |
 | Rebuild every bundle file from the database | `python -m docfactory.bundle_rebuild` |
@@ -148,7 +160,9 @@ Every test uses a temporary database, DocStore and bundle folder, so none touche
 | Path | What it is |
 |---|---|
 | `incoming/` | Drop zone for new originals (gitignored) |
-| `DocStore/<scope>/` | Classified originals plus text sidecars (gitignored) |
+| `staging/` | Files being ingested, and files waiting for your decision (gitignored) |
+| `DocStore/<scope>/` | Classified originals (gitignored); their chunks and tags are in the database |
+| `docs/ontology.md` | The entities, their facts and the tagging signals (generated; edit `docfactory/ontology/signals.json`) |
 | `db/docfactory.sqlite` | The database (gitignored) |
 | `bundles/<scope>/` | One OKF markdown file per fact. Views, written by the savers only; gitignored |
 | `output/<app>/` | Rendered documents. Views; gitignored |
@@ -160,7 +174,7 @@ Every test uses a temporary database, DocStore and bundle folder, so none touche
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
 | `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent) and the thin agent loops |
 | `docfactory/retrieval/` | The search index over the facts' frontmatter: embedder and vector index (derived data, rebuildable) |
-| `.claude/agents/` | Agent prompts. `docfactory-ingestion-agent.md`, `docfactory-okf-extraction-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
+| `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-okf-extraction-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
 
 Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_BUNDLES`.
 
@@ -179,7 +193,8 @@ A model change changes what stored data means: update the tests and regenerate t
 |---|---|
 | `model response was cut off (context or output limit, num_ctx=...)` | The context window is too small. Set `DOCFACTORY_NUM_CTX=65536` |
 | `'...' is not in the DocStore` | Wrong path for `run_extraction`. Use the path printed in the list, forward slashes, relative to `DocStore/` |
-| The agent deferred a file | It could not classify it confidently, and the file stays in `incoming/` with the reason in the summary. Fix the cause (for example a clearer file name) and run ingestion again, or decide the scope yourself |
+| A file stays in `staging/` | The report says why: unsure scope, same content under another name, the name stored in several scopes, or no extractable text (a scanned PDF). Fix the cause and run ingestion again |
+| Many chunks are unmapped | The ontology lacks this document's vocabulary: add heading terms or identifier patterns to `docfactory/ontology/signals.json`, then `python -m docfactory.ingest.chunk_rebuild` |
 | A fact came back `REJECTED` | Read the errors: `path` is the field, `expected` what is valid, `question` what is missing. The extraction agent retries on its own; a persistent rejection means the document lacks the information |
 | A bundle file is missing or stale | `python -m docfactory.bundle_rebuild` |
 | `Ollama rejected the request (401)` from the index rebuild | Ollama Cloud has no embedding models. Set `DOCFACTORY_EMBED_HOST=http://localhost:11434` and a model you have pulled in `DOCFACTORY_EMBED_MODEL` |
@@ -191,4 +206,5 @@ A model change changes what stored data means: update the tests and regenerate t
 
 - **Phase 4: Generate. Built.** Known gaps: no MissingInfo list for agent-generated bodies (the summary names the gaps), and only the Overview has been run live.
 - **Phase 5: Human in the loop.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`.
+- **Phase 3 (redesign next):** extraction will read the tagged chunks per entity (one fresh, small call per entity), instead of the whole document with every save tool at once.
 - **Phase 6: Automate.** Watch `incoming/` and run the whole chain.
