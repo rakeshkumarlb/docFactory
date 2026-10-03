@@ -6,3 +6,4 @@ DocStore/
 .env
 /bundles/
 /output/
+staging/

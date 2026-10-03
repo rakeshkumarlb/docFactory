@@ -87,3 +87,12 @@ def entity_map(tags: list[ChunkTag]) -> dict[str, list[int]]:
         if tag.chunk_no not in result[tag.entity]:
             result[tag.entity].append(tag.chunk_no)
     return result
+
+
+def check_tags(tags: list[ChunkTag], chunks: list[DocChunk], entities: list[str]) -> list[str]:
+    """Problems with a set of tags (empty when valid): an entity not on the closed list `entities`, or a chunk number that does not
+    exist. Rule tags are valid by construction; this guards the LLM fallback's tags before anything is stored."""
+    numbers = {chunk.chunk_no for chunk in chunks}
+    problems = [f"chunk {tag.chunk_no}: unknown entity {tag.entity!r}" for tag in tags if tag.entity not in entities]
+    problems += [f"no chunk {tag.chunk_no}" for tag in tags if tag.chunk_no not in numbers]
+    return problems

@@ -5,6 +5,7 @@ from docfactory.db import PROJECT_ROOT
 
 INCOMING_ENV = "DOCFACTORY_INCOMING"
 DOCSTORE_ENV = "DOCFACTORY_DOCSTORE"
+STAGING_ENV = "DOCFACTORY_STAGING"
 
 
 def incoming_dir() -> Path:
@@ -15,6 +16,11 @@ def incoming_dir() -> Path:
 def docstore_dir() -> Path:
     """The store of classified originals: env DOCFACTORY_DOCSTORE, else DocStore/ under the project root."""
     return Path(os.environ.get(DOCSTORE_ENV) or PROJECT_ROOT / "DocStore")
+
+
+def staging_dir() -> Path:
+    """Where files wait while they are chunked and tagged, and stay when a human must decide: env DOCFACTORY_STAGING, else staging/."""
+    return Path(os.environ.get(STAGING_ENV) or PROJECT_ROOT / "staging")
 
 
 def resolve_within(root: Path, relative: str) -> Path:

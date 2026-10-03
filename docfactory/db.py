@@ -69,6 +69,14 @@ def init_schema(con: sqlite3.Connection) -> None:
             "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
         )
         con.execute(f"CREATE TABLE IF NOT EXISTS DocStore (FullPath TEXT PRIMARY KEY, {_DOCSTORE_COLUMNS})")
+        con.execute(  # the chunked version of a stored original (Phase 2): derived from the file, rebuildable
+            "CREATE TABLE IF NOT EXISTS DocChunks (FullPath TEXT NOT NULL, ChunkNo INTEGER NOT NULL, Heading TEXT NOT NULL, "
+            "PageFrom INTEGER NULL, PageTo INTEGER NULL, Text TEXT NOT NULL, TextHash TEXT NOT NULL, PRIMARY KEY (FullPath, ChunkNo))"
+        )
+        con.execute(  # entity tags on chunks: the entity map of a stored original (rule or LLM-fallback tags)
+            "CREATE TABLE IF NOT EXISTS DocChunkTags (FullPath TEXT NOT NULL, ChunkNo INTEGER NOT NULL, Entity TEXT NOT NULL, "
+            "Origin TEXT NOT NULL, Score INTEGER NOT NULL, Evidence TEXT NOT NULL, PRIMARY KEY (FullPath, ChunkNo, Entity))"
+        )
         con.execute(
             f"CREATE TABLE IF NOT EXISTS DocStoreHistory (FullPath TEXT NOT NULL, {_DOCSTORE_COLUMNS}, "
             "PRIMARY KEY (FullPath, Version))"
@@ -257,3 +265,57 @@ def replace_index(upserts: list[tuple[str, str, str, int, bytes]], delete_keys: 
     with closing(connect()) as con, con:
         con.executemany("INSERT OR REPLACE INTO FactIndex VALUES (?, ?, ?, ?, ?)", upserts)
         con.executemany("DELETE FROM FactIndex WHERE FactKey = ?", [(key,) for key in delete_keys])
+
+
+def find_docstore_rows(file_name: str | None = None, hashcode: str | None = None) -> list[dict]:
+    """DocStore rows whose file name (last path segment) is `file_name` and/or whose hash is `hashcode`, ordered by path."""
+    clauses, params = [], []
+    if file_name is not None:
+        clauses.append("(FullPath = ? OR FullPath LIKE ? ESCAPE '!')")
+        params += [file_name, "%/" + _like_escape(file_name)]
+    if hashcode is not None:
+        clauses.append("Hashcode = ?")
+        params.append(hashcode)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    with closing(connect()) as con:
+        rows = con.execute(f"SELECT * FROM DocStore{where} ORDER BY FullPath", params).fetchall()
+    return [dict(row) for row in rows if file_name is None or row["FullPath"].rsplit("/", 1)[-1] == file_name]
+
+
+def list_doc_chunks(full_path: str) -> list[dict]:
+    """The stored chunks of one original, in order."""
+    with closing(connect()) as con:
+        rows = con.execute("SELECT * FROM DocChunks WHERE FullPath = ? ORDER BY ChunkNo", (full_path,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_doc_chunk_tags(full_path: str) -> list[dict]:
+    """The entity tags on one original's chunks, ordered by chunk then entity."""
+    with closing(connect()) as con:
+        rows = con.execute("SELECT * FROM DocChunkTags WHERE FullPath = ? ORDER BY ChunkNo, Entity", (full_path,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def commit_ingested(full_path: str, hashcode: str, timestamp: str, chunks: list[tuple], tags: list[tuple]) -> tuple[str, int, list[dict]]:
+    """Record an ingested original in one transaction: the DocStore row (NEW / SAME / CHANGED as in write_docstore_row, history on
+    CHANGED) and its chunks and tags, replacing any earlier ones. `chunks` are (ChunkNo, Heading, PageFrom, PageTo, Text, TextHash);
+    `tags` are (ChunkNo, Entity, Origin, Score, Evidence). Returns (action, version, the chunks stored before, for change detection).
+    """
+    with closing(connect()) as con, con:
+        before = [dict(row) for row in con.execute("SELECT * FROM DocChunks WHERE FullPath = ? ORDER BY ChunkNo", (full_path,))]
+        row = con.execute("SELECT Hashcode, Version FROM DocStore WHERE FullPath = ?", (full_path,)).fetchone()
+        if row is None:
+            con.execute("INSERT INTO DocStore VALUES (?, ?, 1, ?)", (full_path, hashcode, timestamp))
+            action, version = "NEW", 1
+        elif row["Hashcode"] == hashcode:
+            action, version = "SAME", row["Version"]
+        else:
+            version = row["Version"] + 1
+            con.execute("UPDATE DocStore SET Hashcode = ?, Version = ?, Timestamp = ? WHERE FullPath = ?", (hashcode, version, timestamp, full_path))
+            con.execute("INSERT INTO DocStoreHistory VALUES (?, ?, ?, ?)", (full_path, hashcode, version, timestamp))
+            action = "CHANGED"
+        con.execute("DELETE FROM DocChunks WHERE FullPath = ?", (full_path,))
+        con.execute("DELETE FROM DocChunkTags WHERE FullPath = ?", (full_path,))
+        con.executemany("INSERT INTO DocChunks VALUES (?, ?, ?, ?, ?, ?, ?)", [(full_path, *chunk) for chunk in chunks])
+        con.executemany("INSERT INTO DocChunkTags VALUES (?, ?, ?, ?, ?, ?)", [(full_path, *tag) for tag in tags])
+    return action, version, before

@@ -1,18 +1,19 @@
-"""Manual trigger for the ingestion agent: `python -m docfactory.agents.run_ingestion`.
+"""Manual trigger for ingestion: `python -m docfactory.agents.run_ingestion`.
 
-Reads settings from .env (see .env.example). Uses a local Ollama server by default (env DOCFACTORY_MODEL picks the model, default llama3.2); set DOCFACTORY_PROVIDER=anthropic
-to use the Anthropic API instead (needs ANTHROPIC_API_KEY).
+Moves every file from incoming/ to staging/, chunks and tags it against the ontology, decides its scope and stores it in DocStore/
+with its chunks (docfactory/ingest/pipeline.py). Files that need a decision stay in staging/ with the reason. No LLM is used yet.
 """
-from docfactory.agents.ingestion_agent import IngestionAgent
-from docfactory.agents.model_client_factory import default_client
+import sys
+
 from docfactory.env_file import load_env_file
+from docfactory.ingest.pipeline import format_reports, run_ingest
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     load_env_file()  # settings from .env; variables already set in the shell win
-    agent = IngestionAgent(default_client())
-    print(agent.run())
+    print(format_reports(run_ingest()))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv[1:]))
