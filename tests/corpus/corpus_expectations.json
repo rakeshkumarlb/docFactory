@@ -1,0 +1,31 @@
+{
+  "ReadmeForge SRS v0.3.pdf": {
+    "scope": "ReadmeForge",
+    "outcome": "stored"
+  },
+  "RF-requirements-copy.pdf": {
+    "scope": "ReadmeForge",
+    "outcome": "stored or SAME-as-existing",
+    "note": "same bytes as the SRS under another name: identity is folder+name so it is NEW, an agent may mention the duplicate"
+  },
+  "ReadmeForge_SystemMgmt.docx": {
+    "scope": "ReadmeForge",
+    "outcome": "stored"
+  },
+  "readmeforge-runbooks.html": {
+    "scope": "ReadmeForge",
+    "outcome": "stored"
+  },
+  "Platform Reliability Standards 2026.pdf": {
+    "scope": "shared",
+    "outcome": "stored"
+  },
+  "notes.txt": {
+    "scope": null,
+    "outcome": "deferred"
+  },
+  "revisions/ReadmeForge SRS v0.3.pdf": {
+    "scope": "ReadmeForge",
+    "outcome": "stored as CHANGED (version 2) when copied into incoming/ after the first run"
+  }
+}

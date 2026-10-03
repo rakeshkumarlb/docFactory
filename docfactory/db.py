@@ -21,11 +21,19 @@ def db_path() -> Path:
     return Path(override) if override else PROJECT_ROOT / "db" / "docfactory.sqlite"
 
 
+_DOCSTORE_COLUMNS = "Hashcode TEXT NOT NULL, Version INTEGER NOT NULL, Timestamp TEXT NOT NULL"
+
+
 def init_schema(con: sqlite3.Connection) -> None:
-    """Create both tables if they do not exist. Safe to call any number of times."""
+    """Create all tables if they do not exist. Safe to call any number of times."""
     with con:
         for table, key_column in TABLE_KEYS.items():
             con.execute(f"CREATE TABLE IF NOT EXISTS {table} ({key_column} TEXT PRIMARY KEY, {_COLUMNS})")
+        con.execute(f"CREATE TABLE IF NOT EXISTS DocStore (FullPath TEXT PRIMARY KEY, {_DOCSTORE_COLUMNS})")
+        con.execute(
+            f"CREATE TABLE IF NOT EXISTS DocStoreHistory (FullPath TEXT NOT NULL, {_DOCSTORE_COLUMNS}, "
+            "PRIMARY KEY (FullPath, Version))"
+        )
 
 
 def connect() -> sqlite3.Connection:
@@ -71,4 +79,59 @@ def list_rows(table: str, app_id: str | None = None) -> list[dict]:
             rows = con.execute(f"SELECT * FROM {table} ORDER BY {key_column}").fetchall()
         else:
             rows = con.execute(f"SELECT * FROM {table} WHERE AppID = ? ORDER BY {key_column}", (app_id,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_docstore_row(full_path: str) -> dict | None:
+    """The DocStore row for `full_path` (forward slashes, relative to DocStore/) as a dict, or None."""
+    with closing(connect()) as con:
+        row = con.execute("SELECT * FROM DocStore WHERE FullPath = ?", (full_path,)).fetchone()
+    return dict(row) if row else None
+
+
+def _like_escape(text: str) -> str:
+    """Escape LIKE wildcards so `text` matches literally under ESCAPE '!'."""
+    return text.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+
+
+def list_docstore_rows(folder: str | None = None, name_contains: str | None = None) -> list[dict]:
+    """DocStore rows ordered by path. `folder` keeps rows at or below that folder; `name_contains` is a case-insensitive path match."""
+    clauses, params = [], []
+    if folder:
+        folder = folder.strip("/")
+        clauses.append("(FullPath = ? OR FullPath LIKE ? ESCAPE '!')")
+        params += [folder, _like_escape(folder) + "/%"]
+    if name_contains:
+        clauses.append("lower(FullPath) LIKE ? ESCAPE '!'")
+        params.append("%" + _like_escape(name_contains.lower()) + "%")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    with closing(connect()) as con:
+        rows = con.execute(f"SELECT * FROM DocStore{where} ORDER BY FullPath", params).fetchall()
+    return [dict(row) for row in rows]
+
+
+def write_docstore_row(full_path: str, hashcode: str, timestamp: str) -> tuple[str, int]:
+    """Record a stored file in one transaction. Returns (action, version).
+
+    No row: NEW, version 1. Same hash: SAME, nothing written. Different hash: CHANGED, version + 1, and the new state is
+    also added to DocStoreHistory.
+    """
+    with closing(connect()) as con, con:
+        row = con.execute("SELECT Hashcode, Version FROM DocStore WHERE FullPath = ?", (full_path,)).fetchone()
+        if row is None:
+            con.execute("INSERT INTO DocStore VALUES (?, ?, 1, ?)", (full_path, hashcode, timestamp))
+            return "NEW", 1
+        if row["Hashcode"] == hashcode:
+            return "SAME", row["Version"]
+        version = row["Version"] + 1
+        con.execute("UPDATE DocStore SET Hashcode = ?, Version = ?, Timestamp = ? WHERE FullPath = ?",
+                    (hashcode, version, timestamp, full_path))
+        con.execute("INSERT INTO DocStoreHistory VALUES (?, ?, ?, ?)", (full_path, hashcode, version, timestamp))
+        return "CHANGED", version
+
+
+def list_docstore_history(full_path: str) -> list[dict]:
+    """The change history of one file, oldest first."""
+    with closing(connect()) as con:
+        rows = con.execute("SELECT * FROM DocStoreHistory WHERE FullPath = ? ORDER BY Version", (full_path,)).fetchall()
     return [dict(row) for row in rows]
