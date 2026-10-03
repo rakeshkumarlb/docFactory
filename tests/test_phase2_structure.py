@@ -10,12 +10,13 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "docfactory"
-FOLDERS = ("tools", "agents", "ingest")
+FOLDERS = ("tools", "agents", "ingest", "retrieval")
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
 FUNCTION_MODULES = {"ingestion_tools", "ingest_operations", "paths", "file_hash", "text_extraction", "target_rules",
-                    "run_ingestion", "model_client_factory", "sidecar_rebuild", "extraction_tools", "prompt_file", "run_extraction"}
+                    "run_ingestion", "model_client_factory", "sidecar_rebuild", "extraction_tools", "prompt_file", "run_extraction",
+                    "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild"}
 
 
 def _snake(name: str) -> str:

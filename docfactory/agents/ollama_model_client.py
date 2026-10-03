@@ -49,7 +49,7 @@ class OllamaModelClient(ModelClient):
             "messages": [{"role": "system", "content": system}] + self._to_provider_messages(messages),
             "tools": [{"type": "function", "function": {"name": t.name, "description": t.description, "parameters": json.loads(t.input_schema_json)}} for t in tools],
         }
-        data = self._post("/api/chat", body)
+        data = self.post_json("/api/chat", body)
         if data.get("done_reason") == "length":
             raise RuntimeError(f"model response was cut off (context or output limit, num_ctx={self.num_ctx}); raise num_ctx or shorten the task")
         message = data.get("message", {})
@@ -60,7 +60,7 @@ class OllamaModelClient(ModelClient):
         ]
         return ModelResponse(text=message.get("content") or "", tool_calls=calls)
 
-    def _post(self, path: str, body: dict) -> dict:
+    def post_json(self, path: str, body: dict) -> dict:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"

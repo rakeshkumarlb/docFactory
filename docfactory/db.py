@@ -60,6 +60,14 @@ def init_schema(con: sqlite3.Connection) -> None:
             "CREATE TABLE IF NOT EXISTS KnowledgeFactSources (FactKey TEXT NOT NULL, Resource TEXT NOT NULL, "
             "PRIMARY KEY (FactKey, Resource))"
         )
+        con.execute(  # the vector index of the frontmatter (Phase 4): derived and rebuildable, never truth
+            "CREATE TABLE IF NOT EXISTS FactIndex (FactKey TEXT PRIMARY KEY, TextHash TEXT NOT NULL, "
+            "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
+        )
+        con.execute(  # the vector index of the frontmatter (Phase 4): derived and rebuildable, never truth
+            "CREATE TABLE IF NOT EXISTS FactIndex (FactKey TEXT PRIMARY KEY, TextHash TEXT NOT NULL, "
+            "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
+        )
         con.execute(f"CREATE TABLE IF NOT EXISTS DocStore (FullPath TEXT PRIMARY KEY, {_DOCSTORE_COLUMNS})")
         con.execute(
             f"CREATE TABLE IF NOT EXISTS DocStoreHistory (FullPath TEXT NOT NULL, {_DOCSTORE_COLUMNS}, "
@@ -221,3 +229,31 @@ def list_docstore_history(full_path: str) -> list[dict]:
     with closing(connect()) as con:
         rows = con.execute("SELECT * FROM DocStoreHistory WHERE FullPath = ? ORDER BY Version", (full_path,)).fetchall()
     return [dict(row) for row in rows]
+
+
+def list_index_rows() -> list[dict]:
+    """All FactIndex rows ordered by key (the Vector column is raw float32 bytes)."""
+    with closing(connect()) as con:
+        rows = con.execute("SELECT * FROM FactIndex ORDER BY FactKey").fetchall()
+    return [dict(row) for row in rows]
+
+
+def replace_index(upserts: list[tuple[str, str, str, int, bytes]], delete_keys: list[str]) -> None:
+    """Apply an index rebuild in one transaction: upsert (FactKey, TextHash, EmbedModel, Dim, Vector) rows, delete stale keys."""
+    with closing(connect()) as con, con:
+        con.executemany("INSERT OR REPLACE INTO FactIndex VALUES (?, ?, ?, ?, ?)", upserts)
+        con.executemany("DELETE FROM FactIndex WHERE FactKey = ?", [(key,) for key in delete_keys])
+
+
+def list_index_rows() -> list[dict]:
+    """All FactIndex rows ordered by key (the Vector column is raw float32 bytes)."""
+    with closing(connect()) as con:
+        rows = con.execute("SELECT * FROM FactIndex ORDER BY FactKey").fetchall()
+    return [dict(row) for row in rows]
+
+
+def replace_index(upserts: list[tuple[str, str, str, int, bytes]], delete_keys: list[str]) -> None:
+    """Apply an index rebuild in one transaction: upsert (FactKey, TextHash, EmbedModel, Dim, Vector) rows, delete stale keys."""
+    with closing(connect()) as con, con:
+        con.executemany("INSERT OR REPLACE INTO FactIndex VALUES (?, ?, ?, ?, ?)", upserts)
+        con.executemany("DELETE FROM FactIndex WHERE FactKey = ?", [(key,) for key in delete_keys])
