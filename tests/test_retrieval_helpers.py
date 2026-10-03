@@ -67,3 +67,16 @@ def test_every_document_body_key_resolves_to_exactly_one_saver():
         assert document_saver_for_key(f"ReadmeForge.Outputs.{doc_type}").model.__name__ == model
     assert document_saver_for_key("ReadmeForge.Outputs.SMTD.DocumentControl") is None
     assert document_saver_for_key("ReadmeForge.Architecture") is None
+
+
+def test_the_embed_host_replaces_the_chat_host_and_never_gets_the_chat_key(monkeypatch):
+    monkeypatch.setenv("OLLAMA_HOST", "https://ollama.com")
+    monkeypatch.setenv("OLLAMA_API_KEY", "chat-secret")
+    monkeypatch.delenv("DOCFACTORY_EMBED_API_KEY", raising=False)
+    monkeypatch.setenv("DOCFACTORY_EMBED_HOST", "http://localhost:11434")
+    embedder = OllamaEmbedder(model="emb")
+    assert embedder._client.host == "http://localhost:11434" and embedder._client.api_key is None
+    monkeypatch.setenv("DOCFACTORY_EMBED_API_KEY", "embed-key")
+    assert OllamaEmbedder(model="emb")._client.api_key == "embed-key"
+    monkeypatch.delenv("DOCFACTORY_EMBED_HOST")
+    assert OllamaEmbedder(model="emb")._client.api_key == "chat-secret"
