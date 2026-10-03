@@ -19,6 +19,7 @@ Field spec (unknown keys are errors):
     scored        optional bool, default true
     binding       document models only: "caller", "composed" or "<Entity>.<field>"
     min_length    optional int >= 1, only for a field typed exactly "str" (e.g. a non-empty reason)
+    pattern       optional regular expression, only for a field typed "str" or "str | None" (e.g. an ISO 8601 timestamp)
     render_as     optional, "list" (default), "table" or "numbered": how a list field is rendered to Markdown ("numbered" is for lists of str)
     example       Python expression used as test data (obviously test data, never real knowledge)
 """
@@ -29,7 +30,7 @@ import re
 import conventions as C
 import naming
 
-FIELD_KEYS = {"name", "type", "description", "default", "question", "na_allowed", "scored", "binding", "example", "min_length", "render_as"}
+FIELD_KEYS = {"name", "type", "description", "default", "question", "na_allowed", "scored", "binding", "example", "min_length", "render_as", "pattern"}
 MODEL_KEYS = {"class", "doc", "role", "imports", "fields"}
 REQUIRED = "REQUIRED"
 EXAMPLE_MARKER = re.compile(r"e\.g\.|for example|such as|example", re.IGNORECASE)
@@ -155,6 +156,16 @@ def validate_field(field, kind=None) -> list:
             problems.append(f"{label}: min_length must be an integer >= 1")
         elif annotation.strip() != "str":
             problems.append(f"{label}: min_length is only for fields typed exactly 'str'")
+
+    pattern = field.get("pattern")
+    if pattern is not None:
+        if annotation.strip() not in ("str", "str | None"):
+            problems.append(f"{label}: pattern is only for fields typed 'str' or 'str | None'")
+        else:
+            try:
+                re.compile(pattern)
+            except (re.error, TypeError):
+                problems.append(f"{label}: pattern is not a valid regular expression")
 
     if len(description.strip()) < 20:
         problems.append(f"{label}: description is too short to guide an LLM (min 20 characters)")

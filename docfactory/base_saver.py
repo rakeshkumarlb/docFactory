@@ -5,17 +5,21 @@ from typing import Generic, TypeVar, get_args
 
 from pydantic import BaseModel, ValidationError
 
-from docfactory import db
+from docfactory import db, fact_writer
+from docfactory.bundle import file_path_of
 from docfactory.canonical import canonical_json, sha256_hex
 from docfactory.completeness import completeness
 from docfactory.models.doc_factory_model import DocFactoryModel
+from docfactory.models.fact_meta import FactMeta
 from docfactory.models.save_action import SaveAction
 from docfactory.models.save_error import SaveError
 from docfactory.models.save_result import SaveResult
+from docfactory.okf_frontmatter import type_name
 
 M = TypeVar("M", bound=DocFactoryModel)
 
 SHARED = "Shared"
+FACTS_TABLE = "KnowledgeFacts"
 PLACEHOLDER = re.compile(r"\{(app|component|doctype)\}")
 INPUT_SHOULD_BE = "Input should be "
 KEY_DESCRIPTION = "The unique key of the object: <Scope>.<Name>, where Scope is an application name or Shared."
@@ -157,13 +161,41 @@ class BaseSaver(Generic[M]):
                     question="Which application does this key belong to? The AppID must equal the key's first segment (none for Shared).",
                 )
             ]
+        if self._table() == FACTS_TABLE:
+            try:
+                file_path_of(key)
+            except ValueError as error:
+                return None, [
+                    SaveError(
+                        path="key",
+                        message=str(error),
+                        error_type="key_unsafe_path",
+                        received=_text(key),
+                        expected="key segments that are legal file names: no slash, backslash, colon, asterisk, question mark, double quote, angle bracket or pipe, no leading or trailing spaces",
+                        field_description=KEY_DESCRIPTION,
+                        question="Which key should this fact be saved under? Every segment becomes a folder or file name in the OKF bundle.",
+                    )
+                ]
         return derived, []
 
-    def save(self, key: str, payload, app_id: str | None = None) -> SaveResult:
-        """Save the whole object under `key`. Never raises for bad input: a rejection is returned, nothing is written."""
+    def save(self, key: str, payload, app_id: str | None = None, meta: FactMeta | None = None) -> SaveResult:
+        """Save the whole object under `key`. Never raises for bad input: a rejection is returned, nothing is written.
+
+        `meta` (entity savers only) carries the OKF judgment fields: actor, title, description, tags, sources, stale_after.
+        """
         derived_app_id, key_errors = self._check_key(key, app_id)
         if key_errors:
             return _rejected(key, key_errors)
+        if meta is not None and self._table() != FACTS_TABLE:
+            return _rejected(key, [SaveError(
+                path="meta",
+                message="Only knowledge facts carry OKF metadata; a document is not given `meta`",
+                error_type="meta_not_allowed",
+                received=None,
+                expected="no meta",
+                field_description=None,
+                question="Remove `meta`: documents are views and have no OKF file.",
+            )])
         try:
             instance = self.model.model_validate(payload)
         except ValidationError as error:
@@ -173,7 +205,11 @@ class BaseSaver(Generic[M]):
         hashcode = sha256_hex(value)
         table = self._table()
         existing = db.get_row(table, key)
+        is_fact = table == FACTS_TABLE
+        kind = type_name(self.model.__name__)
         if existing is not None and existing["Hashcode"] == hashcode:
+            if is_fact and meta is not None:
+                fact_writer.refresh_metadata(key, kind, existing, meta)
             return SaveResult(
                 ok=True,
                 key=key,
@@ -184,5 +220,8 @@ class BaseSaver(Generic[M]):
             )
         action, version = (SaveAction.CREATED, 1) if existing is None else (SaveAction.UPDATED, existing["Version"] + 1)
         score = completeness(instance)
-        db.write_row(table, key, value, hashcode, derived_app_id, score, version)
+        if is_fact:
+            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta)
+        else:
+            db.write_row(table, key, value, hashcode, derived_app_id, score, version)
         return SaveResult(ok=True, key=key, action=action, version=version, hashcode=hashcode, completeness=score)

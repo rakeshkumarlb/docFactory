@@ -80,3 +80,15 @@ def test_render_as_accepts_numbered_for_ordered_lists():
         steps: list[str] = doc_field(default_factory=list, description="Steps, e.g. one.", render_as="numbered")
 
     assert _Ordered.model_fields["steps"].json_schema_extra["render_as"] == "numbered"
+
+
+def test_pattern_is_forwarded():
+    class _Patterned(DocFactoryModel):
+        """Test-only model."""
+
+        code: str | None = doc_field(default=None, description="A code, e.g. AB-1.", pattern=r"^[A-Z]{2}-\d$")
+
+    _Patterned.model_validate({"code": "AB-1"})
+    _Patterned.model_validate({})
+    with pytest.raises(ValidationError):
+        _Patterned.model_validate({"code": "ab-1"})

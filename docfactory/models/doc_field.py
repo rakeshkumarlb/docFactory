@@ -16,6 +16,7 @@ def doc_field(
     scored: bool = True,
     binding: str | None = None,
     min_length: int | None = None,
+    pattern: str | None = None,
     render_as: str = "list",
 ):
     """Declare a model field with its docFactory metadata. `default=...` means mandatory.
@@ -40,6 +41,8 @@ def doc_field(
     kwargs = {"description": description, "json_schema_extra": extra}
     if min_length is not None:
         kwargs["min_length"] = min_length
+    if pattern is not None:
+        kwargs["pattern"] = pattern
     if default_factory is not None:
         kwargs["default_factory"] = default_factory
     elif default is not ...:

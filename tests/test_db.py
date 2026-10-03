@@ -34,7 +34,8 @@ def test_connect_creates_folder_file_and_schema(tmp_path, monkeypatch):
     assert facts["Completeness"][:2] == ("REAL", 1) and facts["Version"][:2] == ("INTEGER", 1)
     documents = _columns(path, "DocumentOutputs")
     assert documents["DocumentKey"][2] == 1
-    assert set(documents) - {"DocumentKey"} == set(facts) - {"FactKey"}
+    # KnowledgeFacts has the same shape as DocumentOutputs plus the OKF columns (Phase 3)
+    assert set(documents) - {"DocumentKey"} == set(facts) - {"FactKey"} - set(db.FACT_OKF_COLUMNS)
 
 
 def test_init_schema_is_idempotent(tmp_db):
@@ -48,7 +49,9 @@ def test_init_schema_is_idempotent(tmp_db):
 @pytest.mark.parametrize("table,key", [("KnowledgeFacts", "KitchenHQ.Architecture"), ("DocumentOutputs", "KitchenHQ.Outputs.SMTD")])
 def test_write_then_get_round_trips(tmp_db, table, key):
     db.write_row(table, key, '{"a":1}', "abc", "KitchenHQ", 12.5, 3)
-    assert db.get_row(table, key) == {
+    row = db.get_row(table, key)
+    row = {name: row[name] for name in row if name not in db.FACT_OKF_COLUMNS}  # the OKF columns are tested in test_db_facts.py
+    assert row == {
         db.TABLE_KEYS[table]: key,
         "Value": '{"a":1}',
         "Hashcode": "abc",

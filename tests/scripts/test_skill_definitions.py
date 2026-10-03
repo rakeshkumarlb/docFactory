@@ -8,6 +8,8 @@ from conftest import REPO
 yaml = pytest.importorskip("yaml")
 
 ENTRY_SKILLS = {"docfactory-create-shared-model", "docfactory-create-entity-model", "docfactory-create-document-model", "docfactory-add-field", "docfactory-review-models"}
+# Entry skills the model may invoke itself; every other entry skill is reserved for the user.
+MODEL_INVOCABLE = {"docfactory-create-shared-model"}
 FILES = sorted((REPO / ".claude" / "skills").glob("*/SKILL.md")) + sorted((REPO / ".claude" / "agents").glob("*.md"))
 
 
@@ -40,7 +42,8 @@ def test_entry_skills_pin_the_agent_and_model():
     for name in ENTRY_SKILLS:
         data = found[name]
         assert data["context"] == "fork" and data["agent"] == "docfactory-pydantic-developer-agent", name
-        assert data["model"] and data["disable-model-invocation"] is True, name
+        assert data["model"], name
+        assert data.get("disable-model-invocation", False) is (name not in MODEL_INVOCABLE), name
 
 
 def test_agent_preloads_existing_skills():

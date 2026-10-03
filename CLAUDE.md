@@ -6,7 +6,7 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 
 - **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
 - **Phase 2 (DONE, closed 2026-10-03): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, a live LLM ingestion agent classifies them and moves them into `DocStore/`, and every file is tracked in the `DocStore` / `DocStoreHistory` tables (see "Phase 2: Ingest"). Verified live against a non-compliant test corpus (`tests/corpus/`).
-- **Phase 3 (planned in outline): Extract knowledge (OKF).** An extraction agent reads `DocStore` files and saves facts through the entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant: each fact also exists as an OKF markdown file with YAML frontmatter under `bundles/`.
+- **Phase 3 (designed 2026-10-03, in progress): Extract knowledge (OKF).** Two sub-phases, each built, tested and closed before the next: **3a** the deterministic OKF layer (columns, history table, bundle writer, checker, typed reads; no LLM), **3b** the extraction agent and its tool package. An extraction agent reads `DocStore` files and saves facts through the entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant: each fact also exists as an OKF markdown file with YAML frontmatter under `bundles/`.
 - **Phase 4 (planned in outline): Generate.** The frontmatter is indexed in a vector store, RAG finds the relevant knowledge files, a document-generator agent reads them in full and calls the document savers; rendering stays deterministic.
 - **Phase 5 (planned in outline): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
 - **Phase 6 (planned in outline): Automate.** A watcher for `incoming/`, automatic triggering of the agents and the end-to-end workflow.
@@ -88,7 +88,7 @@ Nothing goes deeper than the role folder. A document saver mirrors its model's r
 
 ## Database (SQLite, `db/docfactory.sqlite`)
 
-Two tables with the same shape, plus completeness and version columns.
+Two tables with the same shape, plus completeness and version columns. `KnowledgeFacts` additionally has the OKF columns (Phase 3, see "Phase 3: Extract knowledge (OKF)"); `KnowledgeFactsHistory` and `KnowledgeFactSources` (a derived index of each fact's `sources`, written by the saver, used by `list_facts_by_source`) support it.
 
 | Column (KnowledgeFacts) | Column (DocumentOutputs) | Meaning |
 |---|---|---|
@@ -102,7 +102,7 @@ Two tables with the same shape, plus completeness and version columns.
 Rules enforced by code, not by convention:
 - `AppID` is NULL exactly when the key scope is `Shared`; otherwise it equals the key's first segment, case-sensitive.
 - The key must match one of the saver's own key patterns; the saver's model validates the value. (The key pattern -> saver resolution in the registry is added in Phase 3; the registry itself is built in Phase 2, see "Tool layer".)
-- **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row, its `Version` and its `Completeness` are untouched. A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
+- **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row's `Value`, `Hashcode`, `Version` and `Completeness` are untouched. (For a knowledge fact saved with `meta`, only the OKF metadata, `YmlFrontmatter` and the bundle file are refreshed in place, still without a version bump; see Phase 3.) A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
 - `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (provenance arrives in Phase 3 through OKF `sources` and trust fields).
 - **Multi-component applications:** each component has its own keys, `<App>.Components.<Component>.<Entity>`, e.g. `ReadmeForge.Components.api.Architecture`, `ReadmeForge.Components.worker.Environments`. `AppID` is still the application (`ReadmeForge`). The application-level keys (`ReadmeForge.Architecture`, `ReadmeForge.Environments`, ...) hold the high-level view of the whole application. Component keys reuse the same models as application keys. The component name is free text and is not validated.
 - Key examples: `ReadmeForge.ApplicationOverview`, `ReadmeForge.Architecture`, `Shared.Kpis`; documents: `ReadmeForge.Outputs.SMTD`, `ReadmeForge.Outputs.SMTD.DocumentControl`, `ReadmeForge.Outputs.SMTD.RevisionHistory`.
@@ -131,7 +131,7 @@ Plain Python, no framework. Everything is deterministic and callable from tests 
   3. canonical JSON -> SHA-256 hash
   4. read the existing row: same hash -> `UNCHANGED`; no row -> `CREATED`, `Version = 1`; different hash -> `UPDATED`, `Version + 1`
   5. compute completeness
-  6. write in one transaction (never on `REJECTED`)
+  6. write in one transaction (never on `REJECTED`); entity savers also write the OKF columns, a `KnowledgeFactsHistory` row on `UPDATED`, the source index and the bundle file (`docfactory/fact_writer.py`)
 - **Entity savers** (`docfactory/entitysaver/`, one file each, e.g. `application_overview_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `KnowledgeFacts`.
 - **Document savers** (`docfactory/documentsaver/documents/` and `docfactory/documentsaver/shared/`, one file each, e.g. `document_control_saver.py`, `revision_history_saver.py`) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`).
 - Return value is always a `SaveResult` model, never an exception for bad input:
@@ -142,7 +142,7 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 ```
 
 - On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
-- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `get_document` wrappers are Phase 3.
+- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `list_facts_by_source` (returning `FactRecord`) are in `docfactory/facts.py` (Phase 3a); `get_document` is Phase 4.
 
 ## Documents
 
@@ -227,13 +227,17 @@ incoming/              Phase 2: drop zone for new original files (gitignored run
 DocStore/<scope>/...   Phase 2: classified originals (+ markitdown text sidecars; gitignored runtime data); scope = application name, shared, general
 tests/corpus/          Phase 2: build_corpus.py, incoming/ (messy PDF/Word/HTML/text originals), revisions/ (a changed SRS), corpus_expectations.json
 .env / .env.example    Local LLM settings (.env is gitignored)
+bundles/<scope>/...    Phase 3a: OKF v0.2 knowledge files, one per fact key (views of KnowledgeFacts, written only by the saver; tracked in git)
+docs/okf/SPEC.md       Phase 3a: verbatim copy of the OKF v0.2 spec
+docfactory/clock.py    now_iso() (tests replace it)
+docfactory/okf_frontmatter.py okf_body.py bundle.py fact_writer.py facts.py   Phase 3a: deterministic frontmatter and body rendering, bundle paths and file writer, fact storing (called by BaseSaver), typed reads
+docfactory/okf_check.py bundle_rebuild.py   Phase 3a: `python -m docfactory.okf_check` (OKF conformance of bundles/; needs PyYAML, dev only) and `python -m docfactory.bundle_rebuild` (regenerate every bundle file from the database)
+seed/seed_meta.py      SEED_META: the FactMeta (generated_by `seed`) every seeded fact is saved with
 --- planned, do not create until the phase starts ---
-bundles/<scope>/...    Phase 3: OKF v0.2 knowledge files (views of KnowledgeFacts)
-docs/okf/SPEC.md       Phase 3: verbatim copy of the OKF v0.2 spec
 .claude/agents/        docfactory-ingestion-agent.md (Phase 2 runtime prompt, loaded by the loop); Phase 3-4 add the OKF knowledge-extraction and document-generator agents
 ```
 
-Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING` and `DOCFACTORY_DOCSTORE` relocate `incoming/` and `DocStore/` (tests use temporary folders). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`.
+Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE` and `DOCFACTORY_BUNDLES` relocate `incoming/`, `DocStore/` and `bundles/` (tests use temporary folders; the `tmp_db` fixture sets `DOCFACTORY_BUNDLES` too, so no test writes into the repo). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`.
 
 ## Phases 2-6 (outline agreed; not designed in detail; do not implement)
 
@@ -279,7 +283,7 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 
 ### Phase 3: Extract knowledge (OKF)
 - An **OKFKnowledgeExtraction agent** reads new or changed `DocStore` text and calls the existing entity savers. It never writes the database or `bundles/` directly.
-- **`KnowledgeFacts` is made OKF v0.2 compliant** (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md; a verbatim copy goes to `docs/okf/SPEC.md` when Phase 3 starts). New columns, all derived by the base saver, none hand-written:
+- **`KnowledgeFacts` is made OKF v0.2 compliant** (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md; a verbatim copy is in `docs/okf/SPEC.md`). New columns, all derived by the base saver, none hand-written:
 
 | Column | Meaning |
 |---|---|
@@ -293,7 +297,18 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - **One OKF file per fact key.** The saver writes the file after a successful write; frontmatter and body are rendered deterministically from the validated JSON (same JSON in, same file out). The LLM supplies the fields that need judgment (`title`, `description`, `tags`, `sources`) as part of the save call.
 - **OKF v0.2 compliance (MUST):** every non-reserved `.md` has parseable YAML frontmatter with a non-empty `type`. Also used: `title`, `description`, `resource`, `tags`; `sources[]` (`resource` required, `id`, `title`, `last_modified`) pointing at the `DocStore` files the fact came from; `generated`, `verified` with the actor convention `<producer>/<version>` (agents), `human:<id>`, `process:<id>`; `status`; `stale_after`; bundle-relative links starting with `/`; optional `index.md` (may carry `okf_version: "0.2"`) and `log.md`.
 - **Trust rule:** LLM output is always `Status = draft` with `generated.by` = agent and model. Only a human action adds `verified` with a `human:<id>` actor and promotes to `stable` (to be confirmed when Phase 3 is designed).
-- To design in Phase 3: the extraction tool package and the key pattern -> saver resolution in the existing registry (see "Tool layer"), generic `save_fact` / `save_document` dispatchers, typed read wrappers (`get_fact`, `list_facts`, `get_document`), per-entity `save_<entity>` function tools, the re-extraction rule when a `DocStore` file changes (use `sources` to find the affected facts), history of replaced values, and conflict handling when new information contradicts a stored value.
+**Phase 3 design decisions (2026-10-03):**
+- **Hash and Version cover `Value` only.** A re-extraction with the same `Value` but different metadata (new source, title, tags) is `UNCHANGED`: no version bump, but the metadata columns, `YmlFrontmatter` and the bundle file are refreshed in place.
+- **`KnowledgeFactsHistory` table**, mirroring `DocStoreHistory`: `FactKey`, `Hashcode`, `Version`, `Timestamp`, `GeneratedBy`; PK (`FactKey`, `Version`). A row is added on every `UPDATED`. It records that a change happened and who made it, not the old value. `DocumentOutputs` is unchanged.
+- **Caller-supplied judgment fields** travel in two machinery models in `models/`: `FactMeta` (`title`, `description`, `tags`, `sources`, `generated_by`) and `FactSource` (`resource`, `id`, `title`, `last_modified`). Everything else in the frontmatter is derived.
+- **Re-extraction rule:** when a `DocStore` file is `CHANGED`, `list_facts_by_source` finds the facts whose `sources` name it. Phase 3 only exposes that read; the user triggers the agent by hand.
+- **Conflicts:** until Phase 5 there is no approval, so last write wins and every LLM write is `draft`; `KnowledgeFactsHistory` is the audit trail. The agent calls `get_fact` first and sends the complete merged object (savers take whole objects only).
+- **Trust:** `generated.by` = `okf-extraction-agent/<model>`; `verified` stays empty until Phase 5.
+- **Migration:** `db.py` adds the new columns idempotently to an existing `KnowledgeFacts` table. Phase 1 seeds are re-run so every seeded fact gets a bundle file (`generated.by` = `seed`, `Status` = `draft`).
+- **Typed reads** (`get_fact`, `list_facts`, `list_facts_by_source`) arrive in 3a; `get_document` stays Phase 4.
+- **3a as built (2026-10-03):** `FactMeta`, `FactSource`, `FactVerification`, `FactRecord`, `FactStatus` are in `models/`. `BaseSaver.save(key, payload, app_id=None, meta=None)`: `meta` is for entity savers only (a document save with `meta` is rejected, `meta_not_allowed`). A new or changed value is always `draft`, unverified, `generated.at` = now; without `meta` the actor is `docfactory/unspecified` and the title is the key. A key segment that is not a legal file name (component names are free text) is rejected with `key_unsafe_path`. The frontmatter holds `type` (the model name in words), `title`, `description`, `tags`, `sources`, `generated`, `verified`, `status`, `stale_after` and the producer-defined `fact_key`, `version`, `completeness`. Known limit: the body is rendered from the canonical JSON, so its fields are alphabetical; model field order needs the key -> saver resolution of 3b, after which the files are regenerated. `index.md` and `log.md` are not written yet.
+- **Scope of 3a:** `docs/okf/SPEC.md`, schema and migration, `FactMeta` / `FactSource`, bundle renderer and writer called by the base saver (entity savers only), bundle checker, typed reads, tests, and updated golden files and docs. No LLM.
+- **Scope of 3b:** the `extraction` package (`save_fact`, generated `save_<entity>` tools, `get_fact`, `list_facts`, `list_docstore`, `read_docstore_text`; no file-moving tools, no document savers; a test pins the list and checks every key pattern resolves to exactly one saver), the runtime prompt `.claude/agents/docfactory-okf-extraction-agent.md`, a thin loop over `ModelClient`, manual `run_extraction <DocStore path>`, and an opt-in live test on `tests/corpus/` (SRS, then its revision) starting with `ApplicationOverview`, `FunctionalRequirements` and `NonFunctionalRequirements`, then the other entities.
 
 ### Phase 4: Generate
 - Only `YmlFrontmatter` is indexed in the vector store; it is rebuilt from the database and sits behind one interface. The vector technology and the embedding model are decided at Phase 4 design time.

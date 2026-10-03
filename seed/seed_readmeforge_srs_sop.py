@@ -29,6 +29,7 @@ from docfactory.entitysaver.slo_saver import SloSaver
 from docfactory.entitysaver.sop_saver import SopSaver
 from docfactory.entitysaver.support_saver import SupportSaver
 from docfactory.render import render_markdown
+from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = "ReadmeForge"
@@ -80,7 +81,7 @@ DOCUMENTS = (
 def main() -> None:
     for saver, key, folder, name in FACTS:
         payload = json.loads((ROOT / "samples" / folder / name).read_text(encoding="utf-8"))
-        result = saver().save(key, payload)
+        result = saver().save(key, payload, meta=SEED_META)
         print(f"{key}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 

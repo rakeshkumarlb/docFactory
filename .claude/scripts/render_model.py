@@ -22,6 +22,8 @@ def render_field(field: dict) -> str:
         args.append("na_allowed=True")
     if field.get("min_length"):
         args.append(f"min_length={field['min_length']}")
+    if field.get("pattern"):
+        args.append(f"pattern={q(field['pattern'])}")
     if field.get("scored") is False:
         args.append("scored=False")
     if field.get("binding"):
@@ -118,6 +120,15 @@ def render_model_test(spec: dict, module: str) -> str:
             "def test_empty_text_is_rejected_where_min_length_is_set(field):\n"
             "    with pytest.raises(ValidationError):\n"
             f"        {cls}.model_validate({{**FULL, field: \"\"}})\n"
+        )
+    patterned = [f["name"] for f in fields if f.get("pattern")]
+    if patterned:
+        names = ", ".join(q(n) for n in patterned)
+        out.append(
+            f"\n@pytest.mark.parametrize(\"field\", [{names}])\n"
+            "def test_text_not_matching_the_pattern_is_rejected(field):\n"
+            "    with pytest.raises(ValidationError):\n"
+            f"        {cls}.model_validate({{**FULL, field: \"not matching the pattern\"}})\n"
         )
     if na_fields:
         names = ", ".join(q(n) for n in na_fields)

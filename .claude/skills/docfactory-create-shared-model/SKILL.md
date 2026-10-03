@@ -2,7 +2,6 @@
 name: docfactory-create-shared-model
 description: Build the base classes and package skeleton (DocFactoryModel, doc_field, NotApplicable, SaveResult, BaseSaver, db) or create one shared model in docfactory/models/
 argument-hint: skeleton | <ClassName> [what it is for]
-disable-model-invocation: true
 context: fork
 agent: docfactory-pydantic-developer-agent
 model: sonnet

@@ -7,7 +7,7 @@ dependencies = ["pydantic>=2", "markitdown[pdf,docx]"]
 
 [project.optional-dependencies]
 anthropic = ["anthropic"]
-dev = ["pytest", "reportlab", "python-docx"]
+dev = ["pytest", "reportlab", "python-docx", "pyyaml"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
