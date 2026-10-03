@@ -5,7 +5,7 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 ## Status
 
 - **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
-- **Phase 2 (next, planned in outline, not designed in detail): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, an ingestion agent classifies them and moves them into `DocStore/`, and every file is tracked in the `DocStore` / `DocStoreHistory` tables (see "Phases 2-4").
+- **Phase 2 (DONE, closed 2026-10-03): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, a live LLM ingestion agent classifies them and moves them into `DocStore/`, and every file is tracked in the `DocStore` / `DocStoreHistory` tables (see "Phase 2: Ingest"). Verified live against a non-compliant test corpus (`tests/corpus/`).
 - **Phase 3 (planned in outline): Extract knowledge (OKF).** An extraction agent reads `DocStore` files and saves facts through the entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant: each fact also exists as an OKF markdown file with YAML frontmatter under `bundles/`.
 - **Phase 4 (planned in outline): Generate.** The frontmatter is indexed in a vector store, RAG finds the relevant knowledge files, a document-generator agent reads them in full and calls the document savers; rendering stays deterministic.
 - **Phase 5 (planned in outline): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
@@ -123,7 +123,7 @@ A field is **answered** when its value differs from its default, or it holds a l
 
 ## Savers
 
-Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); there is no registry (Phase 2) and no generic dispatcher (Phase 3), see "Tool layer".
+Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); the Phase 2 registry holds only the ingestion tools, and the generic dispatcher arrives in Phase 3, see "Tool layer".
 
 - **`BaseSaver`** (`docfactory/base_saver.py`, generic over the model) owns all shared behaviour, so concrete savers contain no logic of their own:
   1. check the key against the saver's own `key_patterns`; derive `AppID` (NULL for `Shared`)
@@ -219,17 +219,21 @@ seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase
 tests/                 pytest; tests/golden/ holds the golden .md files, tests/scripts/ tests the .claude/scripts
 db/docfactory.sqlite   The database (gitignored)
 output/<app>/          Rendered documents and MissingInfo files
+docfactory/ingest/     Phase 2: deterministic file operations behind the ingestion tools (paths, hashing, text extraction, target rules, list/read/search/compare/store/defer). Function modules, no LLM
+docfactory/tools/      Phase 2: Tool, ToolRegistry, ToolPackage (one class per file) and the ingestion package (ingestion_tools.py). Phase 3 adds the extraction package; Phase 4 the generator package
+docfactory/agents/     Phase 2: ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), IngestionAgent (thin loop), model_client_factory, run_ingestion (manual trigger). Phase 5: LangGraph graph, checkpointer and approval nodes
+docfactory/env_file.py Loads .env into the environment (shell variables win); used only by entry points and the live test
+incoming/              Phase 2: drop zone for new original files (gitignored runtime data)
+DocStore/<scope>/...   Phase 2: classified originals (+ markitdown text sidecars; gitignored runtime data); scope = application name, shared, general
+tests/corpus/          Phase 2: build_corpus.py, incoming/ (messy PDF/Word/HTML/text originals), revisions/ (a changed SRS), corpus_expectations.json
+.env / .env.example    Local LLM settings (.env is gitignored)
 --- planned, do not create until the phase starts ---
-docfactory/tools/      Phase 2: registry, tool and tool-package types, ingestion package; Phase 3 adds the extraction package (save/read tools); Phase 4 adds the generator package (document and retrieval tools)
-docfactory/agents/     Phase 2-4: thin agent loops (model call, tool call, repeat); Phase 5: LangGraph graph, checkpointer and approval nodes
-incoming/              Phase 2: drop zone for new original files
-DocStore/<scope>/...   Phase 2: classified originals (+ markitdown text sidecars); scope = application name, shared standards, general
 bundles/<scope>/...    Phase 3: OKF v0.2 knowledge files (views of KnowledgeFacts)
 docs/okf/SPEC.md       Phase 3: verbatim copy of the OKF v0.2 spec
-.claude/agents/        Phase 2-4: ingestion, OKF knowledge-extraction and document-generator agents
+.claude/agents/        docfactory-ingestion-agent.md (Phase 2 runtime prompt, loaded by the loop); Phase 3-4 add the OKF knowledge-extraction and document-generator agents
 ```
 
-Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one).
+Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING` and `DOCFACTORY_DOCSTORE` relocate `incoming/` and `DocStore/` (tests use temporary folders). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`.
 
 ## Phases 2-6 (outline agreed; not designed in detail; do not implement)
 
@@ -257,7 +261,7 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - `KnowledgeFacts` remains the source of truth. Document savers write `DocumentOutputs`; every other saver writes `KnowledgeFacts`. There is **no separate `KnowledgeStore` table**: `KnowledgeFacts` is extended instead.
 - LLMs only classify, extract and construct calls; everything else is deterministic (Principle 5). Validation errors (`REJECTED`) stay the feedback loop.
 - Files in `DocStore/` and `bundles/` are written only by tools. Nothing is hand-edited.
-- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown and the LLM SDK in Phase 2, the vector store in Phase 4, LangGraph in Phase 5.
+- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown in Phase 2 (the Ollama client uses only the standard library; `anthropic` is an optional extra), the vector store in Phase 4, LangGraph in Phase 5. `reportlab` and `python-docx` are dev-only (corpus generation).
 
 ### Phase 2: Ingest
 - The ingestion agent runs with the **ingestion tool package** only (see "Tool layer"): it never touches the file system or database except through those tools.
@@ -266,6 +270,12 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - Non-text files (PDF, Word, HTML, ...) are converted to text with **markitdown**; the text sidecar sits next to the original and is regenerated whenever the original changes. The original is the audited file.
 - **`DocStore`** table: `FullPath` (PK), `Hashcode` (SHA-256 of the file), `Version` (starts at 1, +1 on each replacement with a different hash), `Timestamp`. Same bytes again = no-op.
 - **`DocStoreHistory`** table: same columns as `DocStore`; a row is added every time an existing file is changed. It records what changed and when, not the old content (the file is replaced in place).
+
+**As built (Phase 2):**
+- **Provider-neutral model interface.** `ModelClient.complete(system, messages, tools)` over neutral machinery models (`ModelMessage`, `ModelResponse`, `ToolCall`, `ToolSpec`, `MessageRole`; tool arguments and schemas travel as validated JSON text, since models hold no `dict`). Default provider is **Ollama** (local, or Ollama Cloud with `OLLAMA_HOST=https://ollama.com` and `OLLAMA_API_KEY`); Anthropic is optional. A response cut off at the token limit raises a clear error; connection and 5xx errors are retried with backoff. Tested with `FakeModelClient`.
+- **Tool arguments are validated deterministically.** A target is exactly `<scope folder>/<file name>`, the scope uses letters, digits, `.`, `_`, `-`, and the file name must equal the original's. A bad call returns `{ok: false, error}` feedback and nothing is written. Tools never raise to the model.
+- **`store_file` outcomes:** NEW and CHANGED move the original in, write the text sidecar (`<name>.md` for non-text files) and the `DocStore` / `DocStoreHistory` rows; SAME is a no-op and the duplicate leaves `incoming/`. Text is converted first, so a conversion failure changes nothing.
+- **Model choice matters.** In the live comparison `gemma4:31b` (Ollama Cloud) classified the whole corpus cleanly; `gpt-oss:120b` produced corrupted tool arguments and `nemotron-3-super` worked but slowly; some cloud models need paid usage. The live test (`pytest -m live`, opt-in, skipped if the server is unreachable) checks scope, deferral of ambiguous files and CHANGED on a new revision.
 
 ### Phase 3: Extract knowledge (OKF)
 - An **OKFKnowledgeExtraction agent** reads new or changed `DocStore` text and calls the existing entity savers. It never writes the database or `bundles/` directly.

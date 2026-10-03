@@ -3,8 +3,14 @@ name = "docfactory"
 version = "0.1.0"
 description = "Keeps application documentation up to date from Pydantic-validated knowledge held in SQLite."
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2"]
+dependencies = ["pydantic>=2", "markitdown[pdf,docx]"]
+
+[project.optional-dependencies]
+anthropic = ["anthropic"]
+dev = ["pytest", "reportlab", "python-docx"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "-m 'not live'"
+markers = ["live: calls a real LLM; opt in with -m live"]

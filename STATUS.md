@@ -15,12 +15,12 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 | Phase | State | Summary |
 |---|---|---|
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
-| 2 Ingest | Planned (outline only) | Files arrive in `incoming/`, an agent classifies them into `DocStore/`. `DocStore` and `DocStoreHistory` tables track them. Non-text files converted with markitdown. |
+| 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar. Verified live on `tests/corpus/`. |
 | 3 Extract (OKF) | Planned (outline only) | Agent reads `DocStore` text and calls entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant, with YAML-frontmatter files under `bundles/`. |
 | 4 Generate | Planned (outline only) | Frontmatter indexed in a vector store, RAG finds relevant knowledge, a generator agent calls document savers. Rendering stays deterministic. |
 
 - Triggers are manual for now. A watcher and automatic triggering are decided at the end of Phase 4 (or a Phase 5).
-- Phases 2-4 are not designed in detail and must not be implemented yet.
+- Phases 3-4 are not designed in detail and must not be implemented yet.
 
 ## Core principles
 
@@ -69,7 +69,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 
 ## Tooling
 
-- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`.
+- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`, `docfactory-ingestion-agent` (runtime prompt of the Phase 2 agent).
 - `.claude/skills/`: entry skills (`docfactory-create-shared-model`, `docfactory-create-entity-model`, `docfactory-create-document-model`, `docfactory-add-field`, `docfactory-review-models`) and reference skills (`docfactory-field-spec`, `docfactory-quality-gate`).
 - `.claude/scripts/`: deterministic scaffolding and gate scripts, tested in `tests/scripts/`.
 - Other directories: `samples/`, `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `output/<app>/`.
@@ -83,13 +83,14 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Uncommitted: `CLAUDE.md` modified.
-- Latest commit: `7d57e1d` "Add SRS and SOP documents with Datadog runbook samples; close Phase 1".
+- Uncommitted: all Phase 2 work (see git status).
 
 ## Next up
 
-- Phase 2 (Ingest) design: not started.
+- Phase 3 (Extract knowledge, OKF) design: not started. The Phase 2 corpus in `tests/corpus/` is the intended input.
+- Before running the live test: put the key in `.env` (copy `.env.example`); no key is needed for a local Ollama.
 
 ## Change log
 
 - 2026-10-03: Created from the project summary.
+- 2026-10-03: Phase 2 closed. Added `ingest/`, `tools/` (registry, packages, ingestion package), `agents/` (provider-neutral model client, Ollama default, ingestion loop), `DocStore` tables, `.env` loading, test corpus and an opt-in live test.
