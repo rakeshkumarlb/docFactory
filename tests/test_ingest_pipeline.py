@@ -182,9 +182,9 @@ def test_chunk_rebuild_rewrites_chunks_and_reports_missing_files(dirs):
 
 def test_the_entry_point_prints_the_report(dirs, capsys, monkeypatch):
     monkeypatch.setattr(run_ingestion, "load_env_file", lambda: None)
-    assert run_ingestion.main([]) == 0
+    assert run_ingestion.main(["--no-llm"]) == 0
     assert "nothing to ingest" in capsys.readouterr().out
     drop(dirs, "acme-srs.md", SRS_V1)
-    run_ingestion.main([])
+    run_ingestion.main(["--no-llm"])
     out = capsys.readouterr().out
     assert "acme-srs.md: NEW -> Acme/acme-srs.md (v1)" in out and "FunctionalRequirements: 1 chunks" in out

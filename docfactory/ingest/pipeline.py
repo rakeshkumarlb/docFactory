@@ -9,13 +9,16 @@ Per file:
    - same name stored in exactly one scope with another hash: CHANGED (scope inherited); in several scopes: left in staging;
    - otherwise NEW.
 3. Chunk the original (ingest/chunking.py); no extractable text leaves it in staging.
-4. Tag the chunks against the ontology (ingest/tagging.py); unmapped chunks are reported.
-5. Scope (NEW only, ingest/scope_rules.py); an unconfident scope leaves the file in staging with the reason.
+4. Tag the chunks against the ontology (ingest/tagging.py). With a fallback, the chunks the rules left unmapped go to one LLM
+   call; its tags are validated like any other and kept with origin 'llm/<model>'. Chunks still unmapped are reported.
+5. Scope (NEW only, ingest/scope_rules.py). With a fallback, an unconfident scope goes to one LLM call; 'not sure' (or no
+   fallback) leaves the file in staging with the reason.
 6. Move staging -> DocStore/<scope>/<name> and, in one transaction, write DocStore / DocStoreHistory, DocChunks and DocChunkTags.
    If the database write fails the file goes back to staging (and a replaced original is restored), so files and rows agree.
 A file that stops anywhere stays in staging/ and is tried again on the next run. Nothing is ever deleted except a SAME duplicate.
 """
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,7 +43,10 @@ def _now() -> str:
 
 
 def _files(folder: Path) -> list[Path]:
-    return sorted(p for p in folder.iterdir() if p.is_file() and not p.name.startswith(".")) if folder.is_dir() else []
+    """The files in `folder`, by name ignoring case, so the processing order (which of two duplicates wins) is the same on every OS."""
+    if not folder.is_dir():
+        return []
+    return sorted((p for p in folder.iterdir() if p.is_file() and not p.name.startswith(".")), key=lambda p: (p.name.lower(), p.name))
 
 
 def stage_incoming() -> list[str]:
@@ -70,7 +76,22 @@ def _staged(name: str, reason: str, chunks: list[DocChunk] | None = None, tags: 
 
 
 def _summary(tags: list[ChunkTag]) -> list[str]:
-    return [f"{entity}: {len(numbers)} chunks" for entity, numbers in entity_map(tags).items()]
+    llm = {}
+    for tag in tags:
+        if tag.origin != "rule":
+            llm[tag.entity] = llm.get(tag.entity, 0) + 1
+    return [f"{entity}: {len(numbers)} chunks" + (f" ({llm[entity]} by {_llm_origin(tags)})" if entity in llm else "")
+            for entity, numbers in entity_map(tags).items()]
+
+
+def _llm_origin(tags: list[ChunkTag]) -> str:
+    return next((tag.origin for tag in tags if tag.origin != "rule"), "llm")
+
+
+def _matching_folder(scope: str, existing: list[str]) -> str:
+    """An existing folder spelled differently (case, punctuation) is reused instead of creating a near-duplicate."""
+    key = re.sub(r"[^a-z0-9]", "", scope.lower())
+    return next((folder for folder in existing if re.sub(r"[^a-z0-9]", "", folder.lower()) == key), scope)
 
 
 def _lookup(name: str, hashcode: str) -> tuple[IngestOutcome | None, str | None, str]:
@@ -130,8 +151,8 @@ def _store(staged: Path, target: str, hashcode: str, timestamp: str, chunks: lis
     return result
 
 
-def ingest_staged(name: str, clock: Callable[[], str] = _now) -> IngestReport:
-    """Ingest one file waiting in staging/ (steps 2-6 of the module docstring)."""
+def ingest_staged(name: str, clock: Callable[[], str] = _now, fallback=None) -> IngestReport:
+    """Ingest one file waiting in staging/ (steps 2-6 of the module docstring). `fallback` is an IngestionFallback (or None: rules only)."""
     staged = staging_dir() / name
     hashcode = file_sha256(staged)
     outcome, target, reason = _lookup(name, hashcode)
@@ -149,13 +170,31 @@ def ingest_staged(name: str, clock: Callable[[], str] = _now) -> IngestReport:
     if not chunks:
         return _staged(name, "no extractable text (a scanned PDF needs OCR, which is not supported)")
     tags, unmapped = tag_chunks(chunks, load_signals())
+    notes = []
+    if fallback is not None and unmapped:
+        llm_tags, note = fallback.tag_chunks([chunk for chunk in chunks if chunk.chunk_no in unmapped])
+        rejected = check_tags(llm_tags, chunks, entity_names())
+        if rejected:
+            llm_tags, note = [], "LLM tags rejected: " + "; ".join(rejected)
+        tags += llm_tags
+        tagged = {tag.chunk_no for tag in llm_tags}
+        unmapped = [no for no in unmapped if no not in tagged]
+        if note:
+            notes.append(note)
     problems = check_tags(tags, chunks, entity_names())
     if problems:
         return _staged(name, "invalid tags: " + "; ".join(problems), chunks, tags, unmapped)
     if outcome is None:
-        scope, confident, reason = decide_scope(chunks, tags, existing_scopes())
+        existing = existing_scopes()
+        scope, confident, reason = decide_scope(chunks, tags, existing)
+        if (scope is None or not confident) and fallback is not None:
+            llm_scope, llm_reason = fallback.decide_scope(chunks[:3], tags, existing, reason)
+            if llm_scope:
+                scope, confident, reason = _matching_folder(llm_scope, existing), True, f"{fallback.origin}: {llm_reason}"
+            else:
+                reason = f"{reason}; {fallback.origin}: {llm_reason}"
         if scope is None or not confident:
-            return _staged(name, f"scope unsure ({reason})", chunks, tags, unmapped)
+            return _staged(name, "; ".join([f"scope unsure ({reason})", *notes]), chunks, tags, unmapped)
         target = f"{scope}/{name}"
         problem = check_target(name, target)
         if problem:
@@ -165,13 +204,14 @@ def ingest_staged(name: str, clock: Callable[[], str] = _now) -> IngestReport:
     _, version, before_chunks = _store(staged, target, hashcode, clock(), chunks, tags)
     changed = _changed_entities(before_chunks, before_tags, chunks, tags) if outcome == IngestOutcome.CHANGED else []
     return IngestReport(file_name=name, outcome=outcome, target_path=target, version=version, chunk_count=len(chunks),
-                        entity_summary=_summary(tags), unmapped_chunks=unmapped, changed_entities=changed, reason=reason)
+                        entity_summary=_summary(tags), unmapped_chunks=unmapped, changed_entities=changed,
+                        reason="; ".join(part for part in [reason, *notes] if part))
 
 
-def run_ingest(clock: Callable[[], str] = _now) -> list[IngestReport]:
+def run_ingest(clock: Callable[[], str] = _now, fallback=None) -> list[IngestReport]:
     """Stage everything in incoming/, then ingest every file in staging/ (including ones left there by earlier runs)."""
     stage_incoming()
-    return [ingest_staged(path.name, clock) for path in _files(staging_dir())]
+    return [ingest_staged(path.name, clock, fallback) for path in _files(staging_dir())]
 
 
 def format_reports(reports: list[IngestReport]) -> str:

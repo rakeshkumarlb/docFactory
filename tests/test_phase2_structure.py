@@ -14,7 +14,7 @@ FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "retrieval", "ontolog
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
-FUNCTION_MODULES = {"docstore_reads", "paths", "file_hash", "target_rules",
+FUNCTION_MODULES = {"docstore_reads", "ingestion_tools", "paths", "file_hash", "target_rules",
                     "run_ingestion", "model_client_factory", "extraction_tools", "prompt_file", "run_extraction",
                     "generation_tools", "run_generation",
                     "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild",

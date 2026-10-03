@@ -86,6 +86,16 @@ def render_ontology() -> str:
     return "\n".join(out)
 
 
+def ontology_summary() -> str:
+    """The compact ontology for an LLM call: one line per entity with its meaning and its heading terms (no facts, no examples)."""
+    signals = {entry.entity: entry for entry in load_signals()}
+    lines = []
+    for saver_class in entity_saver_classes():
+        name = saver_class.model.__name__
+        lines.append(f"- {name}: {_first_sentence(saver_class.model.__doc__)} Typical headings: {', '.join(signals[name].heading_terms)}.")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(render_ontology(), encoding="utf-8", newline="\n")
