@@ -19,7 +19,7 @@ from docfactory.entitysaver.kpis_saver import KpisSaver
 from docfactory.models.fact_meta import FactMeta
 from docfactory.retrieval.embedder_factory import default_embedder
 from docfactory.retrieval.sqlite_vector_index import SqliteVectorIndex
-from tests.test_live_ingestion import _llm_available  # also loads .env
+from tests.live_support import llm_available as _llm_available  # also loads .env
 
 SAMPLES = Path(__file__).parent.parent / "samples" / "json"
 KEY = "ReadmeForge.Outputs.Overview"

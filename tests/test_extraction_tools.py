@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from docfactory import bundle, db
-from docfactory.ingest import ingest_operations as ops
+from docfactory.ingest import docstore_reads as ops
 from docfactory.ingest.paths import DOCSTORE_ENV
 from docfactory.tools.extraction_tools import extraction_package, extraction_tool_names
 
@@ -28,7 +28,7 @@ def package(tmp_db, tmp_path, monkeypatch):
     (store / "ReadmeForge").mkdir(parents=True)
     (store / SRS).write_text("FR-001 The system shall scan on push.", encoding="utf-8")
     monkeypatch.setenv(DOCSTORE_ENV, str(store))
-    db.write_docstore_row(SRS, "hash", STAMP)
+    db.commit_ingested(SRS, "hash", STAMP, [(1, "Requirements", None, None, "FR-001 The system shall scan on push.", "0" * 64)], [])
     return extraction_package(ACTOR)
 
 
@@ -129,18 +129,17 @@ def test_get_fact_and_list_facts_read_back_what_was_saved(package):
 def test_list_docstore_and_read_docstore_text(package):
     assert [r["FullPath"] for r in package.call("list_docstore", {})] == [SRS]
     assert package.call("list_docstore", {"folder": "shared"}) == []
-    assert package.call("read_docstore_text", {"path": SRS}).startswith("FR-001")
+    assert package.call("read_docstore_text", {"path": SRS}) == "## Requirements\nFR-001 The system shall scan on push."
 
 
-def test_read_docstore_text_reads_the_sidecar_of_a_converted_original(package, tmp_path):
+def test_read_docstore_text_is_rebuilt_from_the_chunks_and_needs_them(package, tmp_path):
     store = tmp_path / "DocStore"
     (store / "ReadmeForge" / "spec.pdf").write_bytes(b"%PDF binary")
-    (store / "ReadmeForge" / "spec.pdf.md").write_text("converted text", encoding="utf-8")
-    db.write_docstore_row("ReadmeForge/spec.pdf", "h2", STAMP)
-    assert ops.read_docstore_text("ReadmeForge/spec.pdf") == "converted text"
-    (store / "ReadmeForge" / "spec.pdf.md").unlink()
-    result = package.call("read_docstore_text", {"path": "ReadmeForge/spec.pdf"})
-    assert result["ok"] is False and "sidecar_rebuild" in result["error"]
+    db.commit_ingested("ReadmeForge/spec.pdf", "h2", STAMP, [(1, "1. A", 1, 1, "one", "1" * 64), (2, "1. A > 1.1. B", 2, 2, "two", "2" * 64)], [])
+    assert ops.read_docstore_text("ReadmeForge/spec.pdf") == "## 1. A\none\n\n## 1. A > 1.1. B\ntwo"
+    db.write_docstore_row("ReadmeForge/raw.pdf", "h3", STAMP)
+    result = package.call("read_docstore_text", {"path": "ReadmeForge/raw.pdf"})
+    assert result["ok"] is False and "chunk_rebuild" in result["error"]
 
 
 @pytest.mark.parametrize("path", ["ReadmeForge/not-tracked.txt", "../outside.txt", "/etc/passwd", ""])

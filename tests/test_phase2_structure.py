@@ -14,8 +14,8 @@ FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "retrieval", "ontolog
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
-FUNCTION_MODULES = {"ingestion_tools", "ingest_operations", "paths", "file_hash", "text_extraction", "target_rules",
-                    "run_ingestion", "model_client_factory", "sidecar_rebuild", "extraction_tools", "prompt_file", "run_extraction",
+FUNCTION_MODULES = {"docstore_reads", "paths", "file_hash", "target_rules",
+                    "run_ingestion", "model_client_factory", "extraction_tools", "prompt_file", "run_extraction",
                     "generation_tools", "run_generation",
                     "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild",
                     "signals", "ontology_render",
@@ -47,11 +47,3 @@ def test_no_pydantic_models_outside_models_folder(path):
 def test_every_phase2_module_is_accounted_for():
     stems = {p.stem for p in FILES}
     assert FUNCTION_MODULES <= stems, f"stale entries: {FUNCTION_MODULES - stems}"
-
-
-def test_the_ingestion_package_has_exactly_the_agreed_tools():
-    """Least privilege: the ingestion package has exactly the agreed tools (the extraction package is pinned in test_extraction_tools.py)."""
-    from docfactory.tools.ingestion_tools import ingestion_package
-
-    assert ingestion_package().tool_names() == ["list_incoming", "read_incoming_text", "search_docstore",
-                                                "compare_with_docstore", "store_file", "defer_file"]

@@ -10,7 +10,7 @@ from pydantic import Field, WithJsonSchema
 
 from docfactory import db, facts
 from docfactory.base_saver import BaseSaver
-from docfactory.ingest import ingest_operations as ops
+from docfactory.ingest import docstore_reads as ops
 from docfactory.models.fact_meta import FactMeta
 from docfactory.models.fact_record import FactRecord
 from docfactory.models.fact_source import FactSource

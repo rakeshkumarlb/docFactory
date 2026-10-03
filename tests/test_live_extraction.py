@@ -1,7 +1,6 @@
 """Opt-in live run of the extraction agent against the corpus SRS and its revision: `pytest -m live`.
 
-DocStore is filled deterministically with ingest_operations (no LLM); only the extraction is live. Uses default_client() like the
-ingestion live test (local Ollama, Ollama Cloud, or DOCFACTORY_PROVIDER=anthropic). The extraction agent needs a large context:
+DocStore is filled deterministically by the ingestion pipeline (no LLM); only the extraction is live. Uses default_client() (local Ollama, Ollama Cloud, or DOCFACTORY_PROVIDER=anthropic). The extraction agent needs a large context:
 set DOCFACTORY_NUM_CTX (e.g. 65536) for Ollama. Skipped when the chosen server is not reachable.
 """
 import json
@@ -13,9 +12,10 @@ import pytest
 from docfactory import bundle, db, facts, okf_check
 from docfactory.agents.extraction_agent import ExtractionAgent
 from docfactory.agents.model_client_factory import default_client
-from docfactory.ingest import ingest_operations as ops
-from docfactory.ingest.paths import DOCSTORE_ENV, INCOMING_ENV
-from tests.test_live_ingestion import _llm_available  # also loads .env
+from docfactory.ingest import docstore_reads as ops
+from docfactory.ingest import pipeline
+from docfactory.ingest.paths import DOCSTORE_ENV, INCOMING_ENV, STAGING_ENV
+from tests.live_support import llm_available as _llm_available  # also loads .env
 
 CORPUS = Path(__file__).parent / "corpus"
 SRS = "ReadmeForge SRS v0.3.pdf"
@@ -27,7 +27,9 @@ pytestmark = [pytest.mark.live, pytest.mark.skipif(not _llm_available(), reason=
 
 def _store(source: Path, incoming: Path):
     shutil.copyfile(source, incoming / SRS)
-    return ops.store_file(SRS, PATH)
+    [report] = pipeline.run_ingest()
+    assert report.target_path == PATH, report
+    return report
 
 
 def test_agent_extracts_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypatch):
@@ -35,7 +37,8 @@ def test_agent_extracts_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypa
     incoming.mkdir()
     monkeypatch.setenv(INCOMING_ENV, str(incoming))
     monkeypatch.setenv(DOCSTORE_ENV, str(tmp_path / "DocStore"))
-    assert _store(CORPUS / "incoming" / SRS, incoming).action.value == "NEW"
+    monkeypatch.setenv(STAGING_ENV, str(tmp_path / "staging"))
+    assert _store(CORPUS / "incoming" / SRS, incoming).outcome.value == "NEW"
     text = ops.read_docstore_text(PATH)
 
     summary = ExtractionAgent(default_client()).run(PATH)
@@ -58,7 +61,7 @@ def test_agent_extracts_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypa
     assert "30 days" not in text  # the first draft has no pause requirement
 
     # a new revision arrives: CHANGED, version 2 in DocStore; the agent updates the facts it affects
-    assert _store(CORPUS / "revisions" / SRS, incoming).action.value == "CHANGED"
+    assert _store(CORPUS / "revisions" / SRS, incoming).outcome.value == "CHANGED"
     ExtractionAgent(default_client()).run(PATH)
     revised = facts.get_fact("ReadmeForge.FunctionalRequirements")
     assert revised.version == 2 and "30 days" in revised.value, revised.value

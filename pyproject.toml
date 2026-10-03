@@ -3,7 +3,7 @@ name = "docfactory"
 version = "0.1.0"
 description = "Keeps application documentation up to date from Pydantic-validated knowledge held in SQLite."
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2", "markitdown[pdf,docx]", "numpy", "pdfplumber", "python-docx", "beautifulsoup4"]
+dependencies = ["pydantic>=2", "numpy", "pdfplumber", "python-docx", "beautifulsoup4"]
 
 [project.optional-dependencies]
 anthropic = ["anthropic"]
