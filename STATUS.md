@@ -83,7 +83,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Phases 1-3 committed and pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`, untracked).
+- Phases 1-3 committed and pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`).
 
 ## Next up
 
