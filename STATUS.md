@@ -16,11 +16,11 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 |---|---|---|
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
 | 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar (PDF text is flat: no headings or tables). Verified live on `tests/corpus/`. |
-| 3 Extract (OKF) | **3a and 3b built; to close after your review** | **3a (deterministic, no LLM):** `KnowledgeFacts` is OKF v0.2 compliant: OKF columns, `KnowledgeFactsHistory`, source index, one bundle file per fact under `bundles/` written by the entity savers (`save(..., meta=FactMeta)`), typed reads, `okf_check`, `bundle_rebuild`, ReadmeForge seeds regenerated (13 conformant files). **3b:** `extraction` tool package (pinned list, 13 typed `save_<entity>` tools, actor and source timestamps set by code), `AgentLoop` / `ExtractionAgent`, runtime prompt, `run_extraction`, key -> saver resolution, bodies in model field order; verified live on the corpus SRS and its revision. |
+| 3 Extract (OKF) | **Done** (closed 2026-10-03) | **3a (deterministic, no LLM):** `KnowledgeFacts` is OKF v0.2 compliant: OKF columns, `KnowledgeFactsHistory`, source index, one bundle file per fact under `bundles/` written by the entity savers (`save(..., meta=FactMeta)`), typed reads, `okf_check`, `bundle_rebuild`, ReadmeForge seeds regenerated (13 conformant files). **3b:** `extraction` tool package (pinned list, 13 typed `save_<entity>` tools, actor and source timestamps set by code), `AgentLoop` / `ExtractionAgent`, runtime prompt, `run_extraction`, key -> saver resolution, bodies in model field order; verified live on the corpus SRS and its revision. |
 | 4 Generate | Planned (outline only) | Frontmatter indexed in a vector store, RAG finds relevant knowledge, a generator agent calls document savers. Rendering stays deterministic. |
 
 - Triggers are manual for now. A watcher and automatic triggering are decided at the end of Phase 4 (or a Phase 5).
-- Phase 3 is designed (see CLAUDE.md "Phase 3 design decisions"); Phase 4 is not designed in detail and must not be implemented yet.
+- Phases 1-3 are done. Phase 4 is not designed in detail and must not be implemented yet. `README.md` explains the process and lists the commands.
 
 ## Core principles
 
@@ -83,11 +83,11 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Uncommitted: all Phase 3a work (see git status).
+- Phases 1-3 committed and pushed. Untracked: `bundles/AI-Driven-Job-Matching-Platform/` (output of a real extraction run, deliberately not committed; decide whether to commit or ignore it).
 
 ## Next up
 
-- Close Phase 3 after review. Try it: `python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"` (needs the file in DocStore and `DOCFACTORY_NUM_CTX=65536` in `.env`).
+- Phase 4 (Generate): design first (vector technology, embedding model, retrieval rules, generator package). Meanwhile, extraction can be tried: `python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"` (needs the file in DocStore and `DOCFACTORY_NUM_CTX=65536` in `.env`).
 - Before running the live test: put the key in `.env` (copy `.env.example`); no key is needed for a local Ollama.
 
 ## Change log
@@ -96,3 +96,4 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 - 2026-10-03: Phase 2 closed. Added `ingest/`, `tools/` (registry, packages, ingestion package), `agents/` (provider-neutral model client, Ollama default, ingestion loop), `DocStore` tables, `.env` loading, test corpus and an opt-in live test.
 - 2026-10-03: Phase 3 designed; 3a built. OKF columns, `KnowledgeFactsHistory`, `KnowledgeFactSources`, `FactMeta` / `FactSource` / `FactVerification` / `FactRecord` / `FactStatus`, bundle writer and checker, typed reads, seeds regenerated with `SEED_META`. `docfactory-create-shared-model` is now invocable by the model.
 - 2026-10-03: Phase 3b built. Extraction package and agent, `AgentLoop` refactor, saver resolution, `read_docstore_text`, `DOCFACTORY_NUM_CTX`, live test; bundle bodies in model field order.
+- 2026-10-03: Phase 3 closed. Added `README.md` (process explainer and commands).
