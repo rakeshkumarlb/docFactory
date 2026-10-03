@@ -1,15 +1,15 @@
 ---
-name: review-models
+name: docfactory-review-models
 description: Review existing docFactory models and savers against the CLAUDE.md principles (read-only findings list)
 argument-hint: [path, class name, or "all" (default)]
 disable-model-invocation: true
 context: fork
-agent: pydantic-developer-agent
+agent: docfactory-pydantic-developer-agent
 model: sonnet
 background: false
 ---
 
-You are running as the **pydantic-developer-agent**. This is a **read-only review: change no files.** Scripts are run from the project root. Read `CLAUDE.md` first.
+You are running as the **docfactory-pydantic-developer-agent**. This is a **read-only review: change no files.** Scripts are run from the project root. Read `CLAUDE.md` first.
 
 Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymodels/facts`, `entitymodels/items`, `documentmodels`, `entitysaver`, `documentsaver`, and `tests/`).
 
@@ -32,4 +32,4 @@ Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymode
    - Phase 2 features (RAG, LLM calls, provenance, history, approval gate) in the code.
 4. **Output.** Findings grouped by severity: **violates a principle** / **smell** / **nit**. Each: `file:line`, one-line problem, one-line suggested fix, which principle. End with a two-line summary and the pytest result. If there is nothing to review yet, say so and stop.
 
-Do not fix anything. Fixes are separate tasks (`/add-field`, or re-running the relevant create skill).
+Do not fix anything. Fixes are separate tasks (`/docfactory-add-field`, or re-running the relevant create skill).

@@ -95,7 +95,7 @@ def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
     if class_name.endswith("Saver"):
         errors.append("a model class name must not end with 'Saver'")
     if class_name in C.BOOTSTRAP_CLASSES:
-        errors.append(f"{class_name} is a bootstrap class: write it by hand (see the create-shared-model skill)")
+        errors.append(f"{class_name} is a bootstrap class: write it by hand (see the docfactory-create-shared-model skill)")
     others = [rel(p) for p in find_class(class_name) if p != path]
     if others:
         errors.append(f"class {class_name} is already defined in {others}")

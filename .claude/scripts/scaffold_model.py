@@ -69,7 +69,7 @@ def main(argv) -> int:
     if kind == "document-model":
         problems += field_spec.binding_problems(spec["fields"])
     if info["exists"]:
-        problems.append(f"{info['file']} already exists: use the add-field skill to change it")
+        problems.append(f"{info['file']} already exists: use the docfactory-add-field skill to change it")
     if (C.ROOT / info["test_file"]).exists():
         problems.append(f"{info['test_file']} already exists")
 

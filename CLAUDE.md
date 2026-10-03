@@ -157,18 +157,18 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
   All three use the same `<App>.Outputs.<DocType>` prefix, so a document's parts are found by prefix. `DocumentControl` and `RevisionHistory` are reused by every document type.
 - `render_markdown` assembles the final `.md` from the three rows (default order: document control, revision history, body). Same rows in, same bytes out. The `.md` file under `output/<app>/` is a view and never truth. The body's completeness is computed over the body only; document control and revision history score their own.
 
-## The `pydantic-developer-agent` (first deliverable of Phase 1)
+## The `docfactory-pydantic-developer-agent` (first deliverable of Phase 1)
 
-Before any model or saver is written, we create a specialized agent, `.claude/agents/pydantic-developer-agent.md`, with reusable prompts, built strongly around the principles above. All models and savers are then produced through it, so they come out uniform.
+Before any model or saver is written, we create a specialized agent, `.claude/agents/docfactory-pydantic-developer-agent.md`, with reusable prompts, built strongly around the principles above. All models and savers are then produced through it, so they come out uniform.
 
 - **The agent** knows and enforces: single responsibility (one class per file, file name = snake_case of the class, correct folder), the base model, descriptions and questions on every field, honest defaults and minimal mandatory fields, typed lists and no `dict`/`Any`, `NotApplicable` only where `na_allowed`, scoring rules, and that savers inherit `BaseSaver` and contain no logic. It writes a test with every class it creates and runs the suite before it reports done.
-- **Entry skills** (in `.claude/skills/`, invoked as `/name`), one per repeatable task, each pinning the agent and model (`context: fork`, `agent: pydantic-developer-agent`, `model: sonnet`) and defining the exact step-by-step procedure: `create-shared-model` (base classes and package skeleton, or one shared model), `create-entity-model` and `create-document-model` (each also creates the saver where one belongs), `add-field`, `review-models`. Two reference skills (`docfactory-field-spec`, `docfactory-quality-gate`) are preloaded into the agent. Skills cannot be `.claude/commands/` files: only skills support `agent` and `context: fork`.
+- **Entry skills** (in `.claude/skills/`, invoked as `/docfactory-<task>`; **every skill and custom agent in this project is named with the `docfactory-` prefix** so it is easy to identify, enforced by a test), one per repeatable task, each pinning the agent and model (`context: fork`, `agent: docfactory-pydantic-developer-agent`, `model: sonnet`) and defining the exact step-by-step procedure: `docfactory-create-shared-model` (base classes and package skeleton, or one shared model), `docfactory-create-entity-model` and `docfactory-create-document-model` (each also creates the saver where one belongs), `docfactory-add-field`, `docfactory-review-models`. Two reference skills (`docfactory-field-spec`, `docfactory-quality-gate`) are preloaded into the agent. Skills cannot be `.claude/commands/` files: only skills support `agent` and `context: fork`.
 - **Deterministic scripts** (`.claude/scripts/`, tested in `tests/scripts/`): the agent supplies judgment as a JSON spec; scripts resolve names and paths, generate models, savers and their tests, add fields, check structure and run the quality gate. Conventions the generated code relies on (base model `DocFactoryModel`, field helper `doc_field`, `BaseSaver`, key-pattern placeholders) are in `.claude/scripts/conventions.py`.
 - The agent never edits the database or generated documents by hand, and never invents field content.
 
 ## Phase 1 build order
 
-1. **Create the `pydantic-developer-agent` and its prompts** (above).
+1. **Create the `docfactory-pydantic-developer-agent` and its prompts** (above).
 2. Package skeleton via the agent: base model, `NotApplicable`, `SaveError`, `SaveResult`, `BaseSaver`, canonical JSON + hash, completeness, database setup.
 3. **One or two entities end to end**, with tests, before adding more. Proposed: `ApplicationOverview` (app-specific) and `Kpis` (shared, AppID NULL).
 4. One small document type over those entities, with its `DocumentControl` and `RevisionHistory`, `build_document` and `render_markdown`, checked against a golden `.md` file.
@@ -193,8 +193,8 @@ Before any model or saver is written, we create a specialized agent, `.claude/ag
 ## Repo layout
 
 ```
-.claude/agents/        pydantic-developer-agent.md, sample-generator-agent.md
-.claude/skills/        Entry skills (create-shared-model, create-entity-model, create-document-model, add-field, review-models) and reference skills (docfactory-field-spec, docfactory-quality-gate)
+.claude/agents/        docfactory-pydantic-developer-agent.md, docfactory-sample-generator-agent.md
+.claude/skills/        Entry skills (docfactory-create-shared-model, docfactory-create-entity-model, docfactory-create-document-model, docfactory-add-field, docfactory-review-models) and reference skills (docfactory-field-spec, docfactory-quality-gate)
 .claude/scripts/       Deterministic scripts the skills call (scaffold, add field, check structure, gate)
 docfactory/            Python package (pydantic v2 is the only runtime dependency)
   models/              Machinery models, one class per file: base model, doc_field, NotApplicable, SaveAction, SaveResult, SaveError
@@ -303,7 +303,7 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 ## Working rules
 
 - Read this file first. When something is unclear, ask the user.
-- One class per file, in the right folder (Principle 1). Create models and savers through the `pydantic-developer-agent`.
+- One class per file, in the right folder (Principle 1). Create models and savers through the `docfactory-pydantic-developer-agent`.
 - Write to the database only through the tools. Never edit generated documents, `DocStore/` files or `bundles/` files by hand; change the models or documents and regenerate.
 - Changing a model changes stored data's meaning: say so and update the tests and golden files in the same change.
 - Descriptions on models and fields are part of the product: write them for an LLM reader (meaning, example of a good value, what to ask if missing).

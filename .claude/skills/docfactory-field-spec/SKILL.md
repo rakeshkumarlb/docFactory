@@ -1,6 +1,6 @@
 ---
 name: docfactory-field-spec
-description: How to write the JSON spec for a docFactory model or field (description, question, default, na_allowed, binding, example). Reference for the pydantic-developer-agent; the scripts validate everything written here.
+description: How to write the JSON spec for a docFactory model or field (description, question, default, na_allowed, binding, example). Reference for the docfactory-pydantic-developer-agent; the scripts validate everything written here.
 user-invocable: false
 ---
 

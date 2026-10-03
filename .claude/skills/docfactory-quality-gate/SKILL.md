@@ -1,6 +1,6 @@
 ---
 name: docfactory-quality-gate
-description: The mandatory final step of every docFactory task. Runs the structure check and the full test suite, fixes failures and reports in the fixed format. Reference for the pydantic-developer-agent.
+description: The mandatory final step of every docFactory task. Runs the structure check and the full test suite, fixes failures and reports in the fixed format. Reference for the docfactory-pydantic-developer-agent.
 user-invocable: false
 ---
 

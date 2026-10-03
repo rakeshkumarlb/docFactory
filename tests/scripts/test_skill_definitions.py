@@ -7,7 +7,7 @@ from conftest import REPO
 
 yaml = pytest.importorskip("yaml")
 
-ENTRY_SKILLS = {"create-shared-model", "create-entity-model", "create-document-model", "add-field", "review-models"}
+ENTRY_SKILLS = {"docfactory-create-shared-model", "docfactory-create-entity-model", "docfactory-create-document-model", "docfactory-add-field", "docfactory-review-models"}
 FILES = sorted((REPO / ".claude" / "skills").glob("*/SKILL.md")) + sorted((REPO / ".claude" / "agents").glob("*.md"))
 
 
@@ -24,17 +24,27 @@ def test_frontmatter_parses_and_names_match(path):
     assert isinstance(data["description"], str) and data["description"].strip()
 
 
+def test_every_skill_is_prefixed_docfactory():
+    names = [p.parent.name for p in FILES if p.name == "SKILL.md"]
+    assert names and all(n.startswith("docfactory-") for n in names), names
+
+
+def test_every_agent_is_prefixed_docfactory():
+    names = [p.stem for p in FILES if p.name != "SKILL.md"]
+    assert names and all(n.startswith("docfactory-") for n in names), names
+
+
 def test_entry_skills_pin_the_agent_and_model():
     found = {p.parent.name: frontmatter(p) for p in FILES if p.name == "SKILL.md"}
     assert ENTRY_SKILLS <= set(found)
     for name in ENTRY_SKILLS:
         data = found[name]
-        assert data["context"] == "fork" and data["agent"] == "pydantic-developer-agent", name
+        assert data["context"] == "fork" and data["agent"] == "docfactory-pydantic-developer-agent", name
         assert data["model"] and data["disable-model-invocation"] is True, name
 
 
 def test_agent_preloads_existing_skills():
-    agent = frontmatter(REPO / ".claude" / "agents" / "pydantic-developer-agent.md")
+    agent = frontmatter(REPO / ".claude" / "agents" / "docfactory-pydantic-developer-agent.md")
     existing = {p.parent.name for p in FILES if p.name == "SKILL.md"}
     assert set(agent["skills"]) <= existing
 
