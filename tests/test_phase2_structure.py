@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "docfactory"
-FOLDERS = ("tools", "agents", "ingest", "retrieval", "ontology")
+FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "retrieval", "ontology")
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
@@ -18,7 +18,8 @@ FUNCTION_MODULES = {"ingestion_tools", "ingest_operations", "paths", "file_hash"
                     "run_ingestion", "model_client_factory", "sidecar_rebuild", "extraction_tools", "prompt_file", "run_extraction",
                     "generation_tools", "run_generation",
                     "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild",
-                    "signals", "ontology_render"}
+                    "signals", "ontology_render",
+                    "chunking", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
 
 
 def _snake(name: str) -> str:
