@@ -34,8 +34,8 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 | Step | Who does it | Status |
 |---|---|---|
 | 1. Ingest: chunk, tag and store originals | Code stages, chunks, tags against the ontology, decides the scope and stores; a small LLM fallback tags what the rules miss and places files the rules cannot | Built (Phase 2, redesigned) |
-| 2. Extract: read a stored file and save facts | LLM reads and builds the call, savers validate and store | Built (Phase 3) |
-| 3. Generate: build documents from the facts | LLM searches the knowledge (RAG over the frontmatter), reads the facts and builds the body; the document saver validates it, code renders it. The seed scripts remain the deterministic path | Built (Phase 4) |
+| 2. Extract: read a stored file and save facts | LLM reads and builds the call, savers validate and store | **Pending redesign** (Phase 3): a first version exists but fails on large documents |
+| 3. Generate: build documents from the facts | LLM searches the knowledge (RAG over the frontmatter), reads the facts and builds the body; the document saver validates it, code renders it. The seed scripts remain the deterministic path | **Pending rework** (Phase 4): a first version exists |
 
 ### Ideas worth remembering
 
@@ -204,7 +204,7 @@ A model change changes what stored data means: update the tests and regenerate t
 
 ## What comes next
 
-- **Phase 4: Generate. Built.** Known gaps: no MissingInfo list for agent-generated bodies (the summary names the gaps), and only the Overview has been run live.
-- **Phase 5: Human in the loop.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`.
-- **Phase 3 (redesign next):** extraction will read the tagged chunks per entity (one fresh, small call per entity), instead of the whole document with every save tool at once.
-- **Phase 6: Automate.** Watch `incoming/` and run the whole chain.
+- **Phase 4: Generate. Pending rework** after Phase 3. Known gaps of the first version: no MissingInfo list for agent-generated bodies, only the Overview run live, SRS should be the default template, no embedding provider without local models.
+- **Phase 5: Human in the loop. Pending.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`.
+- **Phase 3: Extract. Pending redesign (next):** extraction will read the tagged chunks per entity (one fresh, small call per entity), instead of the whole document with every save tool at once.
+- **Phase 6: Automate. Pending.** Watch `incoming/` and run the whole chain.
