@@ -25,15 +25,16 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
                     completeness, trust, history
                                                               |
                                                               v
-                                         (3 generate: Phase 4, not built yet)
-                    documents built from facts  --(code)-->  output/<App>/<Doc>.md
+                                         (3 generate: index the frontmatter, LLM searches and reads facts,
+                                          saves the document body)
+                    document body + control + history  --(code)-->  output/<App>/<Doc>.md
 ```
 
 | Step | Who does it | Status |
 |---|---|---|
 | 1. Ingest: sort originals into `DocStore/` | LLM classifies, code moves, hashes and records | Built (Phase 2) |
 | 2. Extract: read a stored file and save facts | LLM reads and builds the call, savers validate and store | Built (Phase 3) |
-| 3. Generate: build documents from the facts | Today only for the ReadmeForge sample, by seed scripts. The agent that does this for any application is Phase 4 | Phase 1 sample only |
+| 3. Generate: build documents from the facts | LLM searches the knowledge (RAG over the frontmatter), reads the facts and builds the body; the document saver validates it, code renders it. The seed scripts remain the deterministic path | Built (Phase 4) |
 
 ### Ideas worth remembering
 
@@ -55,6 +56,8 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    | `OLLAMA_HOST`, `OLLAMA_API_KEY` | `https://ollama.com` plus your key for Ollama Cloud; leave unset for a local Ollama |
    | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) worked well for both agents |
    | `DOCFACTORY_NUM_CTX` | Ollama context window. **Set `65536`** for extraction: its tool schemas alone are ~18k tokens, and the default 16384 is too small |
+   | `DOCFACTORY_EMBED_MODEL` | Embedding model for the Phase 4 index, e.g. `mxbai-embed-large` or `nomic-embed-text` (`ollama pull <name>`) |
+   | `DOCFACTORY_EMBED_HOST` | **Needed with Ollama Cloud:** it serves no embedding models, so point this at a local Ollama, e.g. `http://localhost:11434`. Your chat key is not sent there (`DOCFACTORY_EMBED_API_KEY` only if that server needs one) |
 
 3. Shell variables win over `.env`. In PowerShell: `$env:DOCFACTORY_MODEL = "gemma4:31b"`.
 
@@ -83,6 +86,20 @@ python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf
 
 The argument is the stored path under `DocStore/`, with forward slashes. The path above is an example from the test corpus; with a wrong path the command lists what is stored. The agent reads the text, then saves the facts the document supports under keys such as `ReadmeForge.FunctionalRequirements` or `Shared.Kpis`. Run it again for a new revision of the file: it updates the facts, and `KnowledgeFactsHistory` records who changed what and when. The summary lists what the document did not say.
 
+### Step 3: generate
+
+```
+python -m docfactory.agents.run_generation ReadmeForge Overview
+```
+
+The arguments are the application name (as in the fact keys) and the document type: `Overview`, `SMTD`, `SRS` or `SOP`. The command first brings the frontmatter index up to date (only changed facts are embedded again), then the agent searches the knowledge, reads the facts it needs, builds the whole document body and saves it as `<App>.Outputs.<Type>`. It prints the saved version and completeness, and the agent's summary names the facts it relied on (flagging any `draft` or stale ones) and the fields no fact could fill. The body is validated by the document saver exactly like seed data. Document control and revision history are supplied by people, not generated: when both rows exist the command renders `output/<App>/<Type>.md`, otherwise it says "not rendered".
+
+Rebuild the index on its own (for example after switching the embedding model, which re-embeds everything):
+
+```
+python -m docfactory.retrieval.index_rebuild
+```
+
 ### Look at the results
 
 | I want to... | Command or place |
@@ -95,12 +112,14 @@ The argument is the stored path under `DocStore/`, with forward slashes. The pat
 | Change history of a fact | `python -c "from docfactory import db; print(db.list_fact_history('ReadmeForge.FunctionalRequirements'))"` |
 | Check the bundle files are OKF v0.2 conformant | `python -m docfactory.okf_check` |
 | Rebuild every bundle file from the database | `python -m docfactory.bundle_rebuild` |
+| Rebuild the search index of the facts | `python -m docfactory.retrieval.index_rebuild` |
+| Read a stored document body | `python -c "from docfactory import documents; d = documents.get_document('ReadmeForge.Outputs.Overview'); print(d.version, d.completeness)"` |
 
 The database is `db/docfactory.sqlite` (gitignored). Any SQLite viewer works for reading it; never edit it by hand.
 
 ### The ReadmeForge sample (documents, no LLM)
 
-Hard-coded seed data that builds and renders the four document types. This is the deterministic path the Phase 4 agent will later feed.
+Hard-coded seed data that builds and renders the four document types. This is the deterministic path; the Phase 4 agent produces the same kind of document body from the stored facts.
 
 ```
 python -m seed.seed_readmeforge
@@ -114,10 +133,11 @@ Results: facts in the database, bundle files under `bundles/ReadmeForge/` and `b
 ### Tests
 
 ```
-python -m pytest -q                                               # everything offline (about 1580 tests, under a minute)
+python -m pytest -q                                               # everything offline (about 1680 tests, under a minute)
 python -m pytest -q tests/test_extraction_tools.py                # one file
 python -m pytest -q -m live tests/test_live_ingestion.py          # real LLM, opt-in
 python -m pytest -q -m live tests/test_live_extraction.py         # real LLM, opt-in (needs DOCFACTORY_NUM_CTX=65536)
+python -m pytest -q -m live tests/test_live_generation.py         # real LLM and embedding model, opt-in (needs DOCFACTORY_EMBED_HOST on Ollama Cloud)
 python .claude/scripts/check_structure.py                         # one-class-per-file and naming rules
 ```
 
@@ -139,7 +159,8 @@ Every test uses a temporary database, DocStore and bundle folder, so none touche
 | `docfactory/documentmodels/` | Documents, their sections and parts |
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
 | `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent) and the thin agent loops |
-| `.claude/agents/` | Agent prompts. `docfactory-ingestion-agent.md` and `docfactory-okf-extraction-agent.md` are the runtime prompts; edit them to tune behaviour |
+| `docfactory/retrieval/` | The search index over the facts' frontmatter: embedder and vector index (derived data, rebuildable) |
+| `.claude/agents/` | Agent prompts. `docfactory-ingestion-agent.md`, `docfactory-okf-extraction-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
 
 Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_BUNDLES`.
 
@@ -161,10 +182,13 @@ A model change changes what stored data means: update the tests and regenerate t
 | The agent deferred a file | It could not classify it confidently, and the file stays in `incoming/` with the reason in the summary. Fix the cause (for example a clearer file name) and run ingestion again, or decide the scope yourself |
 | A fact came back `REJECTED` | Read the errors: `path` is the field, `expected` what is valid, `question` what is missing. The extraction agent retries on its own; a persistent rejection means the document lacks the information |
 | A bundle file is missing or stale | `python -m docfactory.bundle_rebuild` |
+| `Ollama rejected the request (401)` from the index rebuild | Ollama Cloud has no embedding models. Set `DOCFACTORY_EMBED_HOST=http://localhost:11434` and a model you have pulled in `DOCFACTORY_EMBED_MODEL` |
+| `Ollama returned 0 embeddings` / `is it an embedding model?` | `DOCFACTORY_EMBED_MODEL` is not an embedding model, or is not pulled on that host (`ollama list`) |
+| The generator found no knowledge | Facts for that application must exist first (`list_facts`); run step 2 or the seeds |
 | `okf_check` needs PyYAML | `pip install pyyaml` |
 
 ## What comes next
 
-- **Phase 4: Generate.** Index the fact frontmatter for retrieval, let an agent assemble documents from the facts, then render them deterministically.
+- **Phase 4: Generate. Built.** Known gaps: no MissingInfo list for agent-generated bodies (the summary names the gaps), and only the Overview has been run live.
 - **Phase 5: Human in the loop.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`.
 - **Phase 6: Automate.** Watch `incoming/` and run the whole chain.

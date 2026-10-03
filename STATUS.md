@@ -17,10 +17,10 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
 | 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar (PDF text is flat: no headings or tables). Verified live on `tests/corpus/`. |
 | 3 Extract (OKF) | **Done** (closed 2026-10-03) | **3a (deterministic, no LLM):** `KnowledgeFacts` is OKF v0.2 compliant: OKF columns, `KnowledgeFactsHistory`, source index, one bundle file per fact under `bundles/` written by the entity savers (`save(..., meta=FactMeta)`), typed reads, `okf_check`, `bundle_rebuild`, ReadmeForge seeds regenerated (13 conformant files). **3b:** `extraction` tool package (pinned list, 13 typed `save_<entity>` tools, actor and source timestamps set by code), `AgentLoop` / `ExtractionAgent`, runtime prompt, `run_extraction`, key -> saver resolution, bodies in model field order; verified live on the corpus SRS and its revision. |
-| 4 Generate | Planned (outline only) | Frontmatter indexed in a vector store, RAG finds relevant knowledge, a generator agent calls document savers. Rendering stays deterministic. |
+| 4 Generate | **Built** (2026-10-03) | **4a (no LLM):** `FactIndex` vector index (SQLite + numpy) over the frontmatter behind `VectorIndex` / `Embedder` (Ollama `/api/embed`, `DOCFACTORY_EMBED_HOST` because Ollama Cloud has no embedding models), `RetrievalHit`, `DocumentRecord`, `get_document`, document saver resolution. **4b:** `generator` tool package (pinned list: search, read OKF file, reads, `get_document_schema`, `save_document`, 4 typed `save_<document>`), `GeneratorAgent`, runtime prompt, `run_generation`. Verified live: the ReadmeForge Overview came out at 100% with no value the facts do not state. |
 
-- Triggers are manual for now. A watcher and automatic triggering are decided at the end of Phase 4 (or a Phase 5).
-- Phases 1-3 are done. Phase 4 is not designed in detail and must not be implemented yet. `README.md` explains the process and lists the commands.
+- Triggers are manual until Phase 6 (watcher and automatic triggering).
+- Phases 1-4 are built. Phase 5 (human in the loop) and Phase 6 (automate) are outlines only and must not be implemented yet. `README.md` explains the process and lists the commands.
 
 ## Core principles
 
@@ -83,12 +83,12 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Phases 1-3 committed and pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`).
+- Phases 1-3 committed and pushed; Phase 4 (4a, 4b, live test) committed locally, not yet pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`).
 
 ## Next up
 
-- Phase 4 (Generate): design first (vector technology, embedding model, retrieval rules, generator package). Meanwhile, extraction can be tried: `python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"` (needs the file in DocStore and `DOCFACTORY_NUM_CTX=65536` in `.env`).
-- Before running the live test: put the key in `.env` (copy `.env.example`); no key is needed for a local Ollama.
+- Phase 4 leftovers: run SMTD, SRS and SOP live, a MissingInfo list for generated bodies, generating bundle links so recursive reading has something to follow, recording the generating actor on documents (Phase 5). Then Phase 5 design (approval workflow on LangGraph). Extraction can be tried: `python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"` (needs the file in DocStore and `DOCFACTORY_NUM_CTX=65536` in `.env`).
+- Before running the live tests: put the key in `.env` (copy `.env.example`); no key is needed for a local Ollama. For the generation live test also set `DOCFACTORY_EMBED_HOST` and `DOCFACTORY_EMBED_MODEL` (Ollama Cloud has no embedding models).
 
 ## Change log
 
@@ -97,3 +97,4 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 - 2026-10-03: Phase 3 designed; 3a built. OKF columns, `KnowledgeFactsHistory`, `KnowledgeFactSources`, `FactMeta` / `FactSource` / `FactVerification` / `FactRecord` / `FactStatus`, bundle writer and checker, typed reads, seeds regenerated with `SEED_META`. `docfactory-create-shared-model` is now invocable by the model.
 - 2026-10-03: Phase 3b built. Extraction package and agent, `AgentLoop` refactor, saver resolution, `read_docstore_text`, `DOCFACTORY_NUM_CTX`, live test; bundle bodies in model field order.
 - 2026-10-03: Phase 3 closed. Added `README.md` (process explainer and commands).
+- 2026-10-03: Phase 4 built. `retrieval/` (embedders, vector index, frontmatter and link helpers, `index_rebuild`), `FactIndex` table, `documents.py`, document saver resolution, generator package and agent, `run_generation`, live test; `OllamaModelClient._post` is now public `post_json`; new dependency numpy; new settings `DOCFACTORY_EMBED_MODEL`, `DOCFACTORY_EMBED_HOST`, `DOCFACTORY_EMBED_API_KEY`.

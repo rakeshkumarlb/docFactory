@@ -7,7 +7,7 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 - **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
 - **Phase 2 (DONE, closed 2026-10-03): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, a live LLM ingestion agent classifies them and moves them into `DocStore/`, and every file is tracked in the `DocStore` / `DocStoreHistory` tables (see "Phase 2: Ingest"). Verified live against a non-compliant test corpus (`tests/corpus/`).
 - **Phase 3 (DONE, closed 2026-10-03): Extract knowledge (OKF).** Built in two sub-phases: **3a** the deterministic OKF layer (columns, history table, bundle writer, checker, typed reads; no LLM), **3b** the extraction agent and its tool package. The extraction agent reads `DocStore` files and saves facts through the entity savers. `KnowledgeFacts` is OKF v0.2 compliant: each fact also exists as an OKF markdown file with YAML frontmatter under `bundles/`. Verified live against the corpus SRS and its revision (see "Phase 3: Extract knowledge (OKF)"). `README.md` explains the process and lists the commands.
-- **Phase 4 (planned in outline): Generate.** The frontmatter is indexed in a vector store, RAG finds the relevant knowledge files, a document-generator agent reads them in full and calls the document savers; rendering stays deterministic.
+- **Phase 4 (BUILT 2026-10-03, see "Phase 4: Generate"): Generate.** The frontmatter is indexed in a SQLite+numpy vector index, RAG finds the relevant knowledge files, a document-generator agent reads them in full and calls the document savers; rendering stays deterministic. Verified live on the ReadmeForge Overview.
 - **Phase 5 (planned in outline): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
 - **Phase 6 (planned in outline): Automate.** A watcher for `incoming/`, automatic triggering of the agents and the end-to-end workflow.
 - **Triggers are manual until Phase 6:** files are moved into `incoming/` and the user runs each agent by hand.
@@ -142,7 +142,7 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 ```
 
 - On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
-- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `list_facts_by_source` (returning `FactRecord`) are in `docfactory/facts.py` (Phase 3a); `get_document` is Phase 4.
+- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `list_facts_by_source` (returning `FactRecord`) are in `docfactory/facts.py` (Phase 3a); `get_document` / `list_documents` (returning `DocumentRecord`) are in `docfactory/documents.py` (Phase 4a).
 
 ## Documents
 
@@ -220,7 +220,7 @@ tests/                 pytest; tests/golden/ holds the golden .md files, tests/s
 db/docfactory.sqlite   The database (gitignored)
 output/<app>/          Rendered documents and MissingInfo files
 docfactory/ingest/     Phase 2: deterministic file operations behind the ingestion tools (paths, hashing, text extraction, target rules, list/read/search/compare/store/defer). Function modules, no LLM
-docfactory/tools/      Phase 2: Tool, ToolRegistry, ToolPackage (one class per file) and the ingestion package (ingestion_tools.py). Phase 3 adds the extraction package; Phase 4 the generator package
+docfactory/tools/      Phase 2: Tool, ToolRegistry, ToolPackage (one class per file) and the ingestion package (ingestion_tools.py). Phase 3 adds the extraction package; Phase 4 the generator package (generation_tools.py)
 docfactory/agents/     Phase 2: ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), IngestionAgent (thin loop), model_client_factory, run_ingestion (manual trigger). Phase 5: LangGraph graph, checkpointer and approval nodes
 docfactory/env_file.py Loads .env into the environment (shell variables win); used only by entry points and the live test
 incoming/              Phase 2: drop zone for new original files (gitignored runtime data)
@@ -238,11 +238,18 @@ docfactory/saver_resolution.py  Phase 3b: entity_saver_classes(), saver_for_key(
 docfactory/tools/extraction_tools.py  Phase 3b: the extraction package (read DocStore text, get_fact, list_facts, save_fact, save_<entity> per entity saver)
 docfactory/agents/    also Phase 3b: AgentLoop (the shared thin loop), ExtractionAgent, run_extraction, prompt_file
 .claude/agents/        also docfactory-okf-extraction-agent.md (Phase 3b runtime prompt, loaded by the loop)
+docfactory/retrieval/ Phase 4a: Embedder (abstract), OllamaEmbedder, FakeEmbedder, embedder_factory, VectorIndex (abstract), SqliteVectorIndex (FactIndex table, cosine in numpy), frontmatter_values, okf_links, index_rebuild (`python -m docfactory.retrieval.index_rebuild`)
+docfactory/documents.py  Phase 4a: get_document / list_documents (typed reads of DocumentOutputs)
+docfactory/models/    also Phase 4a: RetrievalHit, DocumentRecord
+docfactory/saver_resolution.py  also Phase 4: document_saver_classes(), document_saver_for_key(key)
+docfactory/tools/generation_tools.py  Phase 4b: the generator package
+docfactory/agents/    also Phase 4b: GeneratorAgent, run_generation
+.claude/agents/        also docfactory-document-generator-agent.md (Phase 4b runtime prompt, loaded by the loop)
 --- planned, do not create until the phase starts ---
-.claude/agents/        Phase 4 adds the document-generator agent
+docfactory/agents/    Phase 5 adds the LangGraph graph, checkpointer and approval nodes
 ```
 
-Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE` and `DOCFACTORY_BUNDLES` relocate `incoming/`, `DocStore/` and `bundles/` (tests use temporary folders; the `tmp_db` fixture sets `DOCFACTORY_BUNDLES` too, so no test writes into the repo). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `DOCFACTORY_NUM_CTX` (Ollama context window, default 16384; the extraction agent's 13 typed save tools need ~18k tokens of schema alone, so use e.g. 65536).
+Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE` and `DOCFACTORY_BUNDLES` relocate `incoming/`, `DocStore/` and `bundles/` (tests use temporary folders; the `tmp_db` fixture sets `DOCFACTORY_BUNDLES` too, so no test writes into the repo). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `DOCFACTORY_NUM_CTX` (Ollama context window, default 16384; the extraction agent's 13 typed save tools need ~18k tokens of schema alone, so use e.g. 65536). Embeddings (Phase 4): `DOCFACTORY_EMBED_MODEL` (default `nomic-embed-text`), `DOCFACTORY_EMBED_HOST` and `DOCFACTORY_EMBED_API_KEY`; Ollama Cloud serves no embedding models, so point the embedder at a local Ollama (e.g. `http://localhost:11434`, model `mxbai-embed-large`); the chat key is never sent to the embed host.
 
 ## Phases 2-6 (outline agreed; not designed in detail; do not implement)
 
@@ -270,7 +277,7 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - `KnowledgeFacts` remains the source of truth. Document savers write `DocumentOutputs`; every other saver writes `KnowledgeFacts`. There is **no separate `KnowledgeStore` table**: `KnowledgeFacts` is extended instead.
 - LLMs only classify, extract and construct calls; everything else is deterministic (Principle 5). Validation errors (`REJECTED`) stay the feedback loop.
 - Files in `DocStore/` and `bundles/` are written only by tools. Nothing is hand-edited.
-- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown in Phase 2 (the Ollama client uses only the standard library; `anthropic` is an optional extra), the vector store in Phase 4, LangGraph in Phase 5. `reportlab` and `python-docx` are dev-only (corpus generation and tests).
+- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown in Phase 2 (the Ollama client uses only the standard library; `anthropic` is an optional extra), numpy (the vector index) in Phase 4, LangGraph in Phase 5. `reportlab` and `python-docx` are dev-only (corpus generation and tests).
 
 ### Phase 2: Ingest
 - The ingestion agent runs with the **ingestion tool package** only (see "Tool layer"): it never touches the file system or database except through those tools.
@@ -318,9 +325,16 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - **Scope of 3b:** the `extraction` package (`save_fact`, generated `save_<entity>` tools, `get_fact`, `list_facts`, `list_docstore`, `read_docstore_text`; no file-moving tools, no document savers; a test pins the list and checks every key pattern resolves to exactly one saver), the runtime prompt `.claude/agents/docfactory-okf-extraction-agent.md`, a thin loop over `ModelClient`, manual `run_extraction <DocStore path>`, and an opt-in live test on `tests/corpus/` (SRS, then its revision) starting with `ApplicationOverview`, `FunctionalRequirements` and `NonFunctionalRequirements`, then the other entities.
 
 ### Phase 4: Generate
-- Only `YmlFrontmatter` is indexed in the vector store; it is rebuilt from the database and sits behind one interface. The vector technology and the embedding model are decided at Phase 4 design time.
+- Only `YmlFrontmatter` is indexed in the vector store; it is rebuilt from the database and sits behind one interface.
 - A **DocumentGeneratorAgent** receives a document request, runs the RAG query against the index to find the relevant knowledge records and where they are, then recursively reads the full OKF files they link to, and builds the document JSON for the document savers. Retrieval prefers `stable` over `draft` and flags `draft`, `deprecated` and stale content.
 - Document generation then continues as in Phase 1: validation in the document savers, `DocumentOutputs`, deterministic `render_markdown`. Answers to MissingInfo questions re-enter as documents or sources.
+
+**Phase 4 as built (2026-10-03):**
+- **Decisions:** the vector index is a SQLite table plus numpy behind the `VectorIndex` interface (no new heavy dependency; one row per fact); embeddings come from Ollama `/api/embed` behind the `Embedder` interface (`FakeEmbedder` in tests). The embedding model is `DOCFACTORY_EMBED_MODEL`; Ollama Cloud has no embedding models, so `DOCFACTORY_EMBED_HOST` points the embedder at a local server (verified with `mxbai-embed-large`).
+- **4a (deterministic, no LLM):** table `FactIndex` (FactKey, TextHash of the frontmatter, EmbedModel, Dim, float32 Vector blob), derived and rebuildable, never truth. `SqliteVectorIndex.rebuild()` embeds only facts whose frontmatter or embedding model changed and removes deleted facts. `query()` returns `RetrievalHit`s (key, score, title, type, status, stale, file_path, description), best first, limited to the application plus `Shared`; `stable` gets a +0.05 boost over `draft`, `deprecated` is excluded unless asked for, `stale` means now >= `StaleAfter`. `documents.get_document` / `list_documents` return `DocumentRecord`; `saver_resolution.document_saver_for_key` resolves a body key to exactly one document saver. `okf_links.bundle_links` extracts bundle-relative links; today's bundle files contain none, so recursive reading finds nothing to follow until links are generated.
+- **4b:** the `generator` package holds exactly `search_knowledge`, `read_okf_file`, `get_fact`, `list_facts`, `get_document`, `get_document_schema`, `save_document` and one `save_<document>` tool per document body saver (`save_overview_document`, `save_smtd_document`, `save_sop_document`, `save_srs_document`); a test pins the list. It has no entity savers, no file tools and no savers for `DocumentControl` / `RevisionHistory` (the caller supplies those). Document savers take no `meta`, so a generated body carries no actor; recording who generated a document is left to Phase 5. `GeneratorAgent(client, index).run(app_id, doc_type)` is a thin `AgentLoop` subclass with the runtime prompt `.claude/agents/docfactory-document-generator-agent.md`. Manual trigger `python -m docfactory.agents.run_generation <App> <Overview|SMTD|SRS|SOP>`: rebuilds the index, runs the agent, prints the saved version and completeness, and renders to `output/<App>/<Type>.md` only if the `.DocumentControl` and `.RevisionHistory` rows exist.
+- **Verified live** (`pytest -m live tests/test_live_generation.py`, `gemma4:31b` on Ollama Cloud, embeddings from a local Ollama `mxbai-embed-large`): the agent generated the ReadmeForge Overview at 100% completeness and every value in it appears in the deterministic `build_document` result.
+- **Not done in Phase 4:** a MissingInfo list for an agent-generated body (the agent's summary names the gaps; `build_document` still produces the list); retrieval does not hide draft or stale hits (it flags them and the prompt requires naming them); only the Overview has been exercised live, SMTD, SRS and SOP are covered by fake-model tests only.
 
 ### Phase 5: Human in the loop
 - The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).
