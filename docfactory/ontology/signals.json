@@ -1,0 +1,80 @@
+[
+  {
+    "entity": "ApplicationOverview",
+    "heading_terms": ["introduction", "purpose", "project scope", "product scope", "overview", "overall description", "product perspective", "product functions", "executive summary", "business objectives", "background", "intended audience", "user classes", "stakeholders"],
+    "id_patterns": [],
+    "keywords": ["purpose", "objective", "stakeholder", "target users", "business owner", "in scope", "out of scope", "beneficiaries"]
+  },
+  {
+    "entity": "Architecture",
+    "heading_terms": ["architecture", "system design", "technical design", "technology stack", "components", "data model", "software interfaces", "communication interfaces", "system interfaces", "integration"],
+    "id_patterns": [],
+    "keywords": ["microservice", "database", "api", "framework", "component", "data store", "message queue", "cloud", "integration"]
+  },
+  {
+    "entity": "Environments",
+    "heading_terms": ["environments", "operating environment", "hosting", "infrastructure"],
+    "id_patterns": [],
+    "keywords": ["production environment", "staging environment", "test environment", "development environment", "uat", "server", "operating system", "browser"]
+  },
+  {
+    "entity": "Deployment",
+    "heading_terms": ["deployment", "release management", "release process", "ci/cd", "build and release", "installation"],
+    "id_patterns": [],
+    "keywords": ["deploy", "release", "pipeline", "rollback", "ci/cd", "configuration management"]
+  },
+  {
+    "entity": "Monitoring",
+    "heading_terms": ["monitoring", "observability", "logging", "alerting"],
+    "id_patterns": [],
+    "keywords": ["alert", "dashboard", "metric", "log", "uptime", "health check"]
+  },
+  {
+    "entity": "BackupRecovery",
+    "heading_terms": ["backup", "disaster recovery", "business continuity", "recovery"],
+    "id_patterns": [],
+    "keywords": ["rpo", "rto", "restore", "retention", "replication", "failover", "backup"]
+  },
+  {
+    "entity": "KnownErrors",
+    "heading_terms": ["known errors", "known issues", "known limitations"],
+    "id_patterns": ["\\bKE(DB)?[-_ ]?\\d+"],
+    "keywords": ["workaround", "symptom", "root cause", "known error", "known issue"]
+  },
+  {
+    "entity": "Sop",
+    "heading_terms": ["standard operating procedures", "operating procedures", "runbook", "operations manual"],
+    "id_patterns": ["\\bSOP[-_ ]?\\d+"],
+    "keywords": ["procedure", "step", "runbook"]
+  },
+  {
+    "entity": "Support",
+    "heading_terms": ["support", "maintenance and support", "escalation", "incident management", "service desk", "training"],
+    "id_patterns": [],
+    "keywords": ["helpdesk", "help desk", "escalation", "on-call", "incident", "ticket", "support"]
+  },
+  {
+    "entity": "Slo",
+    "heading_terms": ["service level objectives", "service levels", "service level agreement"],
+    "id_patterns": ["\\bSLO[-_ ]?\\d+"],
+    "keywords": ["availability target", "latency", "error budget", "99.9", "service level"]
+  },
+  {
+    "entity": "Kpis",
+    "heading_terms": ["key performance indicators", "kpis", "success metrics", "performance indicators"],
+    "id_patterns": ["\\bKPI[-_ ]?\\d+"],
+    "keywords": ["kpi", "baseline", "target value", "measure of success"]
+  },
+  {
+    "entity": "FunctionalRequirements",
+    "heading_terms": ["functional requirements", "system features", "features", "use cases", "user stories"],
+    "id_patterns": ["\\bFR[-_ ]?\\d+", "\\bUC[-_ ]?\\d+", "\\bUS[-_ ]?\\d+"],
+    "keywords": ["shall", "the system shall", "use case", "user story"]
+  },
+  {
+    "entity": "NonFunctionalRequirements",
+    "heading_terms": ["non-functional requirements", "nonfunctional requirements", "quality attributes", "performance requirements", "security requirements", "safety requirements", "usability", "reliability", "scalability", "availability"],
+    "id_patterns": ["\\bNFR[-_ ]?\\d+", "\\bQR[-_ ]?\\d+"],
+    "keywords": ["response time", "throughput", "concurrent users", "encryption", "availability", "scalability", "usability", "performance"]
+  }
+]
