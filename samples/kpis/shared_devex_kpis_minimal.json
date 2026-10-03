@@ -1,0 +1,12 @@
+{
+  "kpis": [
+    {
+      "name": "Doc Change On-Time Delivery Rate",
+      "definition": "Percentage of documentation and internal-tooling change requests (docFactory templates, style-guide updates, model-schema docs) closed within their committed SLA due date, computed monthly from ticket open/close timestamps in the DevEx Jira project."
+    },
+    {
+      "name": "docFactory Adoption Rate",
+      "definition": "Percentage of engineering teams with at least one repository that generated a document (BRD, SRS, SMTD or SOP) through docFactory in the trailing 30 days, computed monthly from docFactory's own generation logs."
+    }
+  ]
+}

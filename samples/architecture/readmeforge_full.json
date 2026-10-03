@@ -1,0 +1,176 @@
+{
+  "architecture_style": "Event-driven microservices on Azure Container Apps: a React dashboard and a FastAPI REST API in front, with webhook-triggered scan and README-build workers decoupled through Azure Service Bus queues.",
+  "technology_stack": [
+    "React single-page application",
+    "Python 3.12",
+    "FastAPI",
+    "tree-sitter",
+    "Azure Container Apps",
+    "Azure Front Door with WAF",
+    "Azure Database for PostgreSQL Flexible Server",
+    "Azure Cache for Redis",
+    "Azure Service Bus (Standard)",
+    "Azure Blob Storage (RA-GRS)",
+    "Azure Key Vault",
+    "Azure Monitor, Application Insights and Log Analytics",
+    "Bicep",
+    "GitHub Actions"
+  ],
+  "components": [
+    {
+      "name": "web-app",
+      "purpose": "React single-page dashboard where maintainers link repositories, review and accept, edit or reject README diff proposals, and manage their plan.",
+      "technology": "React single-page application served from Azure Container Apps",
+      "owner": "Frontend team",
+      "dependencies": [
+        "api"
+      ]
+    },
+    {
+      "name": "api",
+      "purpose": "REST API for authentication, repository linking, README proposals and tier-limit checks. Single backend entry point for the dashboard.",
+      "technology": "Python 3.12 / FastAPI",
+      "owner": "Platform team",
+      "dependencies": [
+        "Azure Database for PostgreSQL",
+        "Azure Cache for Redis",
+        "Azure Service Bus",
+        "billing-service",
+        "GitHub OAuth",
+        "Azure Key Vault"
+      ]
+    },
+    {
+      "name": "webhook-receiver",
+      "purpose": "Receives GitHub App push webhooks, validates their signatures and enqueues scan jobs on the scan-jobs queue.",
+      "technology": "Python 3.12 / FastAPI",
+      "owner": "Platform team",
+      "dependencies": [
+        "Azure Service Bus",
+        "Azure Cache for Redis",
+        "Azure Key Vault",
+        "GitHub"
+      ]
+    },
+    {
+      "name": "repo-scanner-worker",
+      "purpose": "Takes read-only shallow clones of linked repositories, parses them with tree-sitter and extracts structured facts (entry points, dependencies, configuration, CI setup). Scales on Service Bus queue depth.",
+      "technology": "Python 3.12 / tree-sitter",
+      "owner": "Scanner team",
+      "dependencies": [
+        "Azure Service Bus",
+        "Azure Blob Storage",
+        "Azure Database for PostgreSQL",
+        "GitHub"
+      ]
+    },
+    {
+      "name": "readme-builder-worker",
+      "purpose": "Assembles the README context from extracted facts, calls the LLM to draft prose and produces the README diff proposal for maintainer review.",
+      "technology": "Python 3.12",
+      "owner": "Scanner team",
+      "dependencies": [
+        "Azure Service Bus",
+        "Azure Blob Storage",
+        "Azure Database for PostgreSQL",
+        "Anthropic API",
+        "Azure Key Vault"
+      ]
+    },
+    {
+      "name": "billing-service",
+      "purpose": "Enforces tier limits (Free 1 linked repository, Pro up to 10) and synchronises subscription state with Stripe.",
+      "technology": "Python 3.12 / FastAPI",
+      "owner": "Platform team",
+      "dependencies": [
+        "Azure Database for PostgreSQL",
+        "Stripe",
+        "Azure Key Vault"
+      ]
+    }
+  ],
+  "data_stores": [
+    {
+      "name": "ReadmeForge PostgreSQL database",
+      "store_type": "relational database",
+      "technology": "Azure Database for PostgreSQL Flexible Server, zone-redundant, primary write region Central India (Pune)",
+      "contents": "Accounts, linked repositories, scan result metadata, README proposals and subscription state."
+    },
+    {
+      "name": "Redis cache",
+      "store_type": "in-memory cache",
+      "technology": "Azure Cache for Redis",
+      "contents": "User sessions, rate-limiting counters and scan job de-duplication keys. Holds no data that cannot be rebuilt."
+    },
+    {
+      "name": "Service Bus messaging",
+      "store_type": "message queue and topic",
+      "technology": "Azure Service Bus (Standard)",
+      "contents": "The scan-jobs queue with its dead-letter queue, and the proposal-events topic."
+    },
+    {
+      "name": "Blob Storage",
+      "store_type": "object storage",
+      "technology": "Azure Blob Storage with RA-GRS replication",
+      "contents": "Temporary repository snapshots (automatically deleted after 24 hours) and generated README artifacts."
+    },
+    {
+      "name": "Key Vault",
+      "store_type": "secrets store",
+      "technology": "Azure Key Vault",
+      "contents": "GitHub App private key, Stripe keys and the LLM API key."
+    }
+  ],
+  "integrations": [
+    {
+      "name": "GitHub (GitHub App)",
+      "direction": "bidirectional",
+      "protocol": "Webhooks (inbound) and REST over HTTPS (outbound)",
+      "purpose": "Notifies ReadmeForge of repository pushes and lets it read repository contents for scanning.",
+      "data_exchanged": "Push event payloads inbound; read-only repository contents and metadata outbound.",
+      "authentication": "GitHub App installation tokens (private key held in Key Vault); webhook payloads verified by HMAC signature"
+    },
+    {
+      "name": "Anthropic API",
+      "direction": "outbound",
+      "protocol": "REST over HTTPS",
+      "purpose": "Drafts README prose from the structured facts extracted from a repository.",
+      "data_exchanged": "Extracted repository facts and prompt context outbound; drafted README text inbound.",
+      "authentication": "API key stored in Key Vault"
+    },
+    {
+      "name": "Stripe",
+      "direction": "bidirectional",
+      "protocol": "REST over HTTPS (outbound) and webhooks (inbound)",
+      "purpose": "Bills Pro subscriptions and keeps subscription state in sync.",
+      "data_exchanged": "Customer and subscription identifiers, plan and payment status; no card data is handled by ReadmeForge.",
+      "authentication": "Stripe secret API key in Key Vault outbound; Stripe webhook signing secret inbound"
+    },
+    {
+      "name": "Zendesk",
+      "direction": "outbound",
+      "protocol": "REST over HTTPS",
+      "purpose": "Creates and updates Pro customer support tickets.",
+      "data_exchanged": "Ticket subject, description, requester email and account plan.",
+      "authentication": "Zendesk API token"
+    },
+    {
+      "name": "PagerDuty",
+      "direction": "outbound",
+      "protocol": "Events API over HTTPS",
+      "purpose": "Pages the engineering on-call rotation when Azure Monitor alerts fire.",
+      "data_exchanged": "Alert name, severity, affected environment and a link to the alert.",
+      "authentication": "PagerDuty integration (routing) key"
+    },
+    {
+      "name": "GitHub OAuth",
+      "direction": "inbound",
+      "protocol": "OAuth 2.0 authorization code flow over HTTPS",
+      "purpose": "Lets users sign in to ReadmeForge with their GitHub identity.",
+      "data_exchanged": "Authorization code and access token exchange; GitHub user id, login and verified email.",
+      "authentication": "OAuth client id and secret; client secret held in Key Vault"
+    }
+  ],
+  "diagram_reference": "docs/architecture/readmeforge-azure.md",
+  "notes": "All components run in Azure Container Apps, one Container Apps environment per location, with Azure Front Door routing traffic to the nearest healthy location. All data stays in India. The database has a single primary write region (Central India, Pune) with South India (Chennai) as the paired disaster-recovery region."
+}

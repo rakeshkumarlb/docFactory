@@ -1,0 +1,46 @@
+{
+  "support_model": "Three-level support for Pro customers: L1 Zendesk support desk, L2 application support engineers on the Platform team during business hours, and L3 engineering on-call 24x7 via PagerDuty for P1 incidents. Free-tier users are supported by the community forum and email on a best-effort basis with no SLA.",
+  "contacts": [
+    {
+      "role": "L1 customer support (Pro)",
+      "team": "ReadmeForge Support Desk",
+      "contact_channel": "Zendesk help centre at https://support.readmeforge.example or support@readmeforge.example",
+      "support_hours": "Mon-Fri 09:00-18:00 IST; first response within 1 business day",
+      "escalates_to": "L2 application support"
+    },
+    {
+      "role": "L2 application support",
+      "team": "Platform team application support engineers",
+      "contact_channel": "Slack #readmeforge-support-l2 and Zendesk internal escalation queue",
+      "support_hours": "Mon-Fri 09:00-18:00 IST",
+      "escalates_to": "L3 engineering on-call"
+    },
+    {
+      "role": "L3 engineering on-call",
+      "team": "Engineering on-call rotation (Platform and Scanner teams)",
+      "contact_channel": "PagerDuty service 'ReadmeForge Production'; P1 incidents reported 24x7 by email to p1@readmeforge.example",
+      "support_hours": "24x7",
+      "escalates_to": "Engineering manager on duty"
+    },
+    {
+      "role": "Free-tier community support",
+      "team": "Community volunteers and ReadmeForge developer relations",
+      "contact_channel": "Community forum at https://community.readmeforge.example or community@readmeforge.example",
+      "support_hours": "Best effort, no SLA",
+      "escalates_to": "None; Free-tier users may upgrade to Pro for supported access"
+    }
+  ],
+  "escalation_path": "L1 Zendesk support desk, then L2 application support engineers, then L3 engineering on-call. P1 incidents reported 24x7 by email skip L1 and go directly to L3 via PagerDuty.",
+  "incident_process": "Incidents are logged as Zendesk tickets (or raised by PagerDuty from Azure Monitor alerts), classified P1-P4 within 30 minutes, and worked by the responsible level. P1 incidents open a Slack incident channel, get status updates to affected customers every hour, and are closed after a post-incident review is written within 5 business days.",
+  "runbooks": [
+    "docs/runbooks/handle-github-api-rate-limiting.md",
+    "docs/runbooks/handle-llm-api-throttling.md",
+    "docs/runbooks/recover-from-slow-or-backed-up-scan-queue.md",
+    "docs/runbooks/respond-to-api-outage-or-high-latency.md",
+    "docs/runbooks/drain-and-replay-scan-jobs-dead-letter-queue.md",
+    "docs/runbooks/fail-over-database-to-south-india.md",
+    "docs/runbooks/rotate-github-app-private-key.md",
+    "docs/runbooks/raise-customer-from-free-to-pro-repository-limit.md",
+    "docs/runbooks/add-a-new-production-location.md"
+  ]
+}

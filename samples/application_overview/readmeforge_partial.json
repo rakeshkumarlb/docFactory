@@ -1,0 +1,23 @@
+{
+  "application_name": "ReadmeForge",
+  "purpose": "Automatically generates and keeps README.md files up to date for other teams' software repositories by scanning source code for entry points, dependencies, config and CI setup, so engineering teams no longer let docs drift out of sync with the codebase.",
+  "business_overview": "Helps engineering teams stop letting README files go stale by generating them from the actual codebase instead of relying on someone remembering to update docs by hand.",
+  "business_owner": "Head of Developer Experience",
+  "target_users": [
+    "Engineering team leads",
+    "New hires onboarding onto a repo"
+  ],
+  "key_capabilities": [
+    "Connect a GitHub repository via a read-only integration",
+    "Generate a README.md from the scanned codebase",
+    "Propose a diff when the repo changes materially"
+  ],
+  "out_of_scope": [],
+  "business_criticality": "",
+  "lifecycle_status": "Private beta with a handful of design-partner teams",
+  "go_live_date": {
+    "reason": "ReadmeForge is being rolled out gradually to design-partner teams as a continuous beta; there is no single formal go-live date to record yet."
+  },
+  "technology_summary": "",
+  "related_systems": []
+}

@@ -1,0 +1,173 @@
+"""Naming rules and target resolution: class name -> folder, module, file, test file."""
+import ast
+import re
+
+import conventions as C
+
+
+def to_snake(name: str) -> str:
+    """`ApplicationOverview` -> `application_overview`, `HTTPServer` -> `http_server`."""
+    step = re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", name)
+    return step.lower()
+
+
+def is_pascal(name: str) -> bool:
+    return re.fullmatch(r"[A-Z][A-Za-z0-9]*", name) is not None
+
+
+def rel(path) -> str:
+    return path.relative_to(C.ROOT).as_posix()
+
+
+def package_parts(path) -> tuple:
+    """The path below the package folder, e.g. ('documentmodels', 'shared', 'document_control.py'); () if outside it."""
+    try:
+        return path.relative_to(C.ROOT / C.PACKAGE).parts
+    except ValueError:
+        return ()
+
+
+def top_folder(path):
+    """`models`, `entitymodels`, `documentmodels`, ... for a file in the package, else None."""
+    parts = package_parts(path)
+    return parts[0] if len(parts) > 1 else None
+
+
+def role_of(path):
+    """The role sub-folder (documents, shared, entitybound) of a file under documentmodels/ or documentsaver/, else None."""
+    parts = package_parts(path)
+    return parts[1] if len(parts) > 2 and parts[0] in C.ROLE_FOLDERS else None
+
+
+def entity_sub_of(path):
+    """The sub-folder (facts, items) of a file under entitymodels/, else None."""
+    parts = package_parts(path)
+    return parts[1] if len(parts) > 2 and parts[0] == "entitymodels" else None
+
+
+def package_files(folders=C.ALL_FOLDERS):
+    """Every module in the given top-level folders, including the role sub-folders."""
+    for folder in folders:
+        directory = C.ROOT / C.PACKAGE / folder
+        if directory.is_dir():
+            yield from sorted(p for p in directory.rglob("*.py") if p.name != "__init__.py" and "__pycache__" not in p.parts)
+
+
+def find_class(class_name: str, folders=C.ALL_FOLDERS) -> list:
+    """Every file under the package folders that defines a class with this name."""
+    found = []
+    for path in package_files(folders):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        if any(isinstance(n, ast.ClassDef) and n.name == class_name for n in ast.walk(tree)):
+            found.append(path)
+    return found
+
+
+def role_problems(kind: str, role) -> list:
+    """A document model needs a role (its sub-folder); no other kind has one."""
+    if kind == "document-model":
+        if role not in C.DOCUMENT_ROLES:
+            return [f"a document model needs a role, one of {list(C.DOCUMENT_ROLES)} (got {role!r})"]
+    elif role is not None:
+        return [f"role is only for document models (got {role!r} for {kind})"]
+    return []
+
+
+def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
+    """Where the files for a model class go: folder, module, file and test file, plus any errors.
+
+    `role` (documents, shared or entitybound) is required for a document model and selects its sub-folder.
+    An entity model goes to entitymodels/facts/ when it gets a saver (`fact=True`), else entitymodels/items/.
+    """
+    if kind not in C.KINDS:
+        return {"errors": [f"unknown kind {kind!r}; expected one of {sorted(C.KINDS)}"]}
+    errors = role_problems(kind, role)
+    if not is_pascal(class_name):
+        errors.append(f"{class_name!r} is not PascalCase (letters and digits, starts with a capital)")
+    stem = to_snake(class_name)
+    folder = C.KINDS[kind]["folder"] + (f"/{role}" if role in C.DOCUMENT_ROLES else "")
+    if kind == "entity-model":
+        folder += f"/{C.ENTITY_FACTS if fact else C.ENTITY_ITEMS}"
+    path = C.ROOT / C.PACKAGE / folder / f"{stem}.py"
+    if class_name.endswith("Saver"):
+        errors.append("a model class name must not end with 'Saver'")
+    if class_name in C.BOOTSTRAP_CLASSES:
+        errors.append(f"{class_name} is a bootstrap class: write it by hand (see the create-shared-model skill)")
+    others = [rel(p) for p in find_class(class_name) if p != path]
+    if others:
+        errors.append(f"class {class_name} is already defined in {others}")
+    return {
+        "kind": kind,
+        "class": class_name,
+        "folder": f"{C.PACKAGE}/{folder}",
+        "role": role,
+        "fact": fact if kind == "entity-model" else None,
+        "module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}",
+        "file": rel(path),
+        "test_file": f"tests/test_{stem}.py",
+        "exists": path.exists(),
+        "errors": errors,
+    }
+
+
+def saver_target(kind: str, model_class: str, model_module: str, role=None) -> dict:
+    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model or document-model).
+
+    A document saver mirrors its model's role sub-folder (documentsaver/<role>/).
+    """
+    stem = to_snake(model_class)
+    folder = C.SAVERS[kind]["folder"] + (f"/{role}" if kind == "document-model" and role else "")
+    path = C.ROOT / C.PACKAGE / folder / f"{stem}_saver.py"
+    return {
+        "kind": kind,
+        "model_class": model_class,
+        "model_module": model_module,
+        "saver_class": f"{model_class}Saver",
+        "saver_module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}_saver",
+        "folder": f"{C.PACKAGE}/{folder}",
+        "file": rel(path),
+        "test_file": f"tests/test_{stem}_saver.py",
+        "exists": path.exists(),
+    }
+
+
+SEGMENT = re.compile(r"[A-Za-z][A-Za-z0-9]*|\{(app|component|doctype)\}")
+
+
+def pattern_problems(kind: str, pattern: str) -> list:
+    """Rules for a key pattern. `kind` is the MODEL kind."""
+    segments = pattern.split(".")
+    problems = [f"pattern {pattern!r}: bad segment {s!r}" for s in segments if not SEGMENT.fullmatch(s)]
+    if len(segments) < 2:
+        problems.append(f"pattern {pattern!r}: needs at least <scope>.<name>")
+    elif kind == "entity-model" and segments[0] not in ("{app}", "Shared"):
+        problems.append(f"pattern {pattern!r}: entity keys start with {{app}} or Shared")
+    elif kind == "document-model" and (segments[0] != "{app}" or len(segments) < 3 or segments[1] != "Outputs"):
+        problems.append(f"pattern {pattern!r}: document keys look like {{app}}.Outputs.<...>")
+    return problems
+
+
+def sample_key(pattern: str) -> str:
+    """A concrete key for a pattern, used by generated tests: {app} -> TestApp, ..."""
+    return ".".join(C.SAMPLE_SEGMENTS.get(segment, segment) for segment in pattern.split("."))
+
+
+def pattern_regex(pattern: str) -> re.Pattern:
+    """Key pattern such as `{app}.Components.{component}.Architecture` -> compiled regex."""
+    parts = []
+    for segment in pattern.split("."):
+        parts.append(r"[^.]+" if re.fullmatch(r"\{[a-z]+\}", segment) else re.escape(segment))
+    return re.compile(r"\.".join(parts))
+
+
+def key_matches(pattern: str, key: str) -> bool:
+    return pattern_regex(pattern).fullmatch(key) is not None
+
+
+def app_id_of(key: str):
+    """`Shared.*` has no application; every other key's AppID is its first segment."""
+    first = key.split(".")[0]
+    return None if first == "Shared" else first

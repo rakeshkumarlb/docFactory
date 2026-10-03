@@ -1,0 +1,24 @@
+{
+  "kpis": [
+    {
+      "name": "Doc Change On-Time Delivery Rate",
+      "definition": "Percentage of documentation and internal-tooling change requests (docFactory templates, style-guide updates, model-schema docs) closed within their committed SLA due date, computed monthly from ticket open/close timestamps in the DevEx Jira project.",
+      "unit": "%",
+      "target": ">= 90%",
+      "current_value": "84%"
+    },
+    {
+      "name": "docFactory Adoption Rate",
+      "definition": "Percentage of engineering teams with at least one repository that generated a document (BRD, SRS, SMTD or SOP) through docFactory in the trailing 30 days, computed monthly from docFactory's own generation logs.",
+      "unit": "%"
+    },
+    {
+      "name": "Internal CI/CD Platform Uptime",
+      "definition": "Percentage of scheduled availability of the internal CI/CD platform (build, test and deploy pipelines) over a calendar month, excluding announced maintenance windows, computed from the platform's own health-check monitoring.",
+      "unit": "%",
+      "target": ">= 99.5%",
+      "owner": "CI/CD Platform Reliability Lead"
+    }
+  ],
+  "notes": "Tracked informally by the DevEx team; a formal quarterly review process is still being set up."
+}

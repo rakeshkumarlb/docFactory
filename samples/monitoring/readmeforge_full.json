@@ -1,0 +1,148 @@
+{
+  "monitoring_tools": [
+    "Azure Monitor (metric alerts, log alerts, action groups)",
+    "Application Insights (availability tests, custom metrics, smart detection)",
+    "Log Analytics",
+    "Azure Managed Grafana",
+    "PagerDuty"
+  ],
+  "key_metrics": [
+    "API availability (per location)",
+    "API p95 latency",
+    "API 5xx rate",
+    "API request throughput (requests/s vs baseline)",
+    "GitHub API rate-limit headroom (remaining % of hourly budget)",
+    "LLM API 429/throttling rate",
+    "LLM call failure rate",
+    "Webhook processing lag (receipt to enqueue)",
+    "Scan-jobs queue depth",
+    "Scan-jobs oldest-message age",
+    "Scan-jobs dead-letter count",
+    "Scan throughput (repos scanned per minute)",
+    "Scan duration p95",
+    "README proposal success rate",
+    "Free-tier repo-limit rejections (billing-service)",
+    "PostgreSQL CPU",
+    "PostgreSQL connections"
+  ],
+  "alerts": [
+    {
+      "name": "App Insights - Availability test failing in a production location",
+      "condition": "Application Insights availability test (standard ping test on https://<env>.readmeforge.example/healthz, every 5 minutes from 5 Azure test locations) fails from 2 or more test locations for 2 consecutive runs, for any of prod-central-india, prod-south-india, prod-west-india or prod-jio-west.",
+      "severity": "Critical",
+      "response_action": "Follow 'SOP: Respond to API outage or high latency': check Azure Front Door origin health and the api Container App revisions in the affected location and confirm traffic is routed to healthy locations. If the whole Central India location is lost, follow 'SOP: Fail over database to South India'.",
+      "notification_channel": "PagerDuty on-call rotation (L3) and Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert - API 5xx rate high",
+      "condition": "Container Apps metric alert on the api app: 5xx responses above 2% of requests, evaluated every minute over a 5-minute window, per production location.",
+      "severity": "Critical",
+      "response_action": "Follow 'SOP: Respond to API outage or high latency': inspect AppTraces in law-readmeforge-prod for the failing endpoint, check PostgreSQL and Redis health, and re-activate the previous revision if errors began after a release.",
+      "notification_channel": "PagerDuty on-call rotation (L3) and Slack #readmeforge-alerts"
+    },
+    {
+      "name": "App Insights - API p95 latency high",
+      "condition": "Application Insights metric alert on requests/duration for the api app: p95 above 800 ms for 10 minutes.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Respond to API outage or high latency': check PostgreSQL CPU and connections, look for slow dependencies in the Application map, and scale out api replicas if CPU is saturated.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert (dynamic threshold) - API request throughput anomaly",
+      "condition": "Dynamic-threshold metric alert on api requests per second: traffic drops below 50% or spikes above 300% of the learned same-hour baseline for 15 minutes (medium sensitivity).",
+      "severity": "Warning",
+      "response_action": "A drop usually means an ingress or Front Door problem: run 'SOP: Respond to API outage or high latency'. A spike is usually a webhook storm or abusive client: check WAF logs and rate-limit counters in Redis, and see 'SOP: Recover from slow or backed-up scan queue' if the scan queue is growing.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "App Insights - GitHub API rate limit remaining low",
+      "condition": "Application Insights custom metric github.ratelimit.remaining_pct (reported by repo-scanner-worker from the X-RateLimit-Remaining header) below 15% of the hourly budget for 5 minutes.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Handle GitHub API rate limiting': pause low-priority rescans, reduce repo-scanner-worker concurrency, and confirm the GitHub App installation token budget resets at the top of the hour.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "App Insights - LLM API 429/throttling rate high",
+      "condition": "Application Insights dependency alert on outbound Anthropic API calls from readme-builder-worker: HTTP 429 responses above 10% of calls over 10 minutes, or any call failing with a timeout or 5xx more than 5% of the time.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Handle LLM API throttling': reduce readme-builder-worker concurrency, verify the LLM API key and quota in Key Vault and the provider console, and confirm proposals are only delayed, not lost.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert - Scan-jobs queue depth high",
+      "condition": "Service Bus metric alert on the scan-jobs queue: ActiveMessages above 500 for 15 minutes.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Recover from slow or backed-up scan queue': raise the maximum replica count of repo-scanner-worker and check for oversized repositories or a GitHub rate-limit pause.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor log alert (KQL) - Scan-jobs oldest message age high",
+      "condition": "KQL log alert over the custom metric scanjobs.oldest_message_age_seconds in AppMetrics (law-readmeforge-prod), evaluated every 5 minutes: maximum above 600 seconds (10 minutes) in the last 10 minutes.",
+      "severity": "Critical",
+      "response_action": "Follow 'SOP: Recover from slow or backed-up scan queue'. If messages are stuck or repeatedly failing, run 'SOP: Drain and replay scan-jobs dead-letter queue' after fixing the cause.",
+      "notification_channel": "PagerDuty on-call rotation (L3) and Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert - Scan-jobs dead-letter queue not empty",
+      "condition": "Service Bus metric alert on the scan-jobs queue: DeadletteredMessages greater than 0 for 5 minutes.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Drain and replay scan-jobs dead-letter queue': inspect the dead-letter reason, fix the cause, then replay the messages.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor log alert (KQL) - Scan throughput dropping",
+      "condition": "KQL log alert over AppTraces (law-readmeforge-prod): repos scanned per minute below 50% of the trailing 7-day same-hour baseline for 15 minutes while scan-jobs ActiveMessages is above 50.",
+      "severity": "Warning",
+      "response_action": "Follow 'SOP: Recover from slow or backed-up scan queue': check repo-scanner-worker replicas and restarts, node memory pressure and whether 'SOP: Handle GitHub API rate limiting' applies.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "App Insights - Webhook processing lag high",
+      "condition": "Application Insights custom metric webhook.receipt_to_enqueue_seconds for webhook-receiver: p95 above 30 seconds for 10 minutes.",
+      "severity": "Warning",
+      "response_action": "Check webhook-receiver replicas and the Service Bus namespace health; if the scan queue is also growing follow 'SOP: Recover from slow or backed-up scan queue'. GitHub redelivers failed webhooks, so watch for duplicate scans (KE-001).",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor log alert (KQL) - Free-tier repo-limit rejections spike",
+      "condition": "KQL log alert over ContainerAppConsoleLogs_CL for billing-service: more than 100 TIER_LIMIT_EXCEEDED rejections for Free-tier accounts in 15 minutes.",
+      "severity": "Info",
+      "response_action": "Check whether a repo-linking loop or client bug is generating retries; if the volume looks like genuine demand, tell the product team and support desk. If a customer has upgraded, follow the SOP for raising the repo limit after a Pro upgrade.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert - PostgreSQL CPU high",
+      "condition": "PostgreSQL Flexible Server metric alert: cpu_percent above 85% (average) for 15 minutes.",
+      "severity": "Critical",
+      "response_action": "Identify heavy queries via Query Performance Insight, scale up the Flexible Server compute tier if needed, and follow 'SOP: Respond to API outage or high latency' if the API is degraded. Follow 'SOP: Fail over database to South India' only for a regional failure.",
+      "notification_channel": "PagerDuty on-call rotation (L3) and Slack #readmeforge-alerts"
+    },
+    {
+      "name": "Azure Monitor metric alert - PostgreSQL connections high",
+      "condition": "PostgreSQL Flexible Server metric alert: active_connections above 80% of max_connections (average) for 10 minutes.",
+      "severity": "Warning",
+      "response_action": "Check for connection leaks in api and billing-service replicas, restart the offending Container App revision, and review connection pool sizes.",
+      "notification_channel": "Slack #readmeforge-alerts"
+    },
+    {
+      "name": "App Insights - README proposal success rate low",
+      "condition": "Application Insights custom metric readme.proposal.success_rate below 95% over 30 minutes.",
+      "severity": "Critical",
+      "response_action": "Check readme-builder-worker logs and the LLM failure rate; if the cause is throttling follow 'SOP: Handle LLM API throttling', otherwise roll back the latest readme-builder-worker revision.",
+      "notification_channel": "PagerDuty on-call rotation (L3) and Slack #readmeforge-alerts"
+    }
+  ],
+  "dashboards": [
+    "Grafana - ReadmeForge API overview (availability per location, latency, 5xx, requests/s vs baseline)",
+    "Grafana - Scan pipeline (queue depth, oldest message age, dead-letter count, repos scanned per minute, scan duration p95)",
+    "Grafana - External dependencies (GitHub API rate-limit headroom, LLM 429 rate and failure rate)",
+    "Grafana - README proposals (success rate, proposal latency)",
+    "Grafana - Billing and tier limits (Free-tier repo-limit rejections, Stripe webhook health)",
+    "Grafana - PostgreSQL and Redis health (CPU, connections, failover state)",
+    "Application Insights - Application map and availability test results"
+  ],
+  "log_locations": [
+    "Log Analytics workspace law-readmeforge-prod, table ContainerAppConsoleLogs_CL (container stdout/stderr of all six components, retention 90 days)",
+    "Log Analytics workspace law-readmeforge-prod, table AppTraces (application traces from Application Insights, retention 90 days)"
+  ]
+}
