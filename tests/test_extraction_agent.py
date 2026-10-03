@@ -13,7 +13,7 @@ from docfactory.models.message_role import MessageRole
 from docfactory.models.model_response import ModelResponse
 from docfactory.models.tool_call import ToolCall
 
-SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "functional_requirements"
+SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json" / "functional_requirements"
 SRS = "ReadmeForge/srs.txt"
 KEY = "ReadmeForge.FunctionalRequirements"
 

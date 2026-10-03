@@ -9,7 +9,7 @@ from docfactory.ingest import ingest_operations as ops
 from docfactory.ingest.paths import DOCSTORE_ENV
 from docfactory.tools.extraction_tools import extraction_package, extraction_tool_names
 
-SAMPLES = Path(__file__).resolve().parents[1] / "samples"
+SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json"
 ACTOR = "okf-extraction-agent/test-model"
 SRS = "ReadmeForge/srs.txt"
 STAMP = "2026-10-01T09:00:00+00:00"

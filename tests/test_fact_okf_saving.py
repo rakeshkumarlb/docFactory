@@ -13,7 +13,7 @@ from docfactory.models.save_action import SaveAction
 
 yaml = pytest.importorskip("yaml")
 
-SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "application_overview"
+SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json" / "application_overview"
 KEY = "ReadmeForge.ApplicationOverview"
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

@@ -187,7 +187,7 @@ Before any model or saver is written, we create a specialized agent, `.claude/ag
 - `Shared.*` key stores NULL AppID; an app key with a mismatching AppID is rejected; a key matching none of the saver's key patterns is rejected.
 - Defaults do not count as answered (even when passed explicitly); a legal `NotApplicable(reason)` does; `N/A` on a field without `na_allowed`, or with an empty reason, is rejected; completeness = answered / total.
 - Item-level scoring: an empty list is one unanswered field; a list of two items (one complete, one half-filled) scores over both items' fields; an absent nested model is one unanswered field, a present one is scored by its own fields; `NotApplicable` on a list is one answered field.
-- Every JSON file under `samples/` validates against the model of its folder, and every sample folder has a model (`tests/test_samples.py`).
+- Every JSON file under `samples/json/` validates against the model of its folder, and every sample folder has a model (`tests/test_samples.py`).
 - Build + render of the sample document (body + `.DocumentControl` + `.RevisionHistory`) matches the golden file; rendering twice gives identical bytes; a missing fact yields `MISSING` and a MissingInfo question; rendering with a missing `.DocumentControl` row fails with a clear error rather than a blank section.
 
 ## Repo layout
@@ -214,7 +214,7 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
   canonical.py         canonical JSON + SHA-256
   completeness.py      completeness scoring
   build.py render.py   build_document, render_markdown, MissingInfo
-samples/<entity>/      Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo)
+samples/json/<entity>/ Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo)
 seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase 1): overview, SMTD, requirements, SRS and SOP
 tests/                 pytest; tests/golden/ holds the golden .md files, tests/scripts/ tests the .claude/scripts
 db/docfactory.sqlite   The database (gitignored)
@@ -227,7 +227,7 @@ incoming/              Phase 2: drop zone for new original files (gitignored run
 DocStore/<scope>/...   Phase 2: classified originals (+ markitdown text sidecars; gitignored runtime data); scope = application name, shared, general
 tests/corpus/          Phase 2: build_corpus.py, incoming/ (messy PDF/Word/HTML/text originals), revisions/ (a changed SRS), corpus_expectations.json
 .env / .env.example    Local LLM settings (.env is gitignored)
-bundles/<scope>/...    Phase 3a: OKF v0.2 knowledge files, one per fact key (views of KnowledgeFacts, written only by the saver; tracked in git)
+bundles/<scope>/...    Phase 3a: OKF v0.2 knowledge files, one per fact key (views of KnowledgeFacts, written only by the saver; gitignored working folder like `output/`; a kept copy of earlier runs is in `samples/bundles/` and `samples/output/`)
 docs/okf/SPEC.md       Phase 3a: verbatim copy of the OKF v0.2 spec
 README.md              The process end to end and every command to run (keep it in step with the entry points)
 docfactory/clock.py    now_iso() (tests replace it)

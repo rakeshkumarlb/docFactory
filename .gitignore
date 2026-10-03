@@ -4,3 +4,5 @@ db/
 incoming/
 DocStore/
 .env
+/bundles/
+/output/

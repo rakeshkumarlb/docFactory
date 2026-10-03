@@ -1,4 +1,4 @@
-# docFactory: Current Status
+﻿# docFactory: Current Status
 
 Last updated: 2026-10-03
 
@@ -72,7 +72,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 - `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`, `docfactory-ingestion-agent` (runtime prompt of the Phase 2 agent).
 - `.claude/skills/`: entry skills (`docfactory-create-shared-model`, `docfactory-create-entity-model`, `docfactory-create-document-model`, `docfactory-add-field`, `docfactory-review-models`) and reference skills (`docfactory-field-spec`, `docfactory-quality-gate`).
 - `.claude/scripts/`: deterministic scaffolding and gate scripts, tested in `tests/scripts/`.
-- Other directories: `samples/`, `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `output/<app>/`.
+- Other directories: `samples/`, `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `output/<app>/` (gitignored).
 
 ## Working rules
 
@@ -83,7 +83,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Current repo state
 
 - Branch: `PydanticApproach` (main branch: `main`).
-- Phases 1-3 committed and pushed. Untracked: `bundles/AI-Driven-Job-Matching-Platform/` (output of a real extraction run, deliberately not committed; decide whether to commit or ignore it).
+- Phases 1-3 committed and pushed. `bundles/` and `output/` are now gitignored working folders; the earlier contents were moved to `samples/bundles/` and `samples/output/` (including `AI-Driven-Job-Matching-Platform/`, untracked).
 
 ## Next up
 

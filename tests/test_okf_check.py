@@ -52,7 +52,7 @@ def test_every_saved_fact_file_is_conformant(tmp_db):
     import json
     from pathlib import Path
     from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-    samples = Path(__file__).resolve().parents[1] / "samples"
+    samples = Path(__file__).resolve().parents[1] / "samples" / "json"
     meta = FactMeta(generated_by="seed", description="One sentence.", tags=["t"])
     ApplicationOverviewSaver().save("ReadmeForge.ApplicationOverview",
                                     json.loads((samples / "application_overview" / "readmeforge_full.json").read_text(encoding="utf-8")), meta=meta)
@@ -64,7 +64,7 @@ def test_every_saved_fact_file_is_conformant(tmp_db):
 def test_rebuild_restores_deleted_files_and_skips_facts_without_frontmatter(tmp_db):
     import json
     from pathlib import Path
-    sample = json.loads((Path(__file__).resolve().parents[1] / "samples" / "kpis" / "shared_devex_kpis_minimal.json").read_text(encoding="utf-8"))
+    sample = json.loads((Path(__file__).resolve().parents[1] / "samples" / "json" / "kpis" / "shared_devex_kpis_minimal.json").read_text(encoding="utf-8"))
     KpisSaver().save("Shared.Kpis", sample, meta=FactMeta(generated_by="seed"))
     db.write_row("KnowledgeFacts", "Old.Fact", "{}", "h", "Old", 0.0, 1)
     (bundle.bundles_root() / "Shared" / "Kpis.md").unlink()

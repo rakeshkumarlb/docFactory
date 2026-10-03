@@ -130,9 +130,9 @@ Every test uses a temporary database, DocStore and bundle folder, so none touche
 | `incoming/` | Drop zone for new originals (gitignored) |
 | `DocStore/<scope>/` | Classified originals plus text sidecars (gitignored) |
 | `db/docfactory.sqlite` | The database (gitignored) |
-| `bundles/<scope>/` | One OKF markdown file per fact. Views, written by the savers only |
-| `output/<app>/` | Rendered documents. Views |
-| `samples/<entity>/` | Example JSON payloads, one folder per entity |
+| `bundles/<scope>/` | One OKF markdown file per fact. Views, written by the savers only; gitignored |
+| `output/<app>/` | Rendered documents. Views; gitignored |
+| `samples/json/<entity>/` | Example JSON payloads, one folder per entity |
 | `docs/okf/SPEC.md` | The OKF v0.2 specification (verbatim copy) |
 | `docfactory/models/` | Machinery models (base model, `SaveResult`, `FactMeta`, ...) |
 | `docfactory/entitymodels/` | What is known about an application: `facts/` (have a saver) and `items/` (nested types) |

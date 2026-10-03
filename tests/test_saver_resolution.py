@@ -9,7 +9,7 @@ from docfactory.base_saver import BaseSaver
 from docfactory.saver_resolution import entity_saver_classes, ordered_value, saver_for_key
 
 ENTITYSAVER = Path(saver_resolution.__file__).parent / "entitysaver"
-SAMPLES = Path(__file__).resolve().parents[1] / "samples"
+SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json"
 
 
 def test_every_entity_saver_module_is_found():

@@ -57,7 +57,7 @@ REVISION_HISTORY = {
 
 def _seed(saver, key: str, sample_dir: str, names: tuple[str, ...]) -> None:
     for name in names:
-        payload = json.loads((ROOT / "samples" / sample_dir / name).read_text(encoding="utf-8"))
+        payload = json.loads((ROOT / "samples" / "json" / sample_dir / name).read_text(encoding="utf-8"))
         result = saver.save(key, payload, meta=SEED_META)
         print(f"{name}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors

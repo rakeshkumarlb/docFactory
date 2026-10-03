@@ -18,7 +18,7 @@ from seed.seed_meta import SEED_META
 ROOT = Path(__file__).resolve().parents[1]
 APP = "ReadmeForge"
 
-# (saver, fact key, sample folder under samples/, sample file)
+# (saver, fact key, sample folder under samples/json/, sample file)
 FACTS = (
     (FunctionalRequirementsSaver, f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_minimal.json"),
     (FunctionalRequirementsSaver, f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_full.json"),
@@ -28,7 +28,7 @@ FACTS = (
 
 def main() -> None:
     for saver, key, folder, name in FACTS:
-        payload = json.loads((ROOT / "samples" / folder / name).read_text(encoding="utf-8"))
+        payload = json.loads((ROOT / "samples" / "json" / folder / name).read_text(encoding="utf-8"))
         result = saver().save(key, payload, meta=SEED_META)
         print(f"{name}: {key} {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors

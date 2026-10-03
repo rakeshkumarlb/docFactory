@@ -1,4 +1,4 @@
-"""Every JSON file under samples/ must validate against the model of its folder, and the seed scripts must run."""
+"""Every JSON file under samples/json/ must validate against the model of its folder, and the seed scripts must run."""
 import json
 from pathlib import Path
 
@@ -19,7 +19,7 @@ from docfactory.entitymodels.facts.slo import Slo
 from docfactory.entitymodels.facts.sop import Sop
 from docfactory.entitymodels.facts.support import Support
 
-SAMPLES = Path(__file__).resolve().parents[1] / "samples"
+SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json"
 
 MODEL_BY_FOLDER = {
     "application_overview": ApplicationOverview,
