@@ -5,7 +5,12 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 ## Status
 
 - **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
-- **Phase 2 (next, not designed yet): RAG + LLM.** Retrieval over the original documents, an LLM constructs the same tool calls, validation errors become feedback that tells it what to look for next. Provenance, evidence quotes, history and the approval gate are added then (see "Phase 2 roadmap").
+- **Phase 2 (next, planned in outline, not designed in detail): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, an ingestion agent classifies them and moves them into `DocStore/`, and every file is tracked in the `DocStore` / `DocStoreHistory` tables (see "Phases 2-4").
+- **Phase 3 (planned in outline): Extract knowledge (OKF).** An extraction agent reads `DocStore` files and saves facts through the entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant: each fact also exists as an OKF markdown file with YAML frontmatter under `bundles/`.
+- **Phase 4 (planned in outline): Generate.** The frontmatter is indexed in a vector store, RAG finds the relevant knowledge files, a document-generator agent reads them in full and calls the document savers; rendering stays deterministic.
+- **Phase 5 (planned in outline): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
+- **Phase 6 (planned in outline): Automate.** A watcher for `incoming/`, automatic triggering of the agents and the end-to-end workflow.
+- **Triggers are manual until Phase 6:** files are moved into `incoming/` and the user runs each agent by hand.
 
 Nothing described here exists until it appears in the repo. If something is unclear, ask the user before coding.
 
@@ -17,26 +22,36 @@ Nothing described here exists until it appears in the repo. If something is uncl
    - The file is named after its class in snake_case (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`). A module never defines two classes.
    - A class does one thing: a model describes and validates data, a saver stores it, the renderer renders it, the database module talks to SQLite. None of them does another's job.
    - A test enforces the file and naming rule (see "Tests").
-2. **The facts in `KnowledgeFacts` are the source of truth.** Generated documents are views of them, never the other way round.
+2. **The facts in `KnowledgeFacts` are the source of truth.** Generated documents are views of them, never the other way round. OKF files under `bundles/` and `.md` files under `output/` are views too (written for visibility), never edited by hand.
 3. **Only valid data is stored.** Every write goes through a Pydantic model. Invalid input is rejected with a structured error and nothing is written.
 4. **Models are the contract.** Every model and field has a description written for an LLM: what it means, what a good value looks like, what to ask when it is missing. The same model is the validator, the LLM's tool schema and the documentation.
-5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, SQL, completeness, composition, rendering. An LLM (Phase 2) only does judgment work: find the information and construct the call.
+5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, SQL, completeness, composition, rendering. An LLM (Phases 2-4) only does judgment work: classify an incoming file, find the information and construct the call. Moving files, hashing, DB rows, frontmatter and file writing, indexing and rendering stay deterministic.
 6. **Never invent values.** A default is a placeholder, not knowledge. Completeness counts only what was actually answered. Do not fill fields to raise a score.
 7. **Errors are feedback.** A rejected call returns errors precise enough for a caller (test or LLM) to fix the payload or go and find the missing information.
 8. **Only tools write to the database.** No hand-edited rows, no hand-edited generated documents.
+9. **The tool layer is plain in-process Python function tools over the savers.** The tools an agent calls are ordinary Python functions that wrap the entity savers, the document savers and the read functions, collected in an in-process registry. No MCP server, no framework-specific tool classes. The tool schema is derived from the Pydantic models (Principle 4). Agent loops and any orchestration framework (LangGraph in Phase 5) only call these functions; they never contain business logic, so the tool layer is testable without an LLM and survives a change of runtime.
+10. **Least privilege for agents.** Every agent is given only the tools it needs to do its task, nothing more. Tools are grouped in **tool packages**, one package per agent (ingestion, extraction, generator), and an agent can reach only the tools of its own package. Even the ingestion agent's file operations are defined as tools in its package; no agent gets a shell, a general file system or database access. A tool needed by two agents is listed in both packages explicitly. A test enforces each package's exact tool list, so a tool cannot be added to an agent unnoticed.
 
 ## Data flow
 
 ```
-seed data (Phase 1)  ----\
-                          >-- XSaver.save() --validate--> KnowledgeFacts (JSON, hash, completeness, version)
-LLM over RAG (Phase 2) --/                                              |
-                                                                        v
-              document models (composed Pydantic) --build--> document objects --> DocumentOutputs
+seed data (Phase 1)  ----------------\
+                                      >-- XSaver.save() --validate--> KnowledgeFacts (JSON, hash, completeness, version,
+OKF extraction agent (Phase 3) ------/                                  YmlFrontmatter, trust, lifecycle) --> bundles/*.md
+        ^                                                                               |
+        | reads text                                                                    v
+incoming/ --ingestion agent (Phase 2)--> DocStore/ (+ DocStore, DocStoreHistory)   vector index of YmlFrontmatter (Phase 4)
+                                                                                        |
+                                              DocumentGeneratorAgent <-- RAG + recursive read of linked OKF files
                                                                         |
+                                              document savers --validate--> DocumentOutputs
+                                                                        |
+              document models (composed Pydantic) --build--> document objects (Phase 1: build_document from facts)
                                                                         v
                                                        render (deterministic) --> output/<app>/<doc>.md
 ```
+
+In Phase 4 the generator agent supplies the document JSON through the document savers; `build_document` / `render_markdown` remain the deterministic Phase 1 path and are not replaced.
 
 ## Models
 
@@ -86,9 +101,9 @@ Two tables with the same shape, plus completeness and version columns.
 
 Rules enforced by code, not by convention:
 - `AppID` is NULL exactly when the key scope is `Shared`; otherwise it equals the key's first segment, case-sensitive.
-- The key must match one of the saver's own key patterns; the saver's model validates the value. (A registry that picks the saver from the key is Phase 2.)
+- The key must match one of the saver's own key patterns; the saver's model validates the value. (The key pattern -> saver resolution in the registry is added in Phase 3; the registry itself is built in Phase 2, see "Tool layer".)
 - **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row, its `Version` and its `Completeness` are untouched. A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
-- `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (Phase 2).
+- `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (provenance arrives in Phase 3 through OKF `sources` and trust fields).
 - **Multi-component applications:** each component has its own keys, `<App>.Components.<Component>.<Entity>`, e.g. `ReadmeForge.Components.api.Architecture`, `ReadmeForge.Components.worker.Environments`. `AppID` is still the application (`ReadmeForge`). The application-level keys (`ReadmeForge.Architecture`, `ReadmeForge.Environments`, ...) hold the high-level view of the whole application. Component keys reuse the same models as application keys. The component name is free text and is not validated.
 - Key examples: `ReadmeForge.ApplicationOverview`, `ReadmeForge.Architecture`, `Shared.Kpis`; documents: `ReadmeForge.Outputs.SMTD`, `ReadmeForge.Outputs.SMTD.DocumentControl`, `ReadmeForge.Outputs.SMTD.RevisionHistory`.
 
@@ -108,7 +123,7 @@ A field is **answered** when its value differs from its default, or it holds a l
 
 ## Savers
 
-Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); there is no registry and no generic dispatcher (both Phase 2).
+Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); there is no registry (Phase 2) and no generic dispatcher (Phase 3), see "Tool layer".
 
 - **`BaseSaver`** (`docfactory/base_saver.py`, generic over the model) owns all shared behaviour, so concrete savers contain no logic of their own:
   1. check the key against the saver's own `key_patterns`; derive `AppID` (NULL for `Shared`)
@@ -127,7 +142,7 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 ```
 
 - On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
-- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `get_document` wrappers are Phase 2.
+- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `get_document` wrappers are Phase 3.
 
 ## Documents
 
@@ -204,24 +219,92 @@ seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase
 tests/                 pytest; tests/golden/ holds the golden .md files, tests/scripts/ tests the .claude/scripts
 db/docfactory.sqlite   The database (gitignored)
 output/<app>/          Rendered documents and MissingInfo files
+--- planned, do not create until the phase starts ---
+docfactory/tools/      Phase 2: registry, tool and tool-package types, ingestion package; Phase 3 adds the extraction package (save/read tools); Phase 4 adds the generator package (document and retrieval tools)
+docfactory/agents/     Phase 2-4: thin agent loops (model call, tool call, repeat); Phase 5: LangGraph graph, checkpointer and approval nodes
+incoming/              Phase 2: drop zone for new original files
+DocStore/<scope>/...   Phase 2: classified originals (+ markitdown text sidecars); scope = application name, shared standards, general
+bundles/<scope>/...    Phase 3: OKF v0.2 knowledge files (views of KnowledgeFacts)
+docs/okf/SPEC.md       Phase 3: verbatim copy of the OKF v0.2 spec
+.claude/agents/        Phase 2-4: ingestion, OKF knowledge-extraction and document-generator agents
 ```
 
 Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one).
 
-## Phase 2 roadmap (not designed; do not implement)
+## Phases 2-6 (outline agreed; not designed in detail; do not implement)
 
-- A **registry** that maps key patterns to models and savers (built by discovering the `BaseSaver` subclasses in `entitysaver/` and `documentsaver/`), generic `save_fact(key, payload)` / `save_document(key, payload)` dispatchers and typed read wrappers (`get_fact`, `list_facts`, `get_document`) on top of it, and per-entity `save_<entity>` wrappers as LLM tool definitions.
-- Ingest original documents, chunk and index them for retrieval (RAG).
-- An LLM agent reads the model schemas, retrieves relevant chunks and calls the same `save_*` tools; `REJECTED` results and low completeness drive follow-up retrieval or a question to a human.
-- Add provenance and evidence quotes (every fact traceable to a source passage), history of replaced values, and conflict handling when new information contradicts a stored value.
-- Add the human approval gate: agents propose, humans approve, tools apply.
-- Answers to MissingInfo questions re-enter as documents.
+Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG over frontmatter + recursive read of linked OKF files) > Generate documents (document savers, then deterministic rendering).** Phases 5 and 6 wrap this pipeline in a human approval gate and then automate it. Each phase is built, tested and closed before the next starts. All agents are run manually until Phase 6.
+
+### Tool layer (decision, Principle 9)
+- **Function tools:** every capability an agent may use is a plain Python function with typed arguments and a typed return (a `SaveResult` for writes). Write tools wrap one saver each (`save_<entity>`, `save_<document>`); read tools wrap `db` reads; ingestion tools wrap file moves. No MCP.
+- **Registry and tool packages (Principle 10):** an in-process registry holds every function tool by name, each with a name, a description written for an LLM, and a schema derived from its argument and return models. A **tool package** is a named, fixed list of registry tools for one agent. An agent is constructed with exactly one package and the loop can only call tools in it; a call to any other tool is refused. The registry and the package are each one class in their own file (Principle 1) and contain no business logic.
+- **Registry types are built as the need arises:** each phase adds only the tool types and packages its agent needs, not a general catalogue up front. Tool types so far: file tools (ingestion), saver tools (extraction, later document generation), read tools, retrieval tools.
+- **Where and when it is added:**
+  - **Phase 2 (the registry is built here):** the registry, the tool and tool-package types, and the **ingestion package**. Every operation the ingestion agent needs is a separate tool in that package, one operation per tool:
+    - `list_incoming`: list the files in `incoming/`.
+    - `read_incoming_text`: read an incoming file's text (markitdown conversion for non-text).
+    - `search_docstore`: find existing files by scope, folder or file name, by querying the `DocStore` table (path, version, timestamp). Read-only.
+    - `compare_with_docstore`: given an incoming file and a target path, report `NEW` (no row), `SAME` (same SHA-256, would be a no-op) or `CHANGED` (different hash, would replace and bump the version), with the stored version and hash. Read-only, writes nothing.
+    - `store_file`: move or replace the file in `DocStore/` (creates folders, regenerates the text sidecar, writes `DocStore` / `DocStoreHistory`).
+    - `defer_file`: leave the file in `incoming/` with a stated reason.
+  The agent has no other file or database access. Search and compare are read-only and separate from `store_file`, so the agent checks before it writes. Tests: the package holds exactly this tool list, the agent cannot call a tool outside it, `compare_with_docstore` returns `NEW` / `SAME` / `CHANGED` correctly and writes nothing, schemas come from the models.
+  - **Phase 3:** add the saver tool type and the **extraction package**: the generic `save_fact` dispatcher with key pattern -> saver resolution (all 13+ entity savers), per-entity `save_<entity>` tools and the typed read tools (`get_fact`, `list_facts`, read a `DocStore` text). The extraction package contains no document savers and no file-moving tools. Tests: every entity saver is registered, every key pattern resolves to exactly one saver.
+  - **Phase 4:** add the **generator package**: the document savers (`save_document`, `get_document`) and the retrieval tools (RAG query, read OKF file), plus the read tools it needs. It contains no entity savers.
+  - **Phase 5:** LangGraph nodes call the registry tools unchanged and respect the same packages.
+- Agent loops (Phases 2-4) are thin: call the model, run the requested tool, return its result to the model, stop on `ok` or a retry cap. They are tested with a fake model.
+
+### Decisions already made
+- `KnowledgeFacts` remains the source of truth. Document savers write `DocumentOutputs`; every other saver writes `KnowledgeFacts`. There is **no separate `KnowledgeStore` table**: `KnowledgeFacts` is extended instead.
+- LLMs only classify, extract and construct calls; everything else is deterministic (Principle 5). Validation errors (`REJECTED`) stay the feedback loop.
+- Files in `DocStore/` and `bundles/` are written only by tools. Nothing is hand-edited.
+- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown and the LLM SDK in Phase 2, the vector store in Phase 4, LangGraph in Phase 5.
+
+### Phase 2: Ingest
+- The ingestion agent runs with the **ingestion tool package** only (see "Tool layer"): it never touches the file system or database except through those tools.
+- An **ingestion agent** looks at `incoming/`, identifies the high-level entity of each file (an application name, a common standard, general documentation, ...) and moves it to the matching folder under `DocStore/`. It creates missing folders. The moving, folder creation and replacement are deterministic code; only the classification is LLM judgment.
+- **Identity = target folder + file name.** Before storing, the agent searches `DocStore` and compares the incoming file with any existing one (separate read-only tools, see "Tool layer"). A file with the same identity replaces the existing one in place. If the agent cannot classify a file confidently it leaves it in `incoming/` with a stated reason and a human decides.
+- Non-text files (PDF, Word, HTML, ...) are converted to text with **markitdown**; the text sidecar sits next to the original and is regenerated whenever the original changes. The original is the audited file.
+- **`DocStore`** table: `FullPath` (PK), `Hashcode` (SHA-256 of the file), `Version` (starts at 1, +1 on each replacement with a different hash), `Timestamp`. Same bytes again = no-op.
+- **`DocStoreHistory`** table: same columns as `DocStore`; a row is added every time an existing file is changed. It records what changed and when, not the old content (the file is replaced in place).
+
+### Phase 3: Extract knowledge (OKF)
+- An **OKFKnowledgeExtraction agent** reads new or changed `DocStore` text and calls the existing entity savers. It never writes the database or `bundles/` directly.
+- **`KnowledgeFacts` is made OKF v0.2 compliant** (spec: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md; a verbatim copy goes to `docs/okf/SPEC.md` when Phase 3 starts). New columns, all derived by the base saver, none hand-written:
+
+| Column | Meaning |
+|---|---|
+| `FilePath` | Path of the OKF file under `bundles/<scope>/...` (derived from `FactKey`) |
+| `YmlFrontmatter` | The OKF frontmatter as YAML text. `FactKey` is the id and `Value` stays the JSON document, so the table holds both the full JSON and the frontmatter |
+| `GeneratedBy`, `GeneratedAt` | Trust: OKF `generated {by, at}` |
+| `Verified` | Trust: OKF `verified [{by, at}]`, stored as a JSON list; empty = unverified |
+| `Status` | Lifecycle: `draft` \| `stable` \| `deprecated` (this is the doc status) |
+| `StaleAfter` | Lifecycle & freshness: ISO 8601 instant; stale when now >= `StaleAfter` |
+
+- **One OKF file per fact key.** The saver writes the file after a successful write; frontmatter and body are rendered deterministically from the validated JSON (same JSON in, same file out). The LLM supplies the fields that need judgment (`title`, `description`, `tags`, `sources`) as part of the save call.
+- **OKF v0.2 compliance (MUST):** every non-reserved `.md` has parseable YAML frontmatter with a non-empty `type`. Also used: `title`, `description`, `resource`, `tags`; `sources[]` (`resource` required, `id`, `title`, `last_modified`) pointing at the `DocStore` files the fact came from; `generated`, `verified` with the actor convention `<producer>/<version>` (agents), `human:<id>`, `process:<id>`; `status`; `stale_after`; bundle-relative links starting with `/`; optional `index.md` (may carry `okf_version: "0.2"`) and `log.md`.
+- **Trust rule:** LLM output is always `Status = draft` with `generated.by` = agent and model. Only a human action adds `verified` with a `human:<id>` actor and promotes to `stable` (to be confirmed when Phase 3 is designed).
+- To design in Phase 3: the extraction tool package and the key pattern -> saver resolution in the existing registry (see "Tool layer"), generic `save_fact` / `save_document` dispatchers, typed read wrappers (`get_fact`, `list_facts`, `get_document`), per-entity `save_<entity>` function tools, the re-extraction rule when a `DocStore` file changes (use `sources` to find the affected facts), history of replaced values, and conflict handling when new information contradicts a stored value.
+
+### Phase 4: Generate
+- Only `YmlFrontmatter` is indexed in the vector store; it is rebuilt from the database and sits behind one interface. The vector technology and the embedding model are decided at Phase 4 design time.
+- A **DocumentGeneratorAgent** receives a document request, runs the RAG query against the index to find the relevant knowledge records and where they are, then recursively reads the full OKF files they link to, and builds the document JSON for the document savers. Retrieval prefers `stable` over `draft` and flags `draft`, `deprecated` and stale content.
+- Document generation then continues as in Phase 1: validation in the document savers, `DocumentOutputs`, deterministic `render_markdown`. Answers to MissingInfo questions re-enter as documents or sources.
+
+### Phase 5: Human in the loop
+- The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).
+- Graph nodes call the registry tools. Proposals (a classification, a fact payload, a generated document) are held in the checkpoint, not written to the database. Only after approval does the node call the saver. Rejection returns feedback to the agent.
+- The human approval is what adds `verified` with a `human:<id>` actor and promotes `draft` to `stable` (see the Phase 3 trust rule).
+- To design in Phase 5: which steps need approval (classification, facts, documents), the checkpoint store (SQLite, kept apart from `docfactory.sqlite`), the approval interface (CLI first), and the timeout and escalation rule for pending approvals.
+
+### Phase 6: Automate
+- A watcher for `incoming/`, automatic triggering of the agents, and the end-to-end workflow: ingest, extract, approve, generate, render. Triggers become automatic; the approval gate from Phase 5 stays.
+- To design in Phase 6: the watcher, the trigger rules (new or changed file, stale fact, changed fact -> regenerate the affected documents), failure and retry handling, and monitoring of runs.
 
 ## Working rules
 
 - Read this file first. When something is unclear, ask the user.
 - One class per file, in the right folder (Principle 1). Create models and savers through the `pydantic-developer-agent`.
-- Write to the database only through the tools. Never edit generated documents by hand; change the models or documents and regenerate.
+- Write to the database only through the tools. Never edit generated documents, `DocStore/` files or `bundles/` files by hand; change the models or documents and regenerate.
 - Changing a model changes stored data's meaning: say so and update the tests and golden files in the same change.
 - Descriptions on models and fields are part of the product: write them for an LLM reader (meaning, example of a good value, what to ask if missing).
 - Dates are ISO `YYYY-MM-DD`. Paths in documents are relative with forward slashes.
