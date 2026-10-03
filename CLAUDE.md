@@ -261,13 +261,13 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - `KnowledgeFacts` remains the source of truth. Document savers write `DocumentOutputs`; every other saver writes `KnowledgeFacts`. There is **no separate `KnowledgeStore` table**: `KnowledgeFacts` is extended instead.
 - LLMs only classify, extract and construct calls; everything else is deterministic (Principle 5). Validation errors (`REJECTED`) stay the feedback loop.
 - Files in `DocStore/` and `bundles/` are written only by tools. Nothing is hand-edited.
-- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown in Phase 2 (the Ollama client uses only the standard library; `anthropic` is an optional extra), the vector store in Phase 4, LangGraph in Phase 5. `reportlab` and `python-docx` are dev-only (corpus generation).
+- Runtime dependencies beyond pydantic are added only in the phase that needs them: markitdown in Phase 2 (the Ollama client uses only the standard library; `anthropic` is an optional extra), the vector store in Phase 4, LangGraph in Phase 5. `reportlab` and `python-docx` are dev-only (corpus generation and tests).
 
 ### Phase 2: Ingest
 - The ingestion agent runs with the **ingestion tool package** only (see "Tool layer"): it never touches the file system or database except through those tools.
 - An **ingestion agent** looks at `incoming/`, identifies the high-level entity of each file (an application name, a common standard, general documentation, ...) and moves it to the matching folder under `DocStore/`. It creates missing folders. The moving, folder creation and replacement are deterministic code; only the classification is LLM judgment.
 - **Identity = target folder + file name.** Before storing, the agent searches `DocStore` and compares the incoming file with any existing one (separate read-only tools, see "Tool layer"). A file with the same identity replaces the existing one in place. If the agent cannot classify a file confidently it leaves it in `incoming/` with a stated reason and a human decides.
-- Non-text files (PDF, Word, HTML, ...) are converted to text with **markitdown**; the text sidecar sits next to the original and is regenerated whenever the original changes. The original is the audited file.
+- Non-text files (PDF, Word, HTML, ...) are converted to text with **markitdown** (kept deliberately to limit dependencies). Known limit: PDF text comes out flat, without headings, tables or bullets; Word and HTML keep theirs. The text sidecar sits next to the original and is regenerated whenever the original changes; `python -m docfactory.ingest.sidecar_rebuild` regenerates all sidecars from the stored originals. The original is the audited file.
 - **`DocStore`** table: `FullPath` (PK), `Hashcode` (SHA-256 of the file), `Version` (starts at 1, +1 on each replacement with a different hash), `Timestamp`. Same bytes again = no-op.
 - **`DocStoreHistory`** table: same columns as `DocStore`; a row is added every time an existing file is changed. It records what changed and when, not the old content (the file is replaced in place).
 

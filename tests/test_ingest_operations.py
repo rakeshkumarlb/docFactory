@@ -156,3 +156,21 @@ def test_target_rules_reject_sloppy_targets_with_feedback(dirs):
             ops.compare_with_docstore(SRS, target)
     assert (incoming / SRS).is_file() and not store.exists() and db.list_docstore_rows() == []
     assert "stay exactly" in ops.store_file(SRS, "ReadmeForge/renamed.pdf").error
+
+
+def test_rebuild_sidecars_regenerates_from_originals(dirs):
+    from docfactory.ingest.sidecar_rebuild import rebuild_sidecars
+
+    incoming, store = dirs
+    _drop(incoming, SRS)
+    _drop(incoming, "notes.txt")
+    ops.store_file(SRS, "ReadmeForge/" + SRS)
+    ops.store_file("notes.txt", "general/notes.txt")
+    sidecar = store / "ReadmeForge" / (SRS + ".md")
+    sidecar.write_text("stale old conversion", encoding="utf-8")
+    before = db.get_docstore_row("ReadmeForge/" + SRS)
+    assert rebuild_sidecars() == {"ReadmeForge/" + SRS: "rebuilt"}  # text files have no sidecar and are skipped
+    assert "Requirements" in sidecar.read_text(encoding="utf-8")
+    assert db.get_docstore_row("ReadmeForge/" + SRS) == before  # rows untouched
+    (store / "ReadmeForge" / SRS).unlink()
+    assert rebuild_sidecars() == {"ReadmeForge/" + SRS: "skipped: original is missing from DocStore"}

@@ -15,7 +15,7 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 | Phase | State | Summary |
 |---|---|---|
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
-| 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar. Verified live on `tests/corpus/`. |
+| 2 Ingest | **Done** (closed 2026-10-03) | Files arrive in `incoming/`, a live LLM agent (Ollama, default `gemma4:31b` on Ollama Cloud) classifies them into `DocStore/`. `DocStore` / `DocStoreHistory` track them (NEW / SAME / CHANGED, versions). Non-text files get a markitdown text sidecar (PDF text is flat: no headings or tables). Verified live on `tests/corpus/`. |
 | 3 Extract (OKF) | Planned (outline only) | Agent reads `DocStore` text and calls entity savers. `KnowledgeFacts` becomes OKF v0.2 compliant, with YAML-frontmatter files under `bundles/`. |
 | 4 Generate | Planned (outline only) | Frontmatter indexed in a vector store, RAG finds relevant knowledge, a generator agent calls document savers. Rendering stays deterministic. |
 
