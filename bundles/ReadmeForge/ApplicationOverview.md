@@ -14,9 +14,9 @@ completeness: 100
 
 ReadmeForge
 
-## Business criticality
+## Purpose
 
-Tier 2 - paying Pro customers rely on it for documentation updates, but an outage delays README updates only and does not stop any customer's production system.
+Lets a developer connect a GitHub repository and have its README.md generated and kept up to date automatically: ReadmeForge scans every change pushed to the repository, rebuilds the README context (entry points, dependencies, configuration, CI setup) and proposes an updated README, so documentation no longer drifts out of sync with the code.
 
 ## Business overview
 
@@ -26,9 +26,12 @@ ReadmeForge is a subscription SaaS product with two plans. The Free plan links 1
 
 Head of Developer Experience
 
-## Go live date
+## Target users
 
-2025-04-14
+- Individual developers and open-source maintainers on the Free plan
+- Engineering team leads and small teams on the Pro plan
+- New contributors onboarding onto a connected repository
+- ReadmeForge support engineers
 
 ## Key capabilities
 
@@ -40,10 +43,6 @@ Head of Developer Experience
 - Enforce plan limits: 1 linked repository on Free, up to 10 on Pro
 - Provide customer support for Pro subscribers through a support desk
 
-## Lifecycle status
-
-In production (generally available), hosted in four Azure locations in India
-
 ## Out of scope
 
 - Hosting or generating any documentation other than the top-level README (for example API reference docs or wikis)
@@ -51,9 +50,21 @@ In production (generally available), hosted in four Azure locations in India
 - Writing code comments or docstrings inside source files
 - Committing or opening pull requests without explicit maintainer approval
 
-## Purpose
+## Business criticality
 
-Lets a developer connect a GitHub repository and have its README.md generated and kept up to date automatically: ReadmeForge scans every change pushed to the repository, rebuilds the README context (entry points, dependencies, configuration, CI setup) and proposes an updated README, so documentation no longer drifts out of sync with the code.
+Tier 2 - paying Pro customers rely on it for documentation updates, but an outage delays README updates only and does not stop any customer's production system.
+
+## Lifecycle status
+
+In production (generally available), hosted in four Azure locations in India
+
+## Go live date
+
+2025-04-14
+
+## Technology summary
+
+Python FastAPI backend and React dashboard running as Azure Container Apps in four Azure locations in India (Central, South, West and Jio India West), backed by Azure Database for PostgreSQL, Azure Service Bus, Redis and Blob Storage, with an LLM used to draft README prose.
 
 ## Related systems
 
@@ -63,14 +74,3 @@ Lets a developer connect a GitHub repository and have its README.md generated an
 - Zendesk (Pro customer support desk)
 - PagerDuty (on-call paging)
 - Azure Front Door (global entry point)
-
-## Target users
-
-- Individual developers and open-source maintainers on the Free plan
-- Engineering team leads and small teams on the Pro plan
-- New contributors onboarding onto a connected repository
-- ReadmeForge support engineers
-
-## Technology summary
-
-Python FastAPI backend and React dashboard running as Azure Container Apps in four Azure locations in India (Central, South, West and Jio India West), backed by Azure Database for PostgreSQL, Azure Service Bus, Redis and Blob Storage, with an LLM used to draft README prose.

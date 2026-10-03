@@ -15,7 +15,7 @@ FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") 
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
 FUNCTION_MODULES = {"ingestion_tools", "ingest_operations", "paths", "file_hash", "text_extraction", "target_rules",
-                    "run_ingestion", "model_client_factory", "sidecar_rebuild"}
+                    "run_ingestion", "model_client_factory", "sidecar_rebuild", "extraction_tools", "prompt_file", "run_extraction"}
 
 
 def _snake(name: str) -> str:
@@ -45,8 +45,8 @@ def test_every_phase2_module_is_accounted_for():
     assert FUNCTION_MODULES <= stems, f"stale entries: {FUNCTION_MODULES - stems}"
 
 
-def test_only_ingestion_tools_register_tools():
-    """Least privilege: the ingestion package is the only tool package so far and has exactly the agreed tools."""
+def test_the_ingestion_package_has_exactly_the_agreed_tools():
+    """Least privilege: the ingestion package has exactly the agreed tools (the extraction package is pinned in test_extraction_tools.py)."""
     from docfactory.tools.ingestion_tools import ingestion_package
 
     assert ingestion_package().tool_names() == ["list_incoming", "read_incoming_text", "search_docstore",

@@ -130,6 +130,10 @@ class BaseSaver(Generic[M]):
     model: type[M]
     key_patterns: tuple[str, ...] = ()
 
+    def accepts_key(self, key) -> bool:
+        """True when `key` matches one of this saver's key patterns."""
+        return isinstance(key, str) and any(_pattern_matches(pattern, key) for pattern in self.key_patterns)
+
     def _table(self) -> str:
         return "DocumentOutputs" if "documentsaver" in type(self).__module__ else "KnowledgeFacts"
 
@@ -206,10 +210,11 @@ class BaseSaver(Generic[M]):
         table = self._table()
         existing = db.get_row(table, key)
         is_fact = table == FACTS_TABLE
+        body_json = instance.model_dump_json()  # model field order, for the readable bundle body (the stored Value is sorted)
         kind = type_name(self.model.__name__)
         if existing is not None and existing["Hashcode"] == hashcode:
             if is_fact and meta is not None:
-                fact_writer.refresh_metadata(key, kind, existing, meta)
+                fact_writer.refresh_metadata(key, kind, existing, meta, body_json)
             return SaveResult(
                 ok=True,
                 key=key,
@@ -221,7 +226,7 @@ class BaseSaver(Generic[M]):
         action, version = (SaveAction.CREATED, 1) if existing is None else (SaveAction.UPDATED, existing["Version"] + 1)
         score = completeness(instance)
         if is_fact:
-            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta)
+            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta, body_json)
         else:
             db.write_row(table, key, value, hashcode, derived_app_id, score, version)
         return SaveResult(ok=True, key=key, action=action, version=version, hashcode=hashcode, completeness=score)

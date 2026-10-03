@@ -2,7 +2,7 @@
 
     python -m docfactory.bundle_rebuild
 
-Each file is the stored YmlFrontmatter plus the body rendered from the stored Value. Facts saved before Phase 3 have no frontmatter yet
+Each file is the stored YmlFrontmatter plus the body rendered from the stored Value (in model field order, found through the key's saver). Facts saved before Phase 3 have no frontmatter yet
 and are skipped: save them again with metadata (the seed scripts do).
 """
 import json
@@ -11,6 +11,7 @@ import sys
 from docfactory import db
 from docfactory.bundle import file_text, write_file
 from docfactory.okf_body import render_body
+from docfactory.saver_resolution import ordered_value
 
 
 def rebuild() -> tuple[int, int, list[str]]:
@@ -22,7 +23,7 @@ def rebuild() -> tuple[int, int, list[str]]:
             skipped.append(row["FactKey"])
             continue
         title = _title(row["YmlFrontmatter"]) or row["FactKey"]
-        if write_file(row["FilePath"], file_text(row["YmlFrontmatter"], render_body(title, row["Value"]))):
+        if write_file(row["FilePath"], file_text(row["YmlFrontmatter"], render_body(title, ordered_value(row["FactKey"], row["Value"])))):
             written += 1
         else:
             current += 1

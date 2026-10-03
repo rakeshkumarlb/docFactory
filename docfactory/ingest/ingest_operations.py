@@ -46,6 +46,23 @@ def read_incoming_text(path: str) -> str:
     return file_text(source)
 
 
+def read_docstore_text(path: str) -> str:
+    """The text of a stored original: its sidecar for converted files, the file itself for text files. Only files tracked in DocStore.
+
+    Raises ValueError for a bad path, FileNotFoundError when the file is not in DocStore or its text is missing.
+    """
+    relative = _normal(path)
+    original = resolve_within(docstore_dir(), relative)
+    if db.get_docstore_row(relative) is None or not original.is_file():
+        raise FileNotFoundError(f"no such file in DocStore: {path}; use list_docstore to see what is stored")
+    if is_text_file(original):
+        return file_text(original)
+    sidecar = sidecar_path(original)
+    if not sidecar.is_file():
+        raise FileNotFoundError(f"the text of {path} is missing; run python -m docfactory.ingest.sidecar_rebuild")
+    return sidecar.read_text(encoding="utf-8", errors="replace")
+
+
 def search_docstore(folder: str | None = None, name_contains: str | None = None) -> list[dict]:
     """DocStore rows (FullPath, Hashcode, Version, Timestamp) filtered by folder and/or file-name text. Read-only."""
     return db.list_docstore_rows(folder=_normal(folder) if folder else None, name_contains=name_contains)

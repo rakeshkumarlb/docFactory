@@ -1,4 +1,4 @@
-"""Deterministic markdown body of an OKF concept file, rendered from a fact's canonical JSON: same JSON in, same text out."""
+"""Deterministic markdown body of an OKF concept file, rendered from a fact's JSON, fields in the order of the JSON: same JSON in, same text out."""
 import json
 
 

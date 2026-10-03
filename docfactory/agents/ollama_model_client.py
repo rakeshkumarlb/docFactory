@@ -14,6 +14,8 @@ from docfactory.models.tool_spec import ToolSpec
 MODEL_ENV = "DOCFACTORY_MODEL"
 HOST_ENV = "OLLAMA_HOST"
 API_KEY_ENV = "OLLAMA_API_KEY"
+NUM_CTX_ENV = "DOCFACTORY_NUM_CTX"
+DEFAULT_NUM_CTX = 16384
 CLOUD_HOST = "https://ollama.com"
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_HOST = "http://localhost:11434"
@@ -27,14 +29,14 @@ class OllamaModelClient(ModelClient):
     Uses only the standard library. Connection errors are retried up to `max_retries` times with a growing pause.
     """
 
-    def __init__(self, model: str | None = None, host: str | None = None, api_key: str | None = None, num_ctx: int = 16384, max_retries: int = 5,
+    def __init__(self, model: str | None = None, host: str | None = None, api_key: str | None = None, num_ctx: int | None = None, max_retries: int = 5,
                  timeout: float = 600.0, sleep=time.sleep) -> None:
         self.model = model or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
         self.host = (host or os.environ.get(HOST_ENV) or DEFAULT_HOST).rstrip("/")
         self.api_key = api_key or os.environ.get(API_KEY_ENV)
         if not self.host.startswith("http"):  # OLLAMA_HOST is often given as host:port; never send a key over plain http
             self.host = ("https://" if self.api_key else "http://") + self.host
-        self.num_ctx = num_ctx
+        self.num_ctx = num_ctx or int(os.environ.get(NUM_CTX_ENV) or DEFAULT_NUM_CTX)  # the extraction agent's 14 tool schemas alone need ~18k tokens
         self.max_retries = max_retries
         self.timeout = timeout
         self._sleep = sleep

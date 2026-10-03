@@ -113,3 +113,13 @@ def test_default_client_is_ollama_and_provider_is_switchable(server, monkeypatch
     monkeypatch.setenv("DOCFACTORY_PROVIDER", "nope")
     with pytest.raises(ValueError):
         default_client()
+
+
+def test_num_ctx_defaults_to_16384_and_can_be_set_by_argument_or_environment(monkeypatch):
+    from docfactory.agents.ollama_model_client import OllamaModelClient
+
+    monkeypatch.delenv("DOCFACTORY_NUM_CTX", raising=False)
+    assert OllamaModelClient().num_ctx == 16384
+    monkeypatch.setenv("DOCFACTORY_NUM_CTX", "65536")
+    assert OllamaModelClient().num_ctx == 65536
+    assert OllamaModelClient(num_ctx=32768).num_ctx == 32768

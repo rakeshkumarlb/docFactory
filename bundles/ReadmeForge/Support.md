@@ -10,32 +10,36 @@ completeness: 100
 
 # ReadmeForge.Support
 
+## Support model
+
+Three-level support for Pro customers: L1 Zendesk support desk, L2 application support engineers on the Platform team during business hours, and L3 engineering on-call 24x7 via PagerDuty for P1 incidents. Free-tier users are supported by the community forum and email on a best-effort basis with no SLA.
+
 ## Contacts
 
 - Item 1
-  - **Contact channel:** Zendesk help centre at https://support.readmeforge.example or support@readmeforge.example
-  - **Escalates to:** L2 application support
   - **Role:** L1 customer support (Pro)
-  - **Support hours:** Mon-Fri 09:00-18:00 IST; first response within 1 business day
   - **Team:** ReadmeForge Support Desk
+  - **Contact channel:** Zendesk help centre at https://support.readmeforge.example or support@readmeforge.example
+  - **Support hours:** Mon-Fri 09:00-18:00 IST; first response within 1 business day
+  - **Escalates to:** L2 application support
 - Item 2
-  - **Contact channel:** Slack #readmeforge-support-l2 and Zendesk internal escalation queue
-  - **Escalates to:** L3 engineering on-call
   - **Role:** L2 application support
-  - **Support hours:** Mon-Fri 09:00-18:00 IST
   - **Team:** Platform team application support engineers
+  - **Contact channel:** Slack #readmeforge-support-l2 and Zendesk internal escalation queue
+  - **Support hours:** Mon-Fri 09:00-18:00 IST
+  - **Escalates to:** L3 engineering on-call
 - Item 3
-  - **Contact channel:** PagerDuty service 'ReadmeForge Production'; P1 incidents reported 24x7 by email to p1@readmeforge.example
-  - **Escalates to:** Engineering manager on duty
   - **Role:** L3 engineering on-call
-  - **Support hours:** 24x7
   - **Team:** Engineering on-call rotation (Platform and Scanner teams)
+  - **Contact channel:** PagerDuty service 'ReadmeForge Production'; P1 incidents reported 24x7 by email to p1@readmeforge.example
+  - **Support hours:** 24x7
+  - **Escalates to:** Engineering manager on duty
 - Item 4
-  - **Contact channel:** Community forum at https://community.readmeforge.example or community@readmeforge.example
-  - **Escalates to:** None; Free-tier users may upgrade to Pro for supported access
   - **Role:** Free-tier community support
-  - **Support hours:** Best effort, no SLA
   - **Team:** Community volunteers and ReadmeForge developer relations
+  - **Contact channel:** Community forum at https://community.readmeforge.example or community@readmeforge.example
+  - **Support hours:** Best effort, no SLA
+  - **Escalates to:** None; Free-tier users may upgrade to Pro for supported access
 
 ## Escalation path
 
@@ -56,7 +60,3 @@ Incidents are logged as Zendesk tickets (or raised by PagerDuty from Azure Monit
 - docs/runbooks/rotate-github-app-private-key.md
 - docs/runbooks/raise-customer-from-free-to-pro-repository-limit.md
 - docs/runbooks/add-a-new-production-location.md
-
-## Support model
-
-Three-level support for Pro customers: L1 Zendesk support desk, L2 application support engineers on the Platform team during business hours, and L3 engineering on-call 24x7 via PagerDuty for P1 incidents. Free-tier users are supported by the community forum and email on a best-effort basis with no SLA.
