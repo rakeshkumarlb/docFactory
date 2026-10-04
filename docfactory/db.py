@@ -68,6 +68,11 @@ def init_schema(con: sqlite3.Connection) -> None:
             "CREATE TABLE IF NOT EXISTS FactIndex (FactKey TEXT PRIMARY KEY, TextHash TEXT NOT NULL, "
             "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
         )
+        con.execute(  # what each DocStore file contributed to a fact (Phase 3): the fact is the merge of its contributions
+            "CREATE TABLE IF NOT EXISTS FactContributions (FactKey TEXT NOT NULL, Resource TEXT NOT NULL, Value TEXT NOT NULL, "
+            "Hashcode TEXT NOT NULL, ChunksHash TEXT NULL, Description TEXT NULL, GeneratedBy TEXT NOT NULL, Timestamp TEXT NOT NULL, "
+            "PRIMARY KEY (FactKey, Resource))"
+        )
         con.execute(f"CREATE TABLE IF NOT EXISTS DocStore (FullPath TEXT PRIMARY KEY, {_DOCSTORE_COLUMNS})")
         con.execute(  # the chunked version of a stored original (Phase 2): derived from the file, rebuildable
             "CREATE TABLE IF NOT EXISTS DocChunks (FullPath TEXT NOT NULL, ChunkNo INTEGER NOT NULL, Heading TEXT NOT NULL, "
@@ -181,6 +186,42 @@ def list_rows(table: str, app_id: str | None = None) -> list[dict]:
             rows = con.execute(f"SELECT * FROM {table} ORDER BY {key_column}").fetchall()
         else:
             rows = con.execute(f"SELECT * FROM {table} WHERE AppID = ? ORDER BY {key_column}", (app_id,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def write_contribution(key: str, resource: str, value: str, hashcode: str, chunks_hash: str | None, description: str | None,
+                       generated_by: str, timestamp: str) -> None:
+    """Insert or replace what `resource` contributes to the fact `key` (one transaction)."""
+    with closing(connect()) as con, con:
+        con.execute("INSERT OR REPLACE INTO FactContributions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (key, resource, value, hashcode, chunks_hash, description, generated_by, timestamp))
+
+
+def delete_contribution(key: str, resource: str) -> None:
+    """Remove what `resource` contributed to the fact `key`, if anything."""
+    with closing(connect()) as con, con:
+        con.execute("DELETE FROM FactContributions WHERE FactKey = ? AND Resource = ?", (key, resource))
+
+
+def get_contribution(key: str, resource: str) -> dict | None:
+    """The contribution of `resource` to the fact `key`, or None."""
+    with closing(connect()) as con:
+        row = con.execute("SELECT * FROM FactContributions WHERE FactKey = ? AND Resource = ?", (key, resource)).fetchone()
+    return dict(row) if row else None
+
+
+def list_contributions(key: str | None = None, resource: str | None = None) -> list[dict]:
+    """Contributions ordered by fact key and resource; filtered by fact key and/or contributing resource."""
+    clauses, params = [], []
+    if key is not None:
+        clauses.append("FactKey = ?")
+        params.append(key)
+    if resource is not None:
+        clauses.append("Resource = ?")
+        params.append(resource)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    with closing(connect()) as con:
+        rows = con.execute(f"SELECT * FROM FactContributions{where} ORDER BY FactKey, Resource", params).fetchall()
     return [dict(row) for row in rows]
 
 

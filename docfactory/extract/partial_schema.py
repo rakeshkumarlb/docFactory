@@ -38,7 +38,7 @@ def partial_values(entity_model: type[BaseModel], values: dict) -> tuple[dict | 
     except ValidationError as error:
         return None, validation_errors(entity_model, error)
     stated = {}
-    for name, value in validated.model_dump(mode="json").items():
+    for name, value in validated.model_dump(mode="json", exclude_defaults=True).items():  # item fields left at their default state nothing either
         field = entity_model.model_fields[name]
         default = None if field.is_required() else field.get_default(call_default_factory=True)
         if is_empty(value) or value == default:

@@ -13,12 +13,12 @@ from docfactory import bundle, documents
 from docfactory import facts as fact_reads
 from docfactory.base_saver import BaseSaver
 from docfactory.models.document_record import DocumentRecord
+from docfactory.models.fact_record import FactRecord
 from docfactory.models.retrieval_hit import RetrievalHit
 from docfactory.models.save_result import SaveResult
 from docfactory.retrieval.okf_links import bundle_links, fact_key_of_link
 from docfactory.retrieval.vector_index import VectorIndex
 from docfactory.saver_resolution import document_saver_classes, document_saver_for_key
-from docfactory.tools.extraction_tools import get_fact, list_facts
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
 from docfactory.tools.tool_package import ToolPackage
@@ -117,6 +117,14 @@ def _save_typed_tool(saver_class: type[BaseSaver]):
 
     save.__name__ = document_tool_name(saver_class)
     return save
+
+
+def get_fact(key: Annotated[str, Field(description="The fact key, e.g. 'ReadmeForge.FunctionalRequirements' or 'Shared.Kpis'.")]) -> FactRecord | None:
+    return fact_reads.get_fact(key)
+
+
+def list_facts(app_id: Annotated[str | None, Field(description="Only this application's facts, e.g. 'ReadmeForge'. Omit for all.")] = None) -> list[FactRecord]:
+    return fact_reads.list_facts(app_id)
 
 
 _DESCRIPTIONS = {
