@@ -3,7 +3,8 @@
 Per entity tagged in the file (`DocChunkTags`):
 1. fact key from the file's scope (`fact_keys`); none = SKIPPED_SCOPE;
 2. the entity's chunks unchanged since this file's stored contribution = SKIPPED_UNCHANGED_CHUNKS, no LLM call;
-3. the chunks in batches, one fresh single-tool call per batch (`EntityExtractor`), the batch answers merged in chunk order;
+3. the chunks in batches, one fresh single-tool call per batch (`EntityExtractor`), the batch answers merged in chunk order; a failed
+   batch of several chunks is split in half and retried (an answer too long for one reply is the usual cause);
 4. the result stored as this file's contribution (`FactContributions`), replacing its earlier one;
 5. all contributions of the fact merged (newest DocStore file first, '(existing)' last) and saved through the entity saver,
    which writes KnowledgeFacts, its history and the bundle file.
@@ -111,18 +112,26 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
     if stored is not None and stored.chunks_hash == current_hash and not force:
         return EntityExtractionReport(outcome=ExtractionOutcome.SKIPPED_UNCHANGED_CHUNKS, contributions=len(contributions.list_contributions(key)),
                                       reason="the entity's chunks are unchanged since the last extraction", **report)
-    batches = batch_chunks(chunks)
-    answers, summaries = [], []
-    for number, batch in enumerate(batches, start=1):
+    pending = batch_chunks(chunks)
+    answers, summaries, calls, failed = [], [], 0, 0
+    while pending:
+        batch = pending.pop(0)
         stated, summary, note = extractor.extract_batch(model, path, batch)
+        calls += 1
         label = f"chunks {batch[0].chunk_no}-{batch[-1].chunk_no}"
         if stated is None:
-            report["batch_notes"].append(f"batch {number} ({label}): {note}")
+            if len(batch) > 1:  # often an answer too long for one reply: retry the halves, in order
+                half = len(batch) // 2
+                pending[:0] = [batch[:half], batch[half:]]
+                report["batch_notes"].append(f"{label}: {note}; split and retried in two halves")
+            else:
+                failed += 1
+                report["batch_notes"].append(f"{label}: {note}")
             continue
         answers.append((label, stated))
         summaries.append(summary)
         report["ungrounded_values"] += ungrounded_values(model, stated, batch_text(batch))
-    report["batches"], report["failed_batches"] = len(batches), len(batches) - len(answers)
+    report["batches"], report["failed_batches"] = calls, failed
     if not answers:
         return EntityExtractionReport(outcome=ExtractionOutcome.FAILED, reason="no batch gave an accepted answer; nothing was stored", **report)
     file_value, batch_conflicts = merge_partials(model, answers)

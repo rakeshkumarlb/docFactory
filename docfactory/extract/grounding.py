@@ -72,3 +72,18 @@ def unknown_identities(model: type[BaseModel], data: dict, text: str) -> list[st
 def ungrounded_values(model: type[BaseModel], data: dict, text: str) -> list[str]:
     """Free-text values in `data` (identifiers excluded) that are not grounded in `text`, as 'path: value'."""
     return [f"{path}: {value!r}" for path, value, is_identity in _leaves(model, data, "") if not is_identity and not grounded(value, text)]
+
+
+def duplicate_identities(model: type[BaseModel], data: dict) -> list[str]:
+    """Identifiers used by more than one item of the same list in `data`, as 'list: value (n items)'; merging would fold them into one."""
+    found = []
+    for name, field in model.model_fields.items():
+        items = item_model(field.annotation)
+        if items is None or not isinstance(data.get(name), list):
+            continue
+        identity = identity_field(items)
+        counts: dict[str, list[str]] = {}
+        for item in data[name]:
+            counts.setdefault(normal_identity(str(item.get(identity, ""))), []).append(str(item.get(identity)))
+        found += [f"{name}: {values[0]!r} ({len(values)} items)" for values in counts.values() if len(values) > 1]
+    return found

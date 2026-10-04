@@ -1,7 +1,7 @@
 """Grounding extracted values in their chunk text (Phase 3 redesign, step 1)."""
 from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.functional_requirements import FunctionalRequirements
-from docfactory.extract.grounding import grounded, identity_in_text, ungrounded_values, unknown_identities
+from docfactory.extract.grounding import duplicate_identities, grounded, identity_in_text, ungrounded_values, unknown_identities
 
 TEXT = "3.1. User Management\nFR-01. | The system SHALL provide a self‑registration process for job seekers."
 
@@ -30,3 +30,9 @@ def test_ungrounded_values_skip_identities_and_enums_and_name_their_path():
 
 def test_not_applicable_reasons_are_not_checked():
     assert ungrounded_values(Architecture, {"diagram_reference": {"reason": "No diagram was drawn."}}, TEXT) == []
+
+
+def test_duplicate_identities_are_found_per_list():
+    data = {"requirements": [{"id": "FR-01", "title": "a", "description": "b"}, {"id": "fr-01.", "title": "c", "description": "d"},
+                             {"id": "FR-02", "title": "e", "description": "f"}]}
+    assert duplicate_identities(FunctionalRequirements, data) == ["requirements: 'FR-01' (2 items)"]

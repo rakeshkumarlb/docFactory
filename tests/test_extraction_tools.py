@@ -49,3 +49,11 @@ def test_an_identifier_not_in_the_text_is_refused():
     accepted = []
     result = package(accepted).call("submit_extraction", {"values": {"requirements": [{**REQ, "id": "FR-001"}]}})
     assert result["ok"] is False and "FR-001" in result["error"] and accepted == []
+
+
+def test_items_sharing_an_identifier_are_refused():
+    accepted = []
+    text = TEXT + " 5) Guest User - browse listings - register prompt"
+    result = extraction_package(FunctionalRequirements, text, accepted).call(
+        "submit_extraction", {"values": {"requirements": [{**REQ, "id": "Guest User"}, {**REQ, "id": "guest user", "title": "Other"}]}})
+    assert result["ok"] is False and "share an identifier" in result["error"] and accepted == []

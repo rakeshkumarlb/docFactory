@@ -3,14 +3,14 @@
 - `submit_extraction` (package `extraction`): what one batch of an entity's chunks states about that entity, as a partial object,
   plus an optional one-sentence summary.
 The tool validates the answer against the entity's partial model (list items keep their mandatory fields) and refuses item
-identifiers that do not appear in the batch text, returning feedback the model can act on; an accepted answer is appended to the
+identifiers that do not appear in the batch text or that two items share, returning feedback the model can act on; an accepted answer is appended to the
 list the package was built with. It writes nothing: the extraction pipeline merges, stores and saves.
 """
 from typing import Annotated
 
 from pydantic import BaseModel, Field, WithJsonSchema
 
-from docfactory.extract.grounding import unknown_identities
+from docfactory.extract.grounding import duplicate_identities, unknown_identities
 from docfactory.extract.partial_schema import partial_model, partial_values
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
@@ -40,6 +40,10 @@ def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted):
         stated, errors = partial_values(entity_model, values)
         if errors:
             return {"ok": False, "errors": [e.model_dump(mode="json", exclude_none=True) for e in errors]}
+        duplicates = duplicate_identities(entity_model, stated)
+        if duplicates:
+            return {"ok": False, "error": f"several items share an identifier: {'; '.join(duplicates)}. Each item needs its own identifier: "
+                                          "the one the document gives it, or else its own name or the start of its own statement as written."}
         unknown = unknown_identities(entity_model, stated, text)
         if unknown:
             return {"ok": False, "error": f"these identifiers do not appear in the chunks: {'; '.join(unknown)}. "

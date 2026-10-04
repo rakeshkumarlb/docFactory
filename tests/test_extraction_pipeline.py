@@ -134,10 +134,19 @@ def test_a_failed_batch_does_not_stop_the_others_and_is_retried_next_run(tmp_db)
     store(A, [(1, text_of("FR-01") + PAD, ["FunctionalRequirements"]), (2, text_of("FR-02") + PAD, ["FunctionalRequirements"])])
     report = run(A, [ModelResponse(text=""), ModelResponse(text="")], submit({"requirements": [req("FR-02")]}))["FunctionalRequirements"]
     assert (report.outcome, report.failed_batches, ids()) == (ExtractionOutcome.SAVED, 1, ["FR-02"])
-    assert report.batch_notes[0].startswith("batch 1 (chunks 1-1):")
+    assert report.batch_notes[0].startswith("chunks 1-1:")
     assert contributions.get_contribution(FR, A).chunks_hash is None  # not skipped next time
     again = run(A, submit({"requirements": [req("FR-01")]}), submit({"requirements": [req("FR-02")]}))["FunctionalRequirements"]
     assert again.outcome == ExtractionOutcome.SAVED and ids() == ["FR-01", "FR-02"]
+
+
+def test_a_failed_batch_of_several_chunks_is_split_and_retried(tmp_db):
+    store(A, [(1, text_of("FR-01"), ["FunctionalRequirements"]), (2, text_of("FR-02"), ["FunctionalRequirements"])])  # one batch
+    report = run(A, [ModelResponse(text=""), ModelResponse(text="")], submit({"requirements": [req("FR-01")]}),
+                 submit({"requirements": [req("FR-02")]}))["FunctionalRequirements"]
+    assert (report.outcome, report.batches, report.failed_batches, ids()) == (ExtractionOutcome.SAVED, 3, 0, ["FR-01", "FR-02"])
+    assert "split and retried" in report.batch_notes[0]
+    assert contributions.get_contribution(FR, A).chunks_hash is not None  # complete after the retry
 
 
 def test_all_batches_failing_stores_nothing(tmp_db):
