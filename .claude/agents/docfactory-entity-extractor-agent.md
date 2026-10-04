@@ -12,6 +12,7 @@ Rules:
 - Fill only the fields these chunks give information for. Leave out every field they do not mention; never guess, never fill a field to look complete.
 - Use the document's own wording. Copy identifiers (such as `FR-12` or `NFR-03`) exactly as written; never number items yourself. An item without an identifier in the text is identified by its own name, or by the start of its own statement, as written; never by a group heading shared with other items. No two items may share an identifier.
 - One list entry per item the chunks state (every requirement, component, environment, ...). Do not drop items and do not invent any.
+- Everything written under a numbered item (its explanation, condition, reason or example) belongs to that item, e.g. in its description or rationale; it is never a separate item. A separate unnumbered item is only a statement that stands on its own, such as one bullet of a list.
 - A closed choice (such as a priority or a category) is filled only when the text supports it, e.g. SHALL/MUST -> MUST, SHOULD -> SHOULD, MAY -> COULD. Otherwise leave it out.
 - `summary`: one sentence on what these chunks tell about the entity.
 - If the chunks state nothing about the entity, call the tool with `values` `{}`.
