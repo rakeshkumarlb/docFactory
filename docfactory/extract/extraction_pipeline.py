@@ -8,6 +8,7 @@ Per entity tagged in the file (`DocChunkTags`):
 4. the result stored as this file's contribution (`FactContributions`), replacing its earlier one;
 5. all contributions of the fact merged (newest DocStore file first, '(existing)' last) and saved through the entity saver,
    which writes KnowledgeFacts, its history and the bundle file.
+Before merging, an empty requirement priority is filled from the requirement's own keyword (SHALL -> MUST, ...; `priority_keywords`).
 An entity no longer tagged in the file loses this file's contribution and its fact is re-merged (REMOVED). A batch that fails is
 reported; when any batch failed the contribution keeps no chunks hash, so the next run tries again.
 """
@@ -22,6 +23,7 @@ from docfactory.extract.fact_keys import fact_key
 from docfactory.extract.grounding import ungrounded_values
 from docfactory.extract.merge import merge_partials
 from docfactory.extract.missing_questions import missing_questions
+from docfactory.extract.priority_keywords import fill_priorities
 from docfactory.extract.model_shapes import item_model
 from docfactory.models.doc_chunk import DocChunk
 from docfactory.models.entity_extraction_report import EntityExtractionReport
@@ -100,7 +102,7 @@ def _merge_and_save(key: str, saver_class: type[BaseSaver], actor: str, report: 
 
 
 def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: EntityExtractor, force: bool) -> EntityExtractionReport:
-    report = {"entity": entity, "chunks_used": len(chunks), "conflicts": [], "ungrounded_values": [], "batch_notes": []}
+    report = {"entity": entity, "chunks_used": len(chunks), "conflicts": [], "ungrounded_values": [], "batch_notes": [], "priorities_from_keywords": 0}
     key, why = fact_key(path, entity)
     if key is None:
         return EntityExtractionReport(outcome=ExtractionOutcome.SKIPPED_SCOPE, reason=why, **report)
@@ -128,6 +130,8 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
                 failed += 1
                 report["batch_notes"].append(f"{label}: {note}")
             continue
+        stated, filled = fill_priorities(model, stated)
+        report["priorities_from_keywords"] += filled
         answers.append((label, stated))
         summaries.append(summary)
         report["ungrounded_values"] += ungrounded_values(model, stated, batch_text(batch))
@@ -189,7 +193,8 @@ def format_reports(path: str, reports: list[EntityExtractionReport]) -> str:
         if r.reason:
             lines.append(f"    reason: {r.reason}")
         if r.batches:
-            lines.append(f"    chunks {r.chunks_used}, batches {r.batches} ({r.failed_batches} failed), items {r.items}, contributing files {r.contributions}")
+            lines.append(f"    chunks {r.chunks_used}, batches {r.batches} ({r.failed_batches} failed), items {r.items}, contributing files {r.contributions}"
+                         + (f", priorities from keywords {r.priorities_from_keywords}" if r.priorities_from_keywords else ""))
         for title, values in (("batch problems", r.batch_notes), ("conflicts", r.conflicts), ("not found in the text", r.ungrounded_values),
                               ("still missing", r.missing_questions)):
             if values:

@@ -13,6 +13,8 @@ from docfactory.extract.model_shapes import identity_field, is_enum, item_model,
 WORD = re.compile(r"[a-z0-9]+")
 MIN_WORD = 3
 WORD_SHARE = 0.8
+UNCHECKED_FIELDS = {"title"}  # documents often give an item no title, so the model writes one: not expected in the text
+PLACEHOLDER = re.compile(r"^(n/?a\b|not (applicable|mentioned|provided|specified|stated|given)|none (mentioned|provided|given)|unknown\b|no .* (mentioned|provided) in the)")
 _DASHES = str.maketrans({"‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
                          "‘": "'", "’": "'", "“": '"', "”": '"'})
 
@@ -71,7 +73,26 @@ def unknown_identities(model: type[BaseModel], data: dict, text: str) -> list[st
 
 def ungrounded_values(model: type[BaseModel], data: dict, text: str) -> list[str]:
     """Free-text values in `data` (identifiers excluded) that are not grounded in `text`, as 'path: value'."""
-    return [f"{path}: {value!r}" for path, value, is_identity in _leaves(model, data, "") if not is_identity and not grounded(value, text)]
+    return [f"{path}: {value!r}" for path, value, is_identity in _leaves(model, data, "")
+            if not is_identity and path.rsplit(".", 1)[-1] not in UNCHECKED_FIELDS and not grounded(value, text)]
+
+
+def placeholder_values(model: type[BaseModel], data: dict) -> list[str]:
+    """Text values that only say the information is missing ('N/A: ...', 'Not mentioned'), as 'path: value'. Such a field must be left out."""
+    return [f"{path}: {value!r}" for path, value, _ in _leaves(model, data, "") if PLACEHOLDER.match(normalize(value))]
+
+
+def tidy_identities(model: type[BaseModel], data: dict) -> dict:
+    """A copy of `data` whose item identifiers lose surrounding spaces and trailing punctuation: a table cell 'FR-01.' becomes 'FR-01'."""
+    out = dict(data)
+    for name, field in model.model_fields.items():
+        items = item_model(field.annotation)
+        if items is None or not isinstance(out.get(name), list):
+            continue
+        identity = identity_field(items)
+        out[name] = [{**item, identity: item[identity].strip().rstrip(".:;,").strip() or item[identity]} if isinstance(item.get(identity), str) else item
+                     for item in out[name]]
+    return out
 
 
 def duplicate_identities(model: type[BaseModel], data: dict) -> list[str]:

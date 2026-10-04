@@ -52,6 +52,11 @@ class EntityExtractionReport(DocFactoryModel):
         description="Number of list items in the merged fact (for example requirements), e.g. 85.",
         question="How many list items does the merged fact hold?",
     )
+    priorities_from_keywords: int = doc_field(
+        default=0,
+        description="How many requirement priorities code filled from the requirement's own obligation keyword (SHALL/MUST -> MUST, SHOULD -> SHOULD, MAY -> COULD) because the extraction left them empty, e.g. 140. Zero when none were filled.",
+        question="How many requirement priorities were filled from keywords?",
+    )
     action: SaveAction | None = doc_field(
         default=None,
         description="The saver's action for the merged fact (CREATED, UPDATED, UNCHANGED or REJECTED), e.g. UPDATED. None when nothing was saved.",

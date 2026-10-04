@@ -3,14 +3,15 @@
 - `submit_extraction` (package `extraction`): what one batch of an entity's chunks states about that entity, as a partial object,
   plus an optional one-sentence summary.
 The tool validates the answer against the entity's partial model (list items keep their mandatory fields) and refuses item
-identifiers that do not appear in the batch text or that two items share, returning feedback the model can act on; an accepted answer is appended to the
+identifiers that do not appear in the batch text or that two items share, and placeholder text such as 'N/A: not mentioned'
+(the field must be left out instead); identifiers lose trailing punctuation ('FR-01.' -> 'FR-01'). It returns feedback the model can act on; an accepted answer is appended to the
 list the package was built with. It writes nothing: the extraction pipeline merges, stores and saves.
 """
 from typing import Annotated
 
 from pydantic import BaseModel, Field, WithJsonSchema
 
-from docfactory.extract.grounding import duplicate_identities, unknown_identities
+from docfactory.extract.grounding import duplicate_identities, placeholder_values, tidy_identities, unknown_identities
 from docfactory.extract.partial_schema import partial_model, partial_values
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
@@ -40,6 +41,11 @@ def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted):
         stated, errors = partial_values(entity_model, values)
         if errors:
             return {"ok": False, "errors": [e.model_dump(mode="json", exclude_none=True) for e in errors]}
+        placeholders = placeholder_values(entity_model, stated)
+        if placeholders:
+            return {"ok": False, "error": f"these values only say the information is missing: {'; '.join(placeholders)}. Leave such fields out "
+                                          "entirely; code reports what is missing. Use a NotApplicable object only where the document says it does not apply."}
+        stated = tidy_identities(entity_model, stated)
         duplicates = duplicate_identities(entity_model, stated)
         if duplicates:
             return {"ok": False, "error": f"several items share an identifier: {'; '.join(duplicates)}. Each item needs its own identifier: "

@@ -57,3 +57,15 @@ def test_items_sharing_an_identifier_are_refused():
     result = extraction_package(FunctionalRequirements, text, accepted).call(
         "submit_extraction", {"values": {"requirements": [{**REQ, "id": "Guest User"}, {**REQ, "id": "guest user", "title": "Other"}]}})
     assert result["ok"] is False and "share an identifier" in result["error"] and accepted == []
+
+
+def test_placeholder_text_is_refused():
+    accepted = []
+    result = package(accepted).call("submit_extraction", {"values": {"summary": "N/A: not mentioned in the chunks"}})
+    assert result["ok"] is False and "Leave such fields out" in result["error"] and accepted == []
+
+
+def test_identifiers_are_tidied_before_acceptance():
+    accepted = []
+    assert package(accepted).call("submit_extraction", {"values": {"requirements": [{**REQ, "id": "FR-01."}]}})["ok"] is True
+    assert accepted[0][0]["requirements"][0]["id"] == "FR-01"

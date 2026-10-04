@@ -182,3 +182,10 @@ def test_format_reports_lists_each_entity(tmp_db):
     store(A, [(1, text_of("FR-01"), ["FunctionalRequirements"]), (2, "Availability.", ["Slo"])])
     text = format_reports(A, extract_file(A, extractor(submit({"requirements": [req("FR-01")]}))))
     assert f"FunctionalRequirements: SAVED -> {FR} v1" in text and "Slo: SKIPPED_SCOPE" in text and "still missing" in text
+
+
+def test_empty_priorities_are_filled_from_keywords_and_counted(tmp_db):
+    store(A, [(1, text_of("FR-01", "FR-02"), ["FunctionalRequirements"])])
+    report = run(A, submit({"requirements": [req("FR-01"), {**req("FR-02"), "priority": "COULD"}]}))["FunctionalRequirements"]
+    priorities = [r.get("priority") for r in json.loads(facts.get_fact(FR).value)["requirements"]]
+    assert priorities == ["MUST", "COULD"] and report.priorities_from_keywords == 1

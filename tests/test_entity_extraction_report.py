@@ -22,6 +22,7 @@ FULL = {
     "failed_batches": 1,
     "contributions": 2,
     "items": 4,
+    "priorities_from_keywords": 3,
     "action": SaveAction.CREATED,
     "version": 2,
     "completeness": 62.5,
@@ -64,6 +65,7 @@ def test_optional_fields_default_to_their_declared_defaults():
     assert obj.failed_batches == 0
     assert obj.contributions == 0
     assert obj.items == 0
+    assert obj.priorities_from_keywords == 0
     assert obj.action is None
     assert obj.version is None
     assert obj.completeness is None
@@ -80,7 +82,12 @@ def test_empty_text_is_rejected_where_min_length_is_set(field):
         EntityExtractionReport.model_validate({**FULL, field: ""})
 
 
-@pytest.mark.parametrize("field", ["entity", "outcome", "key", "reason", "chunks_used", "batches", "failed_batches", "contributions", "items", "action", "version", "completeness", "missing_questions", "ungrounded_values", "conflicts", "batch_notes", "save_errors"])
+@pytest.mark.parametrize("field", ["entity", "outcome", "key", "reason", "chunks_used", "batches", "failed_batches", "contributions", "items", "priorities_from_keywords", "action", "version", "completeness", "missing_questions", "ungrounded_values", "conflicts", "batch_notes", "save_errors"])
 def test_not_applicable_is_rejected_where_not_allowed(field):
     with pytest.raises(ValidationError):
         EntityExtractionReport.model_validate({**FULL, field: NotApplicable(reason="Not relevant for this test.")})
+
+
+def test_priorities_from_keywords_accepts_a_positive_value():
+    obj = EntityExtractionReport.model_validate({**MINIMAL, "priorities_from_keywords": 140})
+    assert obj.priorities_from_keywords == 140

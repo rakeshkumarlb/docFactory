@@ -7,7 +7,7 @@ unchanged entity can be skipped without an LLM call.
 from docfactory.canonical import canonical_json, sha256_hex
 from docfactory.models.doc_chunk import DocChunk
 
-BATCH_CHARS = 6000
+BATCH_CHARS = 3500  # live: 6000-character batches dense with requirement rows overflowed one reply
 
 
 def batch_chunks(chunks: list[DocChunk], budget: int = BATCH_CHARS) -> list[list[DocChunk]]:
