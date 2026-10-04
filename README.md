@@ -2,7 +2,7 @@
 
 Keeps application documentation (Overview, SMTD, SRS, SOP) up to date from structured knowledge.
 
-Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: tagging what the ontology rules cannot, and reading documents for facts. Everything else (validation, hashing, versions, files, rendering) is plain code.
+Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: tagging what the ontology rules cannot, and filling small partial facts from a few chunks at a time. Everything else (validation, hashing, versions, files, rendering) is plain code.
 
 `CLAUDE.md` is the authoritative spec. `STATUS.md` says where the project stands. This file is the map: the process and the commands.
 
@@ -18,7 +18,8 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
                               LLM only for what rules miss)-->                              DocChunks, DocChunkTags
                                                               |
                                                               v
-                                         (2 extract: LLM reads the text, calls the savers)
+                     (2 extract: per tagged entity, one small LLM call per batch of its chunks;
+                      code merges batches and files, then calls the saver)   table: FactContributions
                                                               |
                                                               v
                     KnowledgeFacts (SQLite)  --(code)-->  bundles/<scope>/<Fact>.md        OKF v0.2 files
@@ -34,7 +35,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 | Step | Who does it | Status |
 |---|---|---|
 | 1. Ingest: chunk, tag and store originals | Code stages, chunks, tags against the ontology, decides the scope and stores; a small LLM fallback tags what the rules miss and places files the rules cannot | Built (Phase 2, redesigned) |
-| 2. Extract: read a stored file and save facts | LLM reads and builds the call, savers validate and store | **Pending redesign** (Phase 3): a first version exists but fails on large documents |
+| 2. Extract: turn a stored file's tagged chunks into facts | Code batches each entity's chunks; one small LLM call per batch returns a partial object; code checks it, merges batches and files, fills priorities from keywords and saves through the entity saver | Built (Phase 3, redesigned), verified on the real 50-page SRS |
 | 3. Generate: build documents from the facts | LLM searches the knowledge (RAG over the frontmatter), reads the facts and builds the body; the document saver validates it, code renders it. The seed scripts remain the deterministic path | **Pending rework** (Phase 4): a first version exists |
 
 ### Ideas worth remembering
@@ -42,6 +43,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 - **Facts are the source of truth.** `bundles/` and `output/` are views. Change the facts (or the models) and regenerate; never edit those files.
 - **Only tools write.** A fact is saved only through a saver: invalid data is rejected with an error that says which field, what is valid and what to find out. Nothing is written on rejection.
 - **Whole objects, hashed.** A save sends the complete fact. Same content again = `UNCHANGED`. Different content = `UPDATED`, version + 1, one row in `KnowledgeFactsHistory`. New title/tags/sources with the same content refresh the metadata and the bundle file but do not bump the version.
+- **A fact can come from several documents.** Each file's share is stored separately (`FactContributions`) and the fact is their merge, newest file first. Re-extracting a changed file replaces only its own share, so an item removed from that file disappears unless another file still states it. Disagreements are reported as conflicts, never silently resolved.
 - **Never invented.** A field that is not stated stays at its default and does not count as answered. `Completeness` is answered fields / total fields.
 - **LLM output is always `draft`.** `generated.by` is `okf-extraction-agent/<model>`, set by code. `verified` stays empty until a human approval exists (Phase 5).
 - **Identity of a stored file = folder + file name.** Same name with new bytes replaces the file in place and bumps its version.
@@ -56,7 +58,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    | `DOCFACTORY_PROVIDER` | `ollama` (default) or `anthropic` |
    | `OLLAMA_HOST`, `OLLAMA_API_KEY` | `https://ollama.com` plus your key for Ollama Cloud; leave unset for a local Ollama |
    | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) worked well for both agents |
-   | `DOCFACTORY_NUM_CTX` | Ollama context window. **Set `65536`** for extraction: its tool schemas alone are ~18k tokens, and the default 16384 is too small |
+   | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for extraction (one tool of at most ~1.5k tokens plus a 3500-character batch); the generator agent needs more, e.g. `65536` |
    | `DOCFACTORY_EMBED_MODEL` | Embedding model for the Phase 4 index, e.g. `mxbai-embed-large` or `nomic-embed-text` (`ollama pull <name>`) |
    | `DOCFACTORY_EMBED_HOST` | **Needed with Ollama Cloud:** it serves no embedding models, so point this at a local Ollama, e.g. `http://localhost:11434`. Your chat key is not sent there (`DOCFACTORY_EMBED_API_KEY` only if that server needs one) |
 
@@ -92,9 +94,19 @@ python -m docfactory.ontology.ontology_render     # regenerate docs/ontology.md 
 
 ```
 python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf"
+python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf" --entity FunctionalRequirements
+python -m docfactory.agents.run_extraction "ReadmeForge/ReadmeForge SRS v0.3.pdf" --entity Architecture --force
 ```
 
-The argument is the stored path under `DocStore/`, with forward slashes. The path above is an example from the test corpus; with a wrong path the command lists what is stored. The agent reads the text, then saves the facts the document supports under keys such as `ReadmeForge.FunctionalRequirements` or `Shared.Kpis`. Run it again for a new revision of the file: it updates the facts, and `KnowledgeFactsHistory` records who changed what and when. The summary lists what the document did not say.
+The argument is the stored path under `DocStore/`, with forward slashes; with a wrong path the command lists what is stored. Every entity tagged in the file is extracted (or only the ones named with `--entity`, repeatable):
+
+1. **Key** from the file's folder: `<App>.<Entity>`. `Slo` and `Kpis` (shared facts) come only from files in `DocStore/shared/`; files in `general/` give no facts.
+2. **Skip** when the entity's chunks are unchanged since its last extraction from this file: no LLM call. `--force` extracts anyway.
+3. **Batches** of the entity's chunks (up to 3500 characters each), one fresh LLM call per batch with one tool, `submit_extraction`. The tool refuses invalid items, identifiers that are not in the chunks (the model may not number items), two items with one identifier, and placeholder text such as "N/A: not mentioned"; the model fixes and resubmits. A batch that fails is split in half and retried.
+4. **Priorities**: a requirement whose priority is still empty gets the one its own keyword states: SHALL/MUST -> MUST, SHOULD -> SHOULD, MAY -> COULD.
+5. **Merge and save**: the batch answers merge into this file's contribution, all files' contributions merge into the fact, and the entity saver validates and stores it (draft, `generated.by okf-extraction-agent/<model>`, sources = every contributing file).
+
+The report gives per entity: outcome (`SAVED`, `UNCHANGED`, `SKIPPED_UNCHANGED_CHUNKS`, `SKIPPED_SCOPE`, `REMOVED`, `REJECTED`, `FAILED`), version and completeness, chunks, batches, items, priorities filled from keywords, and for review: batch problems, conflicts, values not found in the text, and the questions the fact still leaves open. Run it again after a new revision of the file: only entities whose chunks changed are extracted, and an entity no longer tagged loses this file's contribution (`REMOVED`). A `REJECTED` fact (for example an overview with no purpose yet) keeps the file's contribution, so a later document can complete it.
 
 ### Step 3: generate
 
@@ -121,6 +133,7 @@ python -m docfactory.retrieval.index_rebuild
 | What was stored and when | `python -c "from docfactory import db; [print(r['FullPath'], 'v%d' % r['Version'], r['Timestamp']) for r in db.list_docstore_rows()]"` |
 | The chunks of a stored file | `python -c "from docfactory import db; [print(c['ChunkNo'], c['Heading']) for c in db.list_doc_chunks('<scope>/<file>')]"` |
 | Its entity tags | `python -c "from docfactory import db; [print(t['ChunkNo'], t['Entity'], t['Origin'], t['Evidence']) for t in db.list_doc_chunk_tags('<scope>/<file>')]"` |
+| What each file contributed to a fact | `python -c "from docfactory import contributions; [print(c.resource, c.generated_by, c.timestamp) for c in contributions.list_contributions('ReadmeForge.FunctionalRequirements')]"` |
 | Change history of a fact | `python -c "from docfactory import db; print(db.list_fact_history('ReadmeForge.FunctionalRequirements'))"` |
 | Check the bundle files are OKF v0.2 conformant | `python -m docfactory.okf_check` |
 | Rebuild every bundle file from the database | `python -m docfactory.bundle_rebuild` |
@@ -145,10 +158,10 @@ Results: facts in the database, bundle files under `bundles/ReadmeForge/` and `b
 ### Tests
 
 ```
-python -m pytest -q                                               # everything offline (about 1680 tests, under a minute)
-python -m pytest -q tests/test_extraction_tools.py                # one file
+python -m pytest -q                                               # everything offline (about 1920 tests, about a minute)
+python -m pytest -q tests/test_extraction_pipeline.py             # one file
 python -m pytest -q -m live tests/test_live_ingestion.py          # real LLM, opt-in
-python -m pytest -q -m live tests/test_live_extraction.py         # real LLM, opt-in (needs DOCFACTORY_NUM_CTX=65536)
+python -m pytest -q -m live tests/test_live_extraction.py         # real LLM, opt-in: corpus SRS, then its revision
 python -m pytest -q -m live tests/test_live_generation.py         # real LLM and embedding model, opt-in (needs DOCFACTORY_EMBED_HOST on Ollama Cloud)
 python .claude/scripts/check_structure.py                         # one-class-per-file and naming rules
 ```
@@ -172,9 +185,10 @@ Every test uses a temporary database, DocStore and bundle folder, so none touche
 | `docfactory/entitymodels/` | What is known about an application: `facts/` (have a saver) and `items/` (nested types) |
 | `docfactory/documentmodels/` | Documents, their sections and parts |
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
-| `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent) and the thin agent loops |
+| `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent or call) and the thin agent loops |
+| `docfactory/extract/` | Extraction code: batching, fact keys, partial models, merge, grounding checks, keyword priorities, missing-info questions, the pipeline |
 | `docfactory/retrieval/` | The search index over the facts' frontmatter: embedder and vector index (derived data, rebuildable) |
-| `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-okf-extraction-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
+| `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
 
 Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_BUNDLES`.
 
@@ -191,11 +205,13 @@ A model change changes what stored data means: update the tests and regenerate t
 
 | Symptom | Cause and fix |
 |---|---|
-| `model response was cut off (context or output limit, num_ctx=...)` | The context window is too small. Set `DOCFACTORY_NUM_CTX=65536` |
+| `model response was cut off (context or output limit, num_ctx=...)` | The context window is too small. Raise `DOCFACTORY_NUM_CTX` (e.g. `65536`) |
+| Extraction report: `batch problems ... split and retried` | A batch's answer was too long for one reply; the halves were retried. Only a single chunk that still fails is a real failure, retried on the next run |
 | `'...' is not in the DocStore` | Wrong path for `run_extraction`. Use the path printed in the list, forward slashes, relative to `DocStore/` |
 | A file stays in `staging/` | The report says why: unsure scope, same content under another name, the name stored in several scopes, or no extractable text (a scanned PDF). Fix the cause and run ingestion again |
 | Many chunks are unmapped | The ontology lacks this document's vocabulary: add heading terms or identifier patterns to `docfactory/ontology/signals.json`, then `python -m docfactory.ingest.chunk_rebuild` |
-| A fact came back `REJECTED` | Read the errors: `path` is the field, `expected` what is valid, `question` what is missing. The extraction agent retries on its own; a persistent rejection means the document lacks the information |
+| An entity came back `REJECTED` | The merged fact misses a mandatory field (the report's save errors name it and the question). No document states it yet; the file's contribution is kept and the fact is saved once another document supplies it |
+| Odd items in a fact (UI or training items as requirements) | Usually a wrong entity tag on a chunk. Check the tags (`db.list_doc_chunk_tags`) and the signals in `signals.json` |
 | A bundle file is missing or stale | `python -m docfactory.bundle_rebuild` |
 | `Ollama rejected the request (401)` from the index rebuild | Ollama Cloud has no embedding models. Set `DOCFACTORY_EMBED_HOST=http://localhost:11434` and a model you have pulled in `DOCFACTORY_EMBED_MODEL` |
 | `Ollama returned 0 embeddings` / `is it an embedding model?` | `DOCFACTORY_EMBED_MODEL` is not an embedding model, or is not pulled on that host (`ollama list`) |
@@ -204,7 +220,6 @@ A model change changes what stored data means: update the tests and regenerate t
 
 ## What comes next
 
-- **Phase 4: Generate. Pending rework** after Phase 3. Known gaps of the first version: no MissingInfo list for agent-generated bodies, only the Overview run live, SRS should be the default template, no embedding provider without local models.
-- **Phase 5: Human in the loop. Pending.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`.
-- **Phase 3: Extract. Pending redesign (next):** extraction will read the tagged chunks per entity (one fresh, small call per entity), instead of the whole document with every save tool at once.
+- **Phase 4: Generate. Pending rework (next).** Known gaps of the first version: no MissingInfo list for agent-generated bodies, only the Overview run live, SRS should be the default template, no embedding provider without local models.
+- **Phase 5: Human in the loop. Pending.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`, and where near-duplicate items and conflicts between documents get reviewed.
 - **Phase 6: Automate. Pending.** Watch `incoming/` and run the whole chain.
