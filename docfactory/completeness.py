@@ -4,7 +4,8 @@ from pydantic.fields import FieldInfo
 from docfactory.models.not_applicable import NotApplicable
 
 
-def _is_scored(field: FieldInfo) -> bool:
+def is_scored(field: FieldInfo) -> bool:
+    """False for a field declared scored=False (left out of completeness and missing-info questions)."""
     extra = field.json_schema_extra
     return not (isinstance(extra, dict) and extra.get("scored", True) is False)
 
@@ -53,7 +54,7 @@ def field_counts(obj: BaseModel) -> tuple[int, int]:
     """
     answered = total = 0
     for name, field in type(obj).model_fields.items():
-        if not _is_scored(field):
+        if not is_scored(field):
             continue
         field_answered, field_total = _field_counts(field, getattr(obj, name))
         answered += field_answered

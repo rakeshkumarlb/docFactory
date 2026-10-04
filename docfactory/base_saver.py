@@ -90,7 +90,8 @@ def _expected(error: dict) -> str | None:
     return None
 
 
-def _validation_errors(model, error: ValidationError) -> list[SaveError]:
+def validation_errors(model, error: ValidationError) -> list[SaveError]:
+    """Pydantic errors as SaveErrors carrying each field's description and question (feedback a caller can act on)."""
     out = []
     for item in error.errors():
         loc = item["loc"]
@@ -203,7 +204,7 @@ class BaseSaver(Generic[M]):
         try:
             instance = self.model.model_validate(payload)
         except ValidationError as error:
-            return _rejected(key, _validation_errors(self.model, error))
+            return _rejected(key, validation_errors(self.model, error))
 
         value = canonical_json(instance.model_dump(mode="json"))
         hashcode = sha256_hex(value)

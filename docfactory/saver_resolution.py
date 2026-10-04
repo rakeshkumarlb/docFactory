@@ -29,6 +29,11 @@ def document_saver_classes() -> list[type[BaseSaver]]:
     return _saver_classes(documents)
 
 
+def entity_saver_for(entity: str) -> type[BaseSaver] | None:
+    """The entity saver class whose model is named `entity` (e.g. 'FunctionalRequirements'), or None."""
+    return next((cls for cls in entity_saver_classes() if cls.model.__name__ == entity), None)
+
+
 def _resolve(classes: list[type[BaseSaver]], key: str) -> BaseSaver | None:
     matches = [cls() for cls in classes if cls().accepts_key(key)]
     if len(matches) > 1:

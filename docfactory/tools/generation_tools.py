@@ -18,7 +18,8 @@ from docfactory.models.save_result import SaveResult
 from docfactory.retrieval.okf_links import bundle_links, fact_key_of_link
 from docfactory.retrieval.vector_index import VectorIndex
 from docfactory.saver_resolution import document_saver_classes, document_saver_for_key
-from docfactory.tools.extraction_tools import _inline_refs, get_fact, list_facts
+from docfactory.tools.extraction_tools import get_fact, list_facts
+from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
 from docfactory.tools.tool_package import ToolPackage
 from docfactory.tools.tool_registry import ToolRegistry
@@ -52,7 +53,7 @@ def _key_help(saver_class: type[BaseSaver]) -> str:
 def _payload_annotation(saver_class: type[BaseSaver]):
     """A dict argument whose published schema is the document model's schema; validation stays with the saver."""
     schema = saver_class.model.model_json_schema()
-    return Annotated[dict, WithJsonSchema(_inline_refs(schema, schema.get("$defs", {})))]
+    return Annotated[dict, WithJsonSchema(inline_refs(schema, schema.get("$defs", {})))]
 
 
 def get_document(key: Annotated[str, Field(description="The document key, e.g. 'ReadmeForge.Outputs.SMTD' (the body) or 'ReadmeForge.Outputs.SMTD.DocumentControl'.")]) -> DocumentRecord | None:
@@ -64,7 +65,7 @@ def get_document_schema(doc_type: Annotated[str, Field(description="The document
     if saver_class is None:
         raise ValueError(f"unknown document type {doc_type!r}; expected one of {sorted(_doc_types())}")
     schema = saver_class.model.model_json_schema()
-    return _inline_refs(schema, schema.get("$defs", {}))
+    return inline_refs(schema, schema.get("$defs", {}))
 
 
 def read_okf_file(key: Annotated[str, Field(description="The fact key, e.g. 'ReadmeForge.Architecture' or 'Shared.Kpis'.")]) -> dict:
