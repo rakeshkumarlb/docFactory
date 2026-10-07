@@ -5,7 +5,7 @@ from typing import Generic, TypeVar, get_args
 
 from pydantic import BaseModel, ValidationError
 
-from docfactory import db, fact_writer
+from docfactory import db, fact_files, fact_writer
 from docfactory.canonical import canonical_json, sha256_hex
 from docfactory.completeness import completeness
 from docfactory.models.doc_factory_model import DocFactoryModel
@@ -165,6 +165,21 @@ class BaseSaver(Generic[M]):
                     question="Which application does this key belong to? The AppID must equal the key's first segment (none for Shared).",
                 )
             ]
+        if self._table() == FACTS_TABLE:
+            try:
+                fact_files.file_path_of(key)
+            except ValueError as error:
+                return None, [
+                    SaveError(
+                        path="key",
+                        message=str(error),
+                        error_type="key_unsafe_path",
+                        received=_text(key),
+                        expected="key segments that are legal file names: no slash, backslash, colon, asterisk, question mark, double quote, angle bracket or pipe, no leading or trailing spaces",
+                        field_description=KEY_DESCRIPTION,
+                        question="Which key should this fact be saved under? Every segment becomes a folder or file name under knowledgefacts/.",
+                    )
+                ]
         return derived, []
 
     def save(self, key: str, payload, app_id: str | None = None, meta: FactMeta | None = None) -> SaveResult:
@@ -196,9 +211,12 @@ class BaseSaver(Generic[M]):
         existing = db.get_row(table, key)
         is_fact = table == FACTS_TABLE
         kind = type_name(self.model.__name__)
+        body_json = instance.model_dump_json()  # model field order, for the readable fact file (the stored Value is sorted)
         if existing is not None and existing["Hashcode"] == hashcode:
-            if is_fact and meta is not None:
-                fact_writer.refresh_metadata(key, kind, existing, meta)
+            if is_fact:
+                if meta is not None:
+                    fact_writer.refresh_metadata(key, kind, existing, meta)
+                fact_writer.ensure_file(key, body_json)
             return SaveResult(
                 ok=True,
                 key=key,
@@ -210,7 +228,7 @@ class BaseSaver(Generic[M]):
         action, version = (SaveAction.CREATED, 1) if existing is None else (SaveAction.UPDATED, existing["Version"] + 1)
         score = completeness(instance)
         if is_fact:
-            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta)
+            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta, body_json)
         else:
             db.write_row(table, key, value, hashcode, derived_app_id, score, version)
         return SaveResult(ok=True, key=key, action=action, version=version, hashcode=hashcode, completeness=score)

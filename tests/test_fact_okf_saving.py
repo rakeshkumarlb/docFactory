@@ -121,9 +121,9 @@ def test_a_row_saved_before_phase_3_gets_its_okf_data_when_saved_again_with_meta
     assert row["YmlFrontmatter"] and row["GeneratedBy"] == "okf-extraction-agent/m" and row["Title"] == "ReadmeForge overview"
 
 
-def test_a_component_key_with_a_free_text_name_is_accepted():
+def test_a_component_key_with_spaces_is_accepted():
     from docfactory.entitysaver.architecture_saver import ArchitectureSaver
-    assert ArchitectureSaver().save("ReadmeForge.Components.api server/v2.Architecture", {}).ok  # no file name to protect any more
+    assert ArchitectureSaver().save("ReadmeForge.Components.api server.Architecture", {}).ok
 
 
 def test_a_rejected_payload_writes_nothing():
