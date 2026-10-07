@@ -2,7 +2,7 @@
 
 Keeps application documentation (Overview, SMTD, SRS, SOP) up to date from structured knowledge.
 
-Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: tagging what the ontology rules cannot, filling small partial facts from a few chunks at a time, and (Phase 4 rework) phrasing a document's gaps as a list of questions. Everything else (validation, hashing, versions, files, document composition, rendering) is plain code.
+Knowledge is held as **validated JSON facts in SQLite**. Documents are **composed objects rendered to Markdown by deterministic code**. An LLM only does judgment work: tagging what the ontology rules cannot, filling small partial facts from a few chunks at a time, and phrasing a document's gaps as a list of questions. Everything else (validation, hashing, versions, files, document composition, rendering) is plain code.
 
 `CLAUDE.md` is the authoritative spec. `STATUS.md` says where the project stands. This file is the map: the process and the commands.
 
@@ -27,7 +27,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
                     OKF v0.2 metadata columns (type, title, description, tags, sources, trust, lifecycle), history
                                                               |
                                                               v
-                          (3 generate, rework pending: code groups the facts' JSON by the template;
+                          (3 generate: code groups the facts' JSON by the template;
                            code keeps document control and revision history; one checked LLM call
                            turns the gaps into a needs list)          table: DocumentOutputs (4 rows per document)
                                                               |
@@ -39,7 +39,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 |---|---|---|
 | 1. Ingest: chunk, tag and store originals | Code stages, chunks, tags against the ontology, decides the scope and stores; a small LLM fallback tags what the rules miss and places files the rules cannot | Built (Phase 2, redesigned) |
 | 2. Extract: turn a stored file's tagged chunks into facts | Code batches each entity's chunks; one small LLM call per batch returns a partial object; code checks it, merges batches and files, fills priorities from keywords and saves through the entity saver | Built (Phase 3, redesigned), verified on the real 50-page SRS |
-| 3. Generate: build documents from the facts | Code copies the facts' JSON into the template (SRS first), writes the document control and revision history and renders the `.md`; one small LLM call, checked by code, turns what is missing into a list of questions | **Rework decided, to build** (Phase 4). The first version (search index + generator agent) is still in the repo until the rework removes it |
+| 3. Generate: build documents from the facts | Code copies the facts' JSON into the template (SRS first), writes the document control and revision history and renders the `.md`; one small LLM call, checked by code, turns what is missing into a list of questions | Built (Phase 4, reworked), verified on the real SRS of AI-Driven-Job-Matching-Platform |
 
 ### Ideas worth remembering
 
@@ -54,7 +54,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 
 ## One-time setup
 
-1. Python 3.11 or newer. Runtime packages: `pydantic`, `pdfplumber`, `python-docx`, `beautifulsoup4`, `numpy` (numpy only for the first Phase 4 build; removed by the rework). For tests and the corpus: `pytest`, `reportlab`, `pyyaml`. (All listed in `pyproject.toml`.)
+1. Python 3.11 or newer. Runtime packages: `pydantic`, `pdfplumber`, `python-docx`, `beautifulsoup4`. For tests and the corpus: `pytest`, `reportlab`, `pyyaml`. (All listed in `pyproject.toml`.)
 2. Copy `.env.example` to `.env` and fill it in (`.env` is gitignored):
 
    | Setting | Meaning |
@@ -63,8 +63,6 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    | `OLLAMA_HOST`, `OLLAMA_API_KEY` | `https://ollama.com` plus your key for Ollama Cloud; leave unset for a local Ollama |
    | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) worked well for both agents |
    | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for extraction (one tool of at most ~1.5k tokens plus a 3500-character batch) |
-   | `DOCFACTORY_EMBED_MODEL` | Only for the first Phase 4 build (removed by the rework): embedding model for its index, e.g. `mxbai-embed-large` or `nomic-embed-text` (`ollama pull <name>`) |
-   | `DOCFACTORY_EMBED_HOST` | Only for the first Phase 4 build. With Ollama Cloud: it serves no embedding models, so point this at a local Ollama, e.g. `http://localhost:11434`. Your chat key is not sent there (`DOCFACTORY_EMBED_API_KEY` only if that server needs one) |
 
 3. Shell variables win over `.env`. In PowerShell: `$env:DOCFACTORY_MODEL = "gemma4:31b"`.
 
@@ -112,7 +110,7 @@ The argument is the stored path under `DocStore/`, with forward slashes; with a 
 
 The report gives per entity: outcome (`SAVED`, `UNCHANGED`, `SKIPPED_UNCHANGED_CHUNKS`, `SKIPPED_SCOPE`, `REMOVED`, `REJECTED`, `FAILED`), version and completeness, chunks, batches, items, priorities filled from keywords, and for review: batch problems, conflicts, values not found in the text, and the questions the fact still leaves open. Run it again after a new revision of the file: only entities whose chunks changed are extracted, and an entity no longer tagged loses this file's contribution (`REMOVED`). A `REJECTED` fact (for example an overview with no purpose yet) keeps the file's contribution, so a later document can complete it.
 
-### Step 3: generate (rework decided, not built yet)
+### Step 3: generate
 
 ```
 python -m docfactory.generate AI-Driven-Job-Matching-Platform SRS
@@ -129,7 +127,9 @@ The arguments are the application name (as in the fact keys) and the document ty
 
 Answer the questions by adding or revising a source document in `incoming/` and running steps 1-3 again; never edit the output.
 
-Until the rework lands, the first version still runs: `python -m docfactory.agents.run_generation <App> <Type>` (search index plus generator agent; renders only when document control and revision history rows exist; needs `DOCFACTORY_EMBED_HOST`).
+The report gives per document: the body's action, version and completeness, the document version, the revision entry added (if any), and the number of gaps and needs with where the needs came from (`llm`, `fallback` with the reason, or `no_llm`; "unchanged gaps, no LLM call" when the stored list was kept). Running it again with unchanged facts changes no row, writes no file and makes no LLM call, so it is safe to run whenever facts may have changed.
+
+On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (66% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner.
 
 ### Look at the results
 
@@ -165,10 +165,11 @@ Results: facts in the database, documents in `output/ReadmeForge/` (`Overview.md
 ### Tests
 
 ```
-python -m pytest -q                                               # everything offline (about 1970 tests, about a minute)
+python -m pytest -q                                               # everything offline (about 2010 tests, about a minute)
 python -m pytest -q tests/test_extraction_pipeline.py             # one file
 python -m pytest -q -m live tests/test_live_ingestion.py          # real LLM, opt-in
 python -m pytest -q -m live tests/test_live_extraction.py         # real LLM, opt-in: corpus SRS, then its revision
+python -m pytest -q -m live tests/test_live_generate.py           # real LLM, opt-in: the needs list of a small SRS
 python .claude/scripts/check_structure.py                         # one-class-per-file and naming rules
 ```
 
@@ -193,9 +194,10 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
 | `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent or call) and the thin agent loops |
 | `docfactory/extract/` | Extraction code: batching, fact keys, partial models, merge, grounding checks, keyword priorities, missing-info questions, the pipeline |
-| `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` are the runtime prompts (`docfactory-document-generator-agent.md` belongs to the first Phase 4 build and goes with it); edit them to tune behaviour |
+| `docfactory/generation/`, `docfactory/generate.py` | Generation code: the document types, gaps, document control, revision history, the fallback needs list, the per-document flow; and its entry point |
+| `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` (extraction) and `docfactory-needs-list-agent.md` (generation) are the runtime prompts; edit them to tune behaviour |
 
-Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_KNOWLEDGEFACTS`.
+Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_KNOWLEDGEFACTS`, `DOCFACTORY_OUTPUT`.
 
 ## Changing the models
 
@@ -217,10 +219,11 @@ A model change changes what stored data means: update the tests and re-save the 
 | Many chunks are unmapped | The ontology lacks this document's vocabulary: add heading terms or identifier patterns to `docfactory/ontology/signals.json`, then `python -m docfactory.ingest.chunk_rebuild` |
 | An entity came back `REJECTED` | The merged fact misses a mandatory field (the report's save errors name it and the question). No document states it yet; the file's contribution is kept and the fact is saved once another document supplies it |
 | Odd items in a fact (UI or training items as requirements) | Usually a wrong entity tag on a chunk. Check the tags (`db.list_doc_chunk_tags`) and the signals in `signals.json` |
+| Generate report: `needs fallback: ...` | The needs-list call failed (the reason follows); the needs list holds one question per gap and the call is retried on the next run |
+| `'<App>' has no knowledge facts` | Generate needs at least one fact for the application; the message lists the applications that have facts. Use the name exactly as in the fact keys |
 | A document is mostly `_Not provided._` | Its facts are missing or empty; the `<Type>.missing.md` next to it says what to find out. Facts for that application must exist first (`list_facts`); run step 2 or the seeds |
 
 ## What comes next
 
-- **Phase 4: Generate. Rework decided (2026-10-07), next to build.** Deterministic grouping of the facts' JSON by template (SRS first), document control and revision history kept by code, a checked LLM needs list as the fourth document row; the search index and generator agent of the first version are removed. See step 3 and `CLAUDE.md`.
 - **Phase 5: Human in the loop. Pending.** Approval workflow (agents propose, humans approve, tools apply); this is what turns `draft` facts into `stable`, and where near-duplicate items and conflicts between documents get reviewed.
 - **Phase 6: Automate. Pending.** Watch `incoming/` and run the whole chain.
