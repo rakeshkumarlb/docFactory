@@ -63,9 +63,9 @@ def test_an_update_rewrites_the_file_and_an_unchanged_save_restores_a_deleted_on
 
 def test_an_unchanged_file_is_not_rewritten(tmp_db):
     SopSaver().save("ReadmeForge.Sop", SOP)
-    ordered = SopSaver.model.model_validate(SOP).model_dump_json()
-    assert fact_files.write_file("ReadmeForge.Sop", ordered) is False
-    assert fact_files.write_file("ReadmeForge.Sop", ordered.replace("Test notes", "Test notes changed")) is True
+    fact = SopSaver.model.model_validate(SOP)
+    assert fact_files.write_file("ReadmeForge.Sop", fact) is False
+    assert fact_files.write_file("ReadmeForge.Sop", fact.model_copy(update={"notes": "Test notes changed"})) is True
 
 
 def test_an_unsafe_key_is_rejected_and_nothing_is_written(tmp_db):
@@ -92,3 +92,28 @@ def test_rebuild_rewrites_missing_files_and_removes_orphans(tmp_db):
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*.json")) == ["ReadmeForge/Sop.json", "Shared/Kpis.json"]
     assert fact_files.main() == 0
 
+
+COMPLETE_SOP = {"procedures": [{"name": "Test-Restart", "purpose": "Test purpose", "trigger": "Test trigger", "frequency": "Test frequency",
+                                "roles": ["Test role"], "prerequisites": ["Test prerequisite"], "steps": ["Test step one"],
+                                "verification": "Test verification", "escalation": "Test escalation"}],
+                "notes": "Test notes"}
+
+
+def test_open_questions_go_next_to_the_json_and_the_file_goes_when_nothing_is_open(tmp_db):
+    SopSaver().save("ReadmeForge.Sop", SOP)
+    missing = fact_files.facts_root() / "ReadmeForge" / "Sop.missing.md"
+    text = missing.read_text(encoding="utf-8")
+    assert text.startswith("# Open questions: ReadmeForge.Sop\n")
+    assert "`procedures[].purpose` (missing in 1 of 1 items): What is the purpose of this procedure?\n   Assumed until answered: empty text" in text
+    assert fact_files.missing_path_of("Shared.Kpis") == "Shared/Kpis.missing.md"
+    assert SopSaver().save("ReadmeForge.Sop", COMPLETE_SOP).completeness == 100
+    assert not missing.exists() and (fact_files.facts_root() / "ReadmeForge" / "Sop.json").is_file()
+
+
+def test_rebuild_restores_a_deleted_questions_file_and_removes_an_orphan_one(tmp_db):
+    SopSaver().save("ReadmeForge.Sop", SOP)
+    root = fact_files.facts_root()
+    (root / "ReadmeForge" / "Sop.missing.md").unlink()
+    (root / "ReadmeForge" / "Gone.missing.md").write_text("x", encoding="utf-8")
+    assert fact_files.rebuild() == (1, 0, 1)
+    assert (root / "ReadmeForge" / "Sop.missing.md").is_file() and not (root / "ReadmeForge" / "Gone.missing.md").exists()

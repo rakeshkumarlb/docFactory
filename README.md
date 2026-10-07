@@ -136,7 +136,7 @@ python -m docfactory.retrieval.index_rebuild
 | What each file contributed to a fact | `python -c "from docfactory import contributions; [print(c.resource, c.generated_by, c.timestamp) for c in contributions.list_contributions('ReadmeForge.FunctionalRequirements')]"` |
 | Change history of a fact | `python -c "from docfactory import db; print(db.list_fact_history('ReadmeForge.FunctionalRequirements'))"` |
 | Rebuild the search index of the facts | `python -m docfactory.retrieval.index_rebuild` |
-| Rewrite every fact's JSON file from the database | `python -m docfactory.fact_files` |
+| Rewrite every fact's JSON and open-questions file from the database | `python -m docfactory.fact_files` |
 | Read a stored document body | `python -c "from docfactory import documents; d = documents.get_document('ReadmeForge.Outputs.Overview'); print(d.version, d.completeness)"` |
 
 The database is `db/docfactory.sqlite` (gitignored). Any SQLite viewer works for reading it; never edit it by hand.
@@ -177,7 +177,7 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `docs/ontology.md` | The entities, their facts and the tagging signals (generated; edit `docfactory/ontology/signals.json`) |
 | `db/docfactory.sqlite` | The database (gitignored) |
 | `output/<app>/` | Rendered documents. Views; gitignored |
-| `knowledgefacts/<scope>/` | One JSON file per fact (`ReadmeForge/Sop.json`, `Shared/Kpis.json`): the validated value. Views, written by the savers only; gitignored |
+| `knowledgefacts/<scope>/` | One JSON file per fact (`ReadmeForge/Sop.json`, `Shared/Kpis.json`): the validated value, plus `<Entity>.missing.md` with the questions its unanswered fields ask and the default assumed meanwhile (no file when nothing is open). Views, written by the savers only; gitignored |
 | `samples/json/<entity>/` | Example JSON payloads, one folder per entity |
 | `docs/okf/SPEC.md` | The OKF v0.2 specification (verbatim copy) |
 | `docfactory/models/` | Machinery models (base model, `SaveResult`, `FactMeta`, ...) |

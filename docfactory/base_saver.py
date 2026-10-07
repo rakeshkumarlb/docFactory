@@ -211,12 +211,11 @@ class BaseSaver(Generic[M]):
         existing = db.get_row(table, key)
         is_fact = table == FACTS_TABLE
         kind = type_name(self.model.__name__)
-        body_json = instance.model_dump_json()  # model field order, for the readable fact file (the stored Value is sorted)
         if existing is not None and existing["Hashcode"] == hashcode:
             if is_fact:
                 if meta is not None:
                     fact_writer.refresh_metadata(key, kind, existing, meta)
-                fact_writer.ensure_file(key, body_json)
+                fact_writer.ensure_file(key, instance)
             return SaveResult(
                 ok=True,
                 key=key,
@@ -228,7 +227,7 @@ class BaseSaver(Generic[M]):
         action, version = (SaveAction.CREATED, 1) if existing is None else (SaveAction.UPDATED, existing["Version"] + 1)
         score = completeness(instance)
         if is_fact:
-            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta, body_json)
+            fact_writer.write_fact(key, kind, value, hashcode, derived_app_id, score, version, action == SaveAction.UPDATED, meta, instance)
         else:
             db.write_row(table, key, value, hashcode, derived_app_id, score, version)
         return SaveResult(ok=True, key=key, action=action, version=version, hashcode=hashcode, completeness=score)

@@ -4,6 +4,8 @@ for entity savers only; no validation here.
 OKF lives only in the row's metadata columns; the content is the validated JSON in Value, and the file is a view of that JSON."""
 import json
 
+from pydantic import BaseModel
+
 from docfactory import clock, db, fact_files
 from docfactory.facts import record_of
 from docfactory.models.fact_meta import FactMeta
@@ -40,10 +42,10 @@ def _meta_fields(key: str, kind: str, meta: FactMeta) -> dict:
 
 
 def write_fact(key: str, kind: str, value: str, hashcode: str, app_id: str | None, score: float, version: int,
-               changed: bool, meta: FactMeta | None, body_json: str) -> None:
+               changed: bool, meta: FactMeta | None, fact: BaseModel) -> None:
     """Write a new or changed fact: the row (a new value is always a draft, unverified, generated now), history when it replaced
-    an earlier value (`changed`), the source index and the fact file. Without `meta` the metadata is the bare defaults.
-    `body_json` is the fact as JSON in model field order, used for the file."""
+    an earlier value (`changed`), the source index and the fact's files. Without `meta` the metadata is the bare defaults.
+    `fact` is the validated object: its JSON file (model field order) and its open questions are written from it."""
     meta = meta or FactMeta(generated_by=DEFAULT_GENERATED_BY)
     record = FactRecord(
         key=key, value=value, hashcode=hashcode, completeness=score, version=version, app_id=app_id,
@@ -52,12 +54,12 @@ def write_fact(key: str, kind: str, value: str, hashcode: str, app_id: str | Non
     frontmatter = render_frontmatter(record, kind, meta)
     okf = {**_columns(record, frontmatter), "Verified": EMPTY_VERIFIED, "Status": record.status.value}
     db.write_fact_row(key, value, hashcode, app_id, score, version, okf, [source.resource for source in meta.sources], changed)
-    fact_files.write_file(key, body_json)
+    fact_files.write_file(key, fact)
 
 
-def ensure_file(key: str, body_json: str) -> None:
-    """The value is unchanged: (re)write the fact file only if it is missing or differs."""
-    fact_files.write_file(key, body_json)
+def ensure_file(key: str, fact: BaseModel) -> None:
+    """The value is unchanged: (re)write the fact's files only if they are missing or differ."""
+    fact_files.write_file(key, fact)
 
 
 def refresh_metadata(key: str, kind: str, row: dict, meta: FactMeta) -> None:
