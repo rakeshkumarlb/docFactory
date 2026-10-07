@@ -61,8 +61,8 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    |---|---|
    | `DOCFACTORY_PROVIDER` | `ollama` (default) or `anthropic` |
    | `OLLAMA_HOST`, `OLLAMA_API_KEY` | `https://ollama.com` plus your key for Ollama Cloud; leave unset for a local Ollama |
-   | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) worked well for both agents |
-   | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for extraction (one tool of at most ~1.5k tokens plus a 3500-character batch) |
+   | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) is the model in use and works for every call |
+   | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for every call (one tool schema of at most ~1.5k tokens plus its input, e.g. a 3500-character batch) |
 
 3. Shell variables win over `.env`. In PowerShell: `$env:DOCFACTORY_MODEL = "gemma4:31b"`.
 
@@ -129,7 +129,7 @@ Answer the questions by adding or revising a source document in `incoming/` and 
 
 The report gives per document: the body's action, version and completeness, the document version, the revision entry added (if any), and the number of gaps and needs with where the needs came from (`llm`, `fallback` with the reason, or `no_llm`; "unchanged gaps, no LLM call" when the stored list was kept). Running it again with unchanged facts changes no row, writes no file and makes no LLM call, so it is safe to run whenever facts may have changed.
 
-On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (66% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner.
+On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (66% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner. The other three: Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SOP 48% (12 -> 5); all four in about 35 seconds. The documents of this run are in `samples/output/`.
 
 ### Look at the results
 
@@ -160,12 +160,12 @@ python -m seed.seed_readmeforge_smtd
 python -m seed.seed_readmeforge_srs_sop
 ```
 
-Results: facts in the database, documents in `output/ReadmeForge/` (`Overview.md`, `SMTD.md`, `SOP.md`, plus `*.missing.json`, the questions about what is still unanswered).
+Results: facts in the database, documents in `output/ReadmeForge/` (`Overview.md`, `SMTD.md`, `SRS.md`, `SOP.md`, plus `*.missing.json`, the questions about what is still unanswered).
 
 ### Tests
 
 ```
-python -m pytest -q                                               # everything offline (about 2010 tests, about a minute)
+python -m pytest -q                                               # everything offline (about 2015 tests, about a minute)
 python -m pytest -q tests/test_extraction_pipeline.py             # one file
 python -m pytest -q -m live tests/test_live_ingestion.py          # real LLM, opt-in
 python -m pytest -q -m live tests/test_live_extraction.py         # real LLM, opt-in: corpus SRS, then its revision
@@ -193,7 +193,7 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `docfactory/entitymodels/` | What is known about an application: `facts/` (have a saver) and `items/` (nested types) |
 | `docfactory/documentmodels/` | Documents, their sections and parts |
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
-| `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one per agent or call) and the thin agent loops |
+| `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one single-tool package per kind of LLM call) and the thin agent loops |
 | `docfactory/extract/` | Extraction code: batching, fact keys, partial models, merge, grounding checks, keyword priorities, missing-info questions, the pipeline |
 | `docfactory/generation/`, `docfactory/generate.py` | Generation code: the document types, gaps, document control, revision history, the fallback needs list, the per-document flow; and its entry point |
 | `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` (extraction) and `docfactory-needs-list-agent.md` (generation) are the runtime prompts; edit them to tune behaviour |
