@@ -1,0 +1,31 @@
+{
+  "monitoring_tools": [
+    "NFR-137. log aggregation and analysis tools"
+  ],
+  "key_metrics": [
+    "FR-116. job seeker activities including profile views, job searches, applications, and interactions",
+    "FR-117. employer activities including job postings, candidate searches",
+    "NFR-133. system health and performance"
+  ],
+  "alerts": [
+    {
+      "name": "NFR-44",
+      "condition": "security incidents",
+      "severity": "",
+      "response_action": "",
+      "notification_channel": ""
+    },
+    {
+      "name": "NFR-134",
+      "condition": "critical system events and performance thresholds",
+      "severity": "",
+      "response_action": "",
+      "notification_channel": ""
+    }
+  ],
+  "dashboards": [
+    "FR-119. MOL Life dashboard",
+    "NFR-136. dashboards for monitoring system status and performance metrics"
+  ],
+  "log_locations": []
+}

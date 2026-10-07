@@ -1,0 +1,128 @@
+{
+  "architecture_style": "",
+  "technology_stack": [
+    "RESTful APIs",
+    "JSON data format",
+    "OAuth 2.0",
+    "HTTP/HTTPS",
+    "WebSockets",
+    "SMTP",
+    "SMS protocols",
+    "RESTful/SOAP API",
+    "JSON",
+    "XML",
+    "CSV"
+  ],
+  "components": [
+    {
+      "name": "Application servers",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Database servers",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Storage systems",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Backup systems",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Load balancers",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Firewalls",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    },
+    {
+      "name": "Network monitoring devices",
+      "purpose": "",
+      "technology": "",
+      "owner": "",
+      "dependencies": []
+    }
+  ],
+  "data_stores": [],
+  "integrations": [
+    {
+      "name": "Third-Party Job Portals Registration and Integration (i.e. jobs.ps)",
+      "direction": "",
+      "protocol": "secure RESTful Push API",
+      "purpose": "allowing external platforms to submit job opportunities directly to the job matching system",
+      "data_exchanged": "job opportunities, job synchronization of updates (deadline extensions, description edits, or early closure/deletion/deactivation)",
+      "authentication": "unique API key or token, with support for optional IP whitelisting, usage limits, and token expiration management"
+    },
+    {
+      "name": "External Job Site Integration",
+      "direction": "",
+      "protocol": "",
+      "purpose": "Integration with external job sites based on recommendations by MoL and PEF",
+      "data_exchanged": "",
+      "authentication": ""
+    },
+    {
+      "name": "Government Database Integration",
+      "direction": "",
+      "protocol": "",
+      "purpose": "Integration with relevant government databases for data verification and enrichment, including MoL and PEF existing databases and systems, educational institution databases, and identity verification systems",
+      "data_exchanged": "",
+      "authentication": ""
+    },
+    {
+      "name": "Email and SMS Gateways",
+      "direction": "",
+      "protocol": "",
+      "purpose": "Integration with email service providers and SMS gateways",
+      "data_exchanged": "",
+      "authentication": ""
+    },
+    {
+      "name": "Analytics and Reporting Tools",
+      "direction": "",
+      "protocol": "",
+      "purpose": "Integration with data visualization tools and export capabilities for external analysis",
+      "data_exchanged": "",
+      "authentication": ""
+    },
+    {
+      "name": "external integrations",
+      "direction": "",
+      "protocol": "RESTful/SOAP API",
+      "purpose": "",
+      "data_exchanged": "",
+      "authentication": ""
+    },
+    {
+      "name": "legacy system integration",
+      "direction": "",
+      "protocol": "XML",
+      "purpose": "",
+      "data_exchanged": "",
+      "authentication": ""
+    }
+  ],
+  "diagram_reference": null,
+  "notes": ""
+}

@@ -186,7 +186,8 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `db/docfactory.sqlite` | The database (gitignored) |
 | `output/<app>/` | Rendered documents and their needs lists (`<Type>.missing.md`). Views; gitignored |
 | `knowledgefacts/<scope>/` | One JSON file per fact (`ReadmeForge/Sop.json`, `Shared/Kpis.json`): the validated value, plus `<Entity>.missing.md` with the questions its unanswered fields ask and the default assumed meanwhile (no file when nothing is open). Views, written by the savers only; gitignored |
-| `samples/json/<entity>/` | Example JSON payloads, one folder per entity |
+| `samples/json/<entity>/` | Example JSON payloads, one folder per entity (used by the seeds and tests) |
+| `samples/DocStore/`, `samples/knowledgefacts/`, `samples/output/` | A committed snapshot of one end-to-end run on the AI-Driven-Job-Matching-Platform SRS: the stored PDF, its facts' JSON and open questions, and the four generated documents with their needs lists. Copies, never read by the code |
 | `docs/okf/SPEC.md` | The OKF v0.2 specification (verbatim copy) |
 | `docfactory/models/` | Machinery models (base model, `SaveResult`, `FactMeta`, ...) |
 | `docfactory/entitymodels/` | What is known about an application: `facts/` (have a saver) and `items/` (nested types) |

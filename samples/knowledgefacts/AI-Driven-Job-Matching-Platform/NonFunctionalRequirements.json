@@ -1,0 +1,1325 @@
+{
+  "summary": "",
+  "requirements": [
+    {
+      "id": "NFR-01",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL provide page load times of less than 3 seconds for standard operations under normal load conditions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-02",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL provide search results within 2 seconds for standard search queries.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-03",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL complete AI matching operations within 5 seconds for individual job-candidate matches.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-04",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL process batch operations (e.g., bulk candidate matching) within a timeframe proportional to the batch size, not exceeding 2 minutes for standard operations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-05",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL maintain response time degradation of no more than 50% during peak load periods.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-06",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support at least 1,000 concurrent users during normal operations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-07",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support at least 5,000 concurrent users during peak periods.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-08",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL process at least 100 job applications per minute during peak periods.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-09",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support at least 500 new job postings per day.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-10",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support at least 1,000 new user registrations per day.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-11",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL operate within the allocated server resources, utilizing no more than 80% of CPU capacity during normal operations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-12",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL utilize no more than 80% of available memory during normal operations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-13",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL require no more than 5TB of storage for the first year of operation, with a growth plan for subsequent years.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-14",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL optimize database queries to minimize I/O operations and response times.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-15",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL implement caching mechanisms to reduce resource utilization for frequently accessed data.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-16",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL be designed to scale horizontally by adding more server instances to handle increased load.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-17",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL be designed to scale vertically by utilizing additional resources on existing servers.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-18",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support a minimum of 100,000 registered job seekers without performance degradation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-19",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support a minimum of 10,000 registered employers without performance degradation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-20",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL support a minimum of 50,000 active job postings without performance degradation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-21",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL be designed to accommodate a 100% annual growth in user base and transaction volume for at least the first three years of operation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-22",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement multi-factor authentication for administrative accounts and as an option for all users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-23",
+      "category": "SECURITY",
+      "statement": "The system SHALL enforce strong password policies, including minimum length, complexity, and regular password changes.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-24",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement role-based access control (RBAC) to restrict access to features and data based on user roles.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-25",
+      "category": "SECURITY",
+      "statement": "The system SHALL maintain detailed access logs for all authentication and authorization events.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-26",
+      "category": "SECURITY",
+      "statement": "The system SHALL automatically lock accounts after a specified number of failed login attempts.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-27",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement secure session management with appropriate timeout settings.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-28",
+      "category": "SECURITY",
+      "statement": "The system SHALL support OAuth 2.0 and OpenID Connect for third-party authentication where applicable.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-29",
+      "category": "SECURITY",
+      "statement": "The system SHALL encrypt all sensitive data at rest using industry-standard encryption algorithms (AES-256 or equivalent).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-30",
+      "category": "SECURITY",
+      "statement": "The system SHALL encrypt all data in transit using TLS 1.3 or higher.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-31",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement data masking for sensitive information displayed in the user interface.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-32",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement secure key management practices for encryption keys.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-33",
+      "category": "SECURITY",
+      "statement": "The system SHALL provide mechanisms for secure data deletion when required.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-34",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement database-level encryption for sensitive tables and columns.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-35",
+      "category": "SECURITY",
+      "statement": "The system SHALL maintain separate environments for development, testing, and production with appropriate data isolation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-36",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL comply with Palestinian data protection regulations and incorporate GDPR principles as best practice.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-37",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL provide mechanisms for users to view, export, and delete their personal data in accordance with data protection regulations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-38",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL maintain audit trails of all data access and modifications for compliance purposes.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-39",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL implement data minimization principles, collecting only necessary information for system functionality.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-40",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL provide clear privacy notices and obtain appropriate consent for data collection and processing.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-41",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL implement data retention policies in compliance with legal requirements.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-42",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL support data protection impact assessments (DPIA) for high-risk processing activities.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-43",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement comprehensive logging of security-relevant events.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-44",
+      "category": "SECURITY",
+      "statement": "The system SHALL provide real-time monitoring and alerting for security incidents.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-45",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement intrusion detection and prevention mechanisms.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-46",
+      "category": "SECURITY",
+      "statement": "The system SHALL conduct regular security scans and vulnerability assessments.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-47",
+      "category": "SECURITY",
+      "statement": "The system SHALL have a documented incident response plan for security breaches.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-48",
+      "category": "SECURITY",
+      "statement": "The system SHALL implement rate limiting and other protections against denial-of-service attacks.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-49",
+      "category": "SECURITY",
+      "statement": "The system SHALL provide mechanisms for security patch management and updates.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-50",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL maintain 99.5% availability during standard operating hours (8:00 AM to 8:00 PM Palestine time, Sunday through Thursday).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-51",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL maintain 99.0% availability during non-standard hours.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-52",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL schedule maintenance windows during periods of lowest expected usage.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-53",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL provide advance notice of scheduled maintenance to all users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-54",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL implement high availability architecture to minimize single points of failure.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-55",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL continue to function with degraded performance in the event of component failures.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-56",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL implement database replication to prevent data loss in case of database failures.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-57",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL implement load balancing across multiple servers to distribute traffic and prevent overload.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-58",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL automatically recover from common failure scenarios without manual intervention.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-59",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL implement circuit breaker patterns for external service dependencies to prevent cascading failures.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-60",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL maintain regular backups of all data, with full backups at least weekly and incremental backups daily.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-61",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL store backups in geographically separate locations from the primary system.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-62",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL define and document Recovery Time Objective (RTO) of 4 hours for critical functions and 24 hours for non-critical functions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-63",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL define and document Recovery Point Objective (RPO) of 1 hour, meaning no more than 1 hour of data loss in a disaster scenario.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-64",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL have a documented and tested disaster recovery plan.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-65",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL conduct disaster recovery drills at least twice per year.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-66",
+      "category": "OTHER",
+      "statement": "The system SHALL provide meaningful error messages to users without exposing sensitive system information.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-67",
+      "category": "OTHER",
+      "statement": "The system SHALL log detailed error information for troubleshooting and monitoring.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-68",
+      "category": "OTHER",
+      "statement": "The system SHALL handle input validation errors gracefully, providing clear feedback to users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-69",
+      "category": "OTHER",
+      "statement": "The system SHALL implement appropriate retry mechanisms for transient errors.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-70",
+      "category": "OTHER",
+      "statement": "The system SHALL maintain system stability when encountering unexpected inputs or conditions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-71",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide a consistent and intuitive user interface across all functions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-72",
+      "category": "USABILITY",
+      "statement": "The system SHALL implement responsive design to support various screen sizes and devices.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-73",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide clear navigation and information architecture.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-74",
+      "category": "USABILITY",
+      "statement": "The system SHALL use consistent terminology and design patterns throughout the interface.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-75",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide appropriate feedback for user actions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-76",
+      "category": "USABILITY",
+      "statement": "The system SHALL minimize the number of steps required to complete common tasks.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-77",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide context-sensitive help and guidance.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-78",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL comply with Web Content Accessibility Guidelines (WCAG) 2.1 Level AA standards.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-79",
+      "category": "USABILITY",
+      "statement": "The system SHALL support screen readers and other assistive technologies.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-80",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide keyboard navigation for all functions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-81",
+      "category": "USABILITY",
+      "statement": "The system SHALL ensure sufficient color contrast for text and interactive elements.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-82",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide text alternatives for non-text content.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-83",
+      "category": "USABILITY",
+      "statement": "The system SHALL ensure that form elements have associated labels.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-84",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide mechanisms to pause, stop, or hide moving content.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-85",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide full functionality in both Arabic and English languages.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-86",
+      "category": "USABILITY",
+      "statement": "The system SHALL allow users to switch between languages at any point in the application.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-87",
+      "category": "USABILITY",
+      "statement": "The system SHALL support right-to-left (RTL) text direction for Arabic content.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-88",
+      "category": "USABILITY",
+      "statement": "The system SHALL ensure that date, time, and number formats are appropriate for the selected language and locale.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-89",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide a consistent translation quality across all interface elements.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-90",
+      "category": "USABILITY",
+      "statement": "The system SHALL support multilingual content for job postings and user profiles.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-91",
+      "category": "USABILITY",
+      "statement": "The system SHALL implement language detection to suggest the appropriate language based on user settings and location.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-92",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide a personalized user experience based on user preferences and behavior.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-93",
+      "category": "USABILITY",
+      "statement": "The system SHALL implement progressive disclosure of complex features to avoid overwhelming users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-94",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide clear onboarding processes for new users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-95",
+      "category": "USABILITY",
+      "statement": "The system SHALL collect and incorporate user feedback for continuous improvement.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-96",
+      "category": "USABILITY",
+      "statement": "The system SHALL support different user skill levels, from novice to expert.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-97",
+      "category": "USABILITY",
+      "statement": "The system SHALL minimize user cognitive load by presenting information in manageable chunks.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-98",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide appropriate defaults to reduce the need for user configuration.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-99",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL be designed with a modular architecture to facilitate maintenance and updates.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-100",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL follow consistent coding standards and best practices.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-101",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL include comprehensive technical documentation for all components.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-102",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL implement logging and monitoring to facilitate troubleshooting.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-103",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL support configuration changes without requiring code modifications.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-104",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL implement automated testing with a minimum of 80% code coverage.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-105",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL support version control for all system artifacts.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-106",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL be designed to operate in different hosting environments (on-premises, cloud, or hybrid).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-107",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL use containerization technologies to ensure consistent deployment across environments.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-108",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL minimize dependencies on specific hardware or operating system features.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-109",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL support database portability through abstraction layers.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-110",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide documented deployment procedures for different environments.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-111",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL support automated deployment and configuration.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-112",
+      "category": "OTHER",
+      "statement": "The system SHALL be compatible with the latest versions of major web browsers (Chrome, Firefox, Safari, Edge).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-113",
+      "category": "OTHER",
+      "statement": "The system SHALL be compatible with the previous two major versions of supported browsers.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-114",
+      "category": "OTHER",
+      "statement": "The system SHALL be compatible with mobile browsers on iOS and Android platforms.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-115",
+      "category": "OTHER",
+      "statement": "The system SHALL be compatible with standard email clients for notification delivery.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-116",
+      "category": "OTHER",
+      "statement": "The system SHALL support standard file formats for data import and export (CSV, JSON, XML).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-117",
+      "category": "OTHER",
+      "statement": "The system SHALL implement standard protocols for integration with external systems.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-118",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL comply with all applicable Palestinian labor laws and regulations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-119",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL incorporate GDPR principles as best practice for data protection.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-120",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL comply with accessibility regulations and standards.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-121",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL maintain appropriate records for regulatory compliance and auditing.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-122",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL implement mechanisms to stay current with changing regulatory requirements.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-123",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL respect intellectual property rights in all content and functionality.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-124",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL properly license all third-party components and libraries.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-125",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL provide appropriate attribution for third-party content.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-126",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL implement mechanisms to prevent copyright infringement by users.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-127",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL define and document service level agreements (SLAs) for system availability.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-128",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL define and document SLAs for incident response and resolution times.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-129",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL define and document SLAs for support services.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-130",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL implement monitoring and reporting mechanisms to track SLA compliance.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-131",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL define escalation procedures for SLA violations.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-132",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL implement comprehensive logging for all system components.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-133",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL provide real-time monitoring of system health and performance.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-134",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL generate alerts for critical system events and performance thresholds.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-135",
+      "category": "COMPLIANCE",
+      "statement": "The system SHALL maintain log retention policies in compliance with legal requirements.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-136",
+      "category": "PERFORMANCE",
+      "statement": "The system SHALL provide dashboards for monitoring system status and performance metrics.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-137",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL implement log aggregation and analysis tools.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-138",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL perform automated backups according to defined schedules.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-139",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL verify backup integrity through automated testing.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-140",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL provide mechanisms for point-in-time recovery.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-141",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL document and test restoration procedures.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-142",
+      "category": "AVAILABILITY",
+      "statement": "The system SHALL maintain backup history and audit trails.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-143",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide administrative interfaces for system configuration and management.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-144",
+      "category": "SECURITY",
+      "statement": "The system SHALL support role-based access for administrative functions.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-145",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide tools for user management and support.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-146",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL implement change management procedures for system modifications.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-147",
+      "category": "OTHER",
+      "statement": "The system SHALL provide mechanisms for content moderation and management.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-148",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL support system health checks and diagnostics.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-149",
+      "category": "USABILITY",
+      "statement": "The system SHALL provide comprehensive user documentation for all user roles.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-150",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide technical documentation for system administrators and developers.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-151",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL maintain up-to-date system architecture and design documentation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-152",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide API documentation for integration partners.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-153",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL document all configuration parameters and their effects.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-154",
+      "category": "MAINTAINABILITY",
+      "statement": "The system SHALL provide troubleshooting guides and known issue documentation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-155",
+      "category": "OTHER",
+      "statement": "The system SHALL respect cultural norms and sensitivities in the Palestinian context.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-156",
+      "category": "OTHER",
+      "statement": "The system SHALL use appropriate terminology and language for the local context.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-157",
+      "category": "OTHER",
+      "statement": "The system SHALL support local date and time formats, including Hijri calendar references where appropriate.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-158",
+      "category": "OTHER",
+      "statement": "The system SHALL consider gender sensitivities in user interfaces and communications.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-159",
+      "category": "OTHER",
+      "statement": "The system SHALL use politically neutral terminology in system interfaces and documentation.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-160",
+      "category": "OTHER",
+      "statement": "The system SHALL respect the political sensitivities of the region in geographic references and maps.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-161",
+      "category": "OTHER",
+      "statement": "The system SHALL implement appropriate content moderation policies for politically sensitive content.",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "NFR-162",
+      "category": "OTHER",
+      "statement": "The system SHALL ensure equitable access for users across all Palestinian territories, including Gaza and the West Bank (including East Jerusalem).",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "Localization Framework",
+      "category": "OTHER",
+      "statement": "Support for adding additional languages in the future - Separation of UI text from code for easy translation - Localization of images and media where appropriate",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "Cultural Adaptations",
+      "category": "OTHER",
+      "statement": "Support for different date, time, and number formats - Adaptation of content for cultural appropriateness - Consideration of cultural differences in UI design",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    },
+    {
+      "id": "Regional Settings",
+      "category": "OTHER",
+      "statement": "Support for regional variations in language (e.g., different Arabic dialects) - Region-specific content and features - Compliance with regional regulations",
+      "target": null,
+      "priority": "MUST",
+      "verification": null
+    }
+  ]
+}

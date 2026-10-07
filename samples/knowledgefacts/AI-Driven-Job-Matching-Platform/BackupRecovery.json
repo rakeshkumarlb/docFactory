@@ -1,0 +1,9 @@
+{
+  "backup_schedule": "full backups at least weekly and incremental backups daily",
+  "backup_retention": null,
+  "backup_location": "geographically separate locations from the primary system",
+  "restore_procedure": "document and test restoration procedures",
+  "rpo": "1 hour",
+  "rto": "4 hours for critical functions and 24 hours for non-critical functions",
+  "disaster_recovery_plan": "documented and tested disaster recovery plan"
+}
