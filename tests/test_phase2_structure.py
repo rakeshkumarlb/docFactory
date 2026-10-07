@@ -10,13 +10,14 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "docfactory"
-FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "retrieval", "ontology", "extract")
+FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "retrieval", "ontology", "extract", "generation")
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
 FUNCTION_MODULES = {"docstore_reads", "ingestion_tools", "paths", "file_hash", "target_rules",
                     "run_ingestion", "model_client_factory", "extraction_tools", "prompt_file", "run_extraction",
-                    "generation_tools", "run_generation", "schema_slim",
+                    "generation_tools", "run_generation", "schema_slim", "needs_tools",
+                    "doc_types", "gaps", "document_control", "revision_history", "fallback_needs", "generate_document",
                     "batching", "fact_keys", "partial_schema", "model_shapes", "grounding", "merge", "missing_questions", "extraction_pipeline", "priority_keywords",
                     "embedder_factory", "index_rebuild",
                     "signals", "ontology_render",

@@ -1,12 +1,15 @@
 """Manual trigger for generation: `python -m docfactory.generate <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]`.
 
 For each document type: build the body from the stored facts, maintain document control and revision history, save the needs list and
-render output/<App>/<DocType>.md and <DocType>.missing.md. --no-llm saves one need per gap instead of the LLM's needs list.
+render output/<App>/<DocType>.md and <DocType>.missing.md. One small checked LLM call (NeedsWriter, settings from .env) phrases the needs
+list when the gaps changed; --no-llm saves one need per gap instead.
 """
 import argparse
 import sys
 
 from docfactory import db
+from docfactory.agents.model_client_factory import default_client
+from docfactory.agents.needs_writer import NeedsWriter
 from docfactory.env_file import load_env_file
 from docfactory.generation.doc_types import DOC_TYPES
 from docfactory.generation.generate_document import format_reports, generate
@@ -28,8 +31,7 @@ def main(argv: list[str]) -> int:
     writer = None
     if not args.no_llm:
         load_env_file()  # settings from .env; variables already set in the shell win
-        print("the needs-list LLM call is not built yet (Phase 4 step 4); run with --no-llm")
-        return 2
+        writer = NeedsWriter(default_client())
     doc_types = list(DOC_TYPES) if args.doc_type == "all" else [args.doc_type]
     reports = [generate(args.app, doc_type, writer) for doc_type in doc_types]
     print(format_reports(args.app, reports))
