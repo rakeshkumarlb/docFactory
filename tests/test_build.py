@@ -60,7 +60,17 @@ def test_build_is_deterministic():
     assert first.model_dump(mode="json") == second.model_dump(mode="json")
 
 
-def test_missing_mandatory_source_fact_raises_a_clear_build_error():
-    # Nothing saved at all: application_summary.application_name/purpose are mandatory and unfillable.
-    with pytest.raises(BuildError, match="application_summary"):
+def test_no_facts_at_all_still_build_a_document_with_every_field_missing():
+    document, missing = build_document(OverviewDocument, APP)
+
+    assert document.application_summary.application_name == "" and document.application_summary.purpose == ""
+    fields = {item.field for item in missing}
+    assert {"application_summary.application_name", "application_summary.purpose", "kpi_summary.kpis"} <= fields
+    assert len(fields) == len(OverviewDocument.model_fields["application_summary"].annotation.model_fields) + 2
+
+
+def test_a_wrongly_wired_binding_raises_a_build_error(monkeypatch):
+    from docfactory import build
+    monkeypatch.delitem(build.FACT_SPECS, "Kpis")
+    with pytest.raises(BuildError, match="Kpis"):
         build_document(OverviewDocument, APP)

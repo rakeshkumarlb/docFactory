@@ -4,18 +4,18 @@ from docfactory.models.not_applicable import NotApplicable
 
 
 class ApplicationSummarySection(DocFactoryModel):
-    """The application-summary section of a document: the essential facts about what the application is and who it serves, mirrored from ApplicationOverview."""
+    """The application-summary section of a document: the essential facts about what the application is and who it serves, mirrored from ApplicationOverview. A view: every field has an honest default, so a missing fact is a gap in the document, never an invalid one."""
 
     application_name: str = doc_field(
-        description="Official name of the application as used in documents, e.g. KitchenHQ. Identifies what this document is about.",
+        default='',
+        description="Official name of the application as used in documents, e.g. KitchenHQ. Identifies what this document is about. Empty while the ApplicationOverview fact does not state it.",
         question="What is the official name of the application?",
-        min_length=1,
         binding="ApplicationOverview.application_name",
     )
     purpose: str = doc_field(
-        description="One to three sentences on why the application exists and what problem it solves, e.g. 'Lets kitchen staff plan orders and track stock in one place.' A good value states the problem and the outcome, not the technology.",
+        default='',
+        description="One to three sentences on why the application exists and what problem it solves, e.g. 'Lets kitchen staff plan orders and track stock in one place.' A good value states the problem and the outcome, not the technology. Empty while the ApplicationOverview fact does not state it.",
         question="What is the purpose of the application: what problem does it solve and for whom?",
-        min_length=1,
         binding="ApplicationOverview.purpose",
     )
     business_overview: str = doc_field(

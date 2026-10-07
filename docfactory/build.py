@@ -9,8 +9,6 @@ field is copied over only when its source fact answers it (see `completeness.py`
 import json
 from typing import get_args
 
-from pydantic import ValidationError
-
 from docfactory import db
 from docfactory.documentmodels.shared.missing_info import MissingInfo
 from docfactory.entitymodels.facts.application_overview import ApplicationOverview
@@ -49,7 +47,7 @@ FACT_SPECS = {
 
 
 class BuildError(Exception):
-    """Raised when build_document cannot fill a mandatory document field because its source fact is missing."""
+    """Raised when a document model is wired wrongly: a binding names an unknown fact, or a field has no fact binding."""
 
 
 def _extra(field) -> dict:
@@ -107,19 +105,15 @@ def _build_model(model_cls, app_id: str, cache: dict, prefix: str, missing: list
             values[name] = getattr(fact, source_name)
         else:
             missing.append(MissingInfo(field=dotted, question=extra.get("question") or field.description, expected_source=binding))
-    try:
-        return model_cls.model_validate(values)
-    except ValidationError as error:
-        unresolved = ", ".join(item.field for item in missing if item.field.startswith(prefix)) or "unknown field(s)"
-        raise BuildError(f"Cannot build {model_cls.__name__}: mandatory field(s) have no source fact yet: {unresolved}") from error
+    return model_cls.model_validate(values)  # section fields all have defaults: an absent fact is a gap, never an invalid section
 
 
 def build_document(document_model: type[DocFactoryModel], app_id: str) -> tuple[DocFactoryModel, list[MissingInfo]]:
     """Build a `document_model` body object from `app_id`'s facts and the shared facts.
 
     Returns (instance, missing): `missing` lists every field build_document could not fill, generated
-    from the model's own metadata. Raises BuildError, naming the unresolved fields, when a mandatory
-    field has no source fact at all rather than inventing a value to satisfy it.
+    from the model's own metadata. An absent or incomplete fact never stops the build: its fields keep
+    their defaults and are listed in `missing`. Raises BuildError only for a wrongly wired model.
     """
     missing: list[MissingInfo] = []
     instance = _build_model(document_model, app_id, {}, "", missing)

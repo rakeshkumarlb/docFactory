@@ -4,10 +4,7 @@ from pydantic import ValidationError
 from docfactory.documentmodels.entitybound.application_summary_section import ApplicationSummarySection
 from docfactory.models.not_applicable import NotApplicable
 
-MINIMAL = {
-    "application_name": "KitchenHQ",
-    "purpose": "Test purpose statement.",
-}
+MINIMAL = {}
 
 FULL = {
     "application_name": "KitchenHQ",
@@ -30,12 +27,8 @@ def test_full_payload_round_trips():
     assert ApplicationSummarySection.model_validate(obj.model_dump()) == obj
 
 
-@pytest.mark.parametrize("field", ["application_name", "purpose"])
-def test_missing_mandatory_field_is_rejected(field):
-    payload = {k: v for k, v in FULL.items() if k != field}
-    with pytest.raises(ValidationError) as caught:
-        ApplicationSummarySection.model_validate(payload)
-    assert field in {error["loc"][0] for error in caught.value.errors()}
+def test_no_field_is_mandatory_so_a_missing_fact_is_a_gap_not_an_error():
+    assert not [name for name, field in ApplicationSummarySection.model_fields.items() if field.is_required()]
 
 
 def test_extra_field_is_rejected():
@@ -45,18 +38,14 @@ def test_extra_field_is_rejected():
 
 def test_optional_fields_default_to_their_declared_defaults():
     obj = ApplicationSummarySection.model_validate(MINIMAL)
+    assert obj.application_name == ''
+    assert obj.purpose == ''
     assert obj.business_overview == ''
     assert obj.target_users == []
     assert obj.key_capabilities == []
     assert obj.business_criticality == ''
     assert obj.out_of_scope == []
     assert obj.technology_summary == ''
-
-
-@pytest.mark.parametrize("field", ["application_name", "purpose"])
-def test_empty_text_is_rejected_where_min_length_is_set(field):
-    with pytest.raises(ValidationError):
-        ApplicationSummarySection.model_validate({**FULL, field: ""})
 
 
 @pytest.mark.parametrize("field", ["application_name", "purpose", "business_overview", "target_users", "key_capabilities", "business_criticality", "technology_summary"])

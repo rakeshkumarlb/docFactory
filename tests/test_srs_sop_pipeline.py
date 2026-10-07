@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from docfactory.build import BuildError, build_document
+from docfactory.build import build_document
 from docfactory.documentmodels.documents.sop_document import SopDocument
 from docfactory.documentmodels.documents.srs_document import SrsDocument
 from docfactory.documentsaver.documents.sop_document_saver import SopDocumentSaver
@@ -129,11 +129,14 @@ def test_missing_sop_facts_are_reported_with_their_question_and_source():
     assert fields["standard_operating_procedures.procedures"].question
 
 
-def test_a_missing_mandatory_source_fact_raises_a_clear_build_error():
+def test_a_missing_application_overview_still_builds_and_reports_its_fields():
     _seed_facts(skip={"ApplicationOverview"})
 
-    with pytest.raises(BuildError):
-        build_document(SopDocument, APP)
+    document, missing = build_document(SopDocument, APP)
+
+    assert document.application_summary.application_name == ""
+    fields = {item.field: item for item in missing}
+    assert fields["application_summary.purpose"].expected_source == "ApplicationOverview.purpose"
 
 
 @pytest.mark.parametrize("doc_type", ["SRS", "SOP"])
