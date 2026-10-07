@@ -1,4 +1,4 @@
-"""Rebuild the frontmatter vector index from the database: `python -m docfactory.retrieval.index_rebuild`."""
+"""Rebuild the vector index of the facts (metadata + JSON value) from the database: `python -m docfactory.retrieval.index_rebuild`."""
 import sys
 
 from docfactory.env_file import load_env_file

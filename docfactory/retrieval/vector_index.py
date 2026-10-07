@@ -4,7 +4,7 @@ from docfactory.models.retrieval_hit import RetrievalHit
 
 
 class VectorIndex(ABC):
-    """Similarity index over the frontmatter of the knowledge facts. Derived data: it can always be rebuilt from the database."""
+    """Similarity index over the knowledge facts (OKF metadata and JSON value). Derived data: it can always be rebuilt from the database."""
 
     @abstractmethod
     def rebuild(self) -> tuple[int, int]:

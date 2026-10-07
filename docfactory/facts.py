@@ -3,6 +3,7 @@ import json
 
 from docfactory import db
 from docfactory.models.fact_record import FactRecord
+from docfactory.models.fact_source import FactSource
 from docfactory.models.fact_status import FactStatus
 from docfactory.models.fact_verification import FactVerification
 
@@ -17,7 +18,11 @@ def record_of(row: dict) -> FactRecord:
         completeness=row["Completeness"],
         version=row["Version"],
         app_id=row["AppID"],
-        file_path=row["FilePath"],
+        type=row["FactType"],
+        title=row["Title"],
+        description=row["Description"],
+        tags=json.loads(row["Tags"]),
+        sources=[FactSource.model_validate(source) for source in json.loads(row["Sources"])],
         frontmatter=row["YmlFrontmatter"],
         generated_by=row["GeneratedBy"],
         generated_at=row["GeneratedAt"],

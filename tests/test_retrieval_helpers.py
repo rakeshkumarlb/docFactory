@@ -1,30 +1,10 @@
-"""Frontmatter value reading, bundle links, the Ollama embedder, document read side and saver resolution."""
+"""The Ollama embedder, document read side and saver resolution."""
 import pytest
 
 from docfactory import db, documents
 from docfactory.agents.ollama_model_client import OllamaModelClient
-from docfactory.retrieval.frontmatter_values import frontmatter_value
-from docfactory.retrieval.okf_links import bundle_links, fact_key_of_link
 from docfactory.retrieval.ollama_embedder import OllamaEmbedder
 from docfactory.saver_resolution import document_saver_classes, document_saver_for_key
-
-FRONT = 'type: "Application Overview"\ntitle: "A \\"quoted\\" title"\nstatus: draft\nversion: 3\n'
-
-
-def test_frontmatter_values():
-    assert frontmatter_value(FRONT, "type") == "Application Overview"
-    assert frontmatter_value(FRONT, "title") == 'A "quoted" title'
-    assert frontmatter_value(FRONT, "status") == "draft"
-    assert frontmatter_value(FRONT, "description") is None
-    assert frontmatter_value(None, "type") is None
-
-
-def test_bundle_links_and_keys():
-    text = "See [arch](/ReadmeForge/Architecture.md) and [again](/ReadmeForge/Architecture.md#x), [web](https://x.org/a.md), [kpi](/Shared/Kpis.md)."
-    assert bundle_links(text) == ["/ReadmeForge/Architecture.md", "/Shared/Kpis.md"]
-    assert fact_key_of_link("/ReadmeForge/Components/api/Architecture.md") == "ReadmeForge.Components.api.Architecture"
-    assert fact_key_of_link("/x/readme.txt") is None and fact_key_of_link("a.md") is None
-
 
 class _Client(OllamaModelClient):
     def __init__(self, replies):

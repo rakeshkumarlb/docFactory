@@ -20,7 +20,6 @@ FULL = {
     "type": "Test type",
     "status": FactStatus.DRAFT,
     "stale": True,
-    "file_path": "Test/Fact.md",
     "description": "Test description",
 }
 
@@ -50,7 +49,6 @@ def test_extra_field_is_rejected():
 def test_optional_fields_default_to_their_declared_defaults():
     obj = RetrievalHit.model_validate(MINIMAL)
     assert obj.stale is False
-    assert obj.file_path is None
     assert obj.description is None
 
 
@@ -60,7 +58,7 @@ def test_empty_text_is_rejected_where_min_length_is_set(field):
         RetrievalHit.model_validate({**FULL, field: ""})
 
 
-@pytest.mark.parametrize("field", ["key", "score", "title", "type", "status", "stale", "file_path", "description"])
+@pytest.mark.parametrize("field", ["key", "score", "title", "type", "status", "stale", "description"])
 def test_not_applicable_is_rejected_where_not_allowed(field):
     with pytest.raises(ValidationError):
         RetrievalHit.model_validate({**FULL, field: NotApplicable(reason="Not relevant for this test.")})

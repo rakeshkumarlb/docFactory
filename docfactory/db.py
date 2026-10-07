@@ -24,9 +24,14 @@ def db_path() -> Path:
 _DOCSTORE_COLUMNS = "Hashcode TEXT NOT NULL, Version INTEGER NOT NULL, Timestamp TEXT NOT NULL"
 
 # The OKF columns of KnowledgeFacts (Phase 3): column name -> SQL definition. All are derived by the saver, never hand-written.
+# OKF lives only in these columns; the content is the JSON in Value (there are no knowledge files). Tags and Sources are JSON lists.
 # Rows written before Phase 3 get NULL / the defaults until they are saved again with metadata.
 FACT_OKF_COLUMNS = {
-    "FilePath": "TEXT NULL",
+    "FactType": "TEXT NULL",
+    "Title": "TEXT NULL",
+    "Description": "TEXT NULL",
+    "Tags": "TEXT NOT NULL DEFAULT '[]'",
+    "Sources": "TEXT NOT NULL DEFAULT '[]'",
     "YmlFrontmatter": "TEXT NULL",
     "GeneratedBy": "TEXT NULL",
     "GeneratedAt": "TEXT NULL",
@@ -37,12 +42,18 @@ FACT_OKF_COLUMNS = {
 _FACT_OKF_SQL = ", ".join(f"{name} {definition}" for name, definition in FACT_OKF_COLUMNS.items())
 
 
+_DROPPED_FACT_COLUMNS = ["FilePath"]  # the path of the removed bundles/ knowledge file
+
+
 def _migrate_knowledge_facts(con: sqlite3.Connection) -> None:
-    """Add the OKF columns to a KnowledgeFacts table created before Phase 3."""
+    """Add the OKF columns to an older KnowledgeFacts table and drop the columns that no longer exist."""
     present = {row[1] for row in con.execute("PRAGMA table_info(KnowledgeFacts)")}
     for name, definition in FACT_OKF_COLUMNS.items():
         if name not in present:
             con.execute(f"ALTER TABLE KnowledgeFacts ADD COLUMN {name} {definition}")
+    for name in _DROPPED_FACT_COLUMNS:
+        if name in present:
+            con.execute(f"ALTER TABLE KnowledgeFacts DROP COLUMN {name}")
 
 
 def init_schema(con: sqlite3.Connection) -> None:
@@ -60,11 +71,7 @@ def init_schema(con: sqlite3.Connection) -> None:
             "CREATE TABLE IF NOT EXISTS KnowledgeFactSources (FactKey TEXT NOT NULL, Resource TEXT NOT NULL, "
             "PRIMARY KEY (FactKey, Resource))"
         )
-        con.execute(  # the vector index of the frontmatter (Phase 4): derived and rebuildable, never truth
-            "CREATE TABLE IF NOT EXISTS FactIndex (FactKey TEXT PRIMARY KEY, TextHash TEXT NOT NULL, "
-            "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
-        )
-        con.execute(  # the vector index of the frontmatter (Phase 4): derived and rebuildable, never truth
+        con.execute(  # the vector index of the facts (metadata + value) (Phase 4): derived and rebuildable, never truth
             "CREATE TABLE IF NOT EXISTS FactIndex (FactKey TEXT PRIMARY KEY, TextHash TEXT NOT NULL, "
             "EmbedModel TEXT NOT NULL, Dim INTEGER NOT NULL, Vector BLOB NOT NULL)"
         )
@@ -278,20 +285,6 @@ def list_docstore_history(full_path: str) -> list[dict]:
     with closing(connect()) as con:
         rows = con.execute("SELECT * FROM DocStoreHistory WHERE FullPath = ? ORDER BY Version", (full_path,)).fetchall()
     return [dict(row) for row in rows]
-
-
-def list_index_rows() -> list[dict]:
-    """All FactIndex rows ordered by key (the Vector column is raw float32 bytes)."""
-    with closing(connect()) as con:
-        rows = con.execute("SELECT * FROM FactIndex ORDER BY FactKey").fetchall()
-    return [dict(row) for row in rows]
-
-
-def replace_index(upserts: list[tuple[str, str, str, int, bytes]], delete_keys: list[str]) -> None:
-    """Apply an index rebuild in one transaction: upsert (FactKey, TextHash, EmbedModel, Dim, Vector) rows, delete stale keys."""
-    with closing(connect()) as con, con:
-        con.executemany("INSERT OR REPLACE INTO FactIndex VALUES (?, ?, ?, ?, ?)", upserts)
-        con.executemany("DELETE FROM FactIndex WHERE FactKey = ?", [(key,) for key in delete_keys])
 
 
 def list_index_rows() -> list[dict]:

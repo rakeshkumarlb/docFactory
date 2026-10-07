@@ -2,10 +2,11 @@ from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
 from docfactory.models.fact_status import FactStatus
 from docfactory.models.fact_verification import FactVerification
+from docfactory.models.fact_source import FactSource
 
 
 class FactRecord(DocFactoryModel):
-    """One stored KnowledgeFacts row as returned by the typed read functions: the validated fact as canonical JSON plus its bookkeeping and OKF metadata."""
+    """One stored KnowledgeFacts row as returned by the typed read functions: the validated fact as canonical JSON plus its bookkeeping and OKF metadata (all of it lives in the KnowledgeFacts row; there are no knowledge files)."""
 
     key: str = doc_field(
         description="The fact key, <Scope>.<Name>[.<SubName>...], e.g. ReadmeForge.Architecture.",
@@ -31,11 +32,6 @@ class FactRecord(DocFactoryModel):
         default=None,
         description="The application the fact belongs to, e.g. ReadmeForge. None for shared facts.",
         question="Which application does this fact belong to?",
-    )
-    file_path: str | None = doc_field(
-        default=None,
-        description="Path of the OKF bundle file under bundles/, forward slashes, e.g. ReadmeForge/Architecture.md. None when no file was written.",
-        question="Where is the bundle file?",
     )
     frontmatter: str | None = doc_field(
         default=None,
@@ -68,4 +64,34 @@ class FactRecord(DocFactoryModel):
         description="When the fact should be re-checked, ISO 8601 datetime with explicit UTC offset, e.g. 2026-12-31T00:00:00Z. None when it has no expiry.",
         question="After when should this fact be re-checked?",
         pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+    )
+
+    type: str | None = doc_field(
+        default=None,
+        description="The kind of the fact: its entity model name in words, e.g. Application Overview. None for a row saved before the metadata columns existed.",
+        question="What kind of fact is this?",
+    )
+
+    title: str | None = doc_field(
+        default=None,
+        description="Display name of the fact, e.g. ReadmeForge Architecture. None for a row saved before the metadata columns existed.",
+        question="What is the display name of this fact?",
+    )
+
+    description: str | None = doc_field(
+        default=None,
+        description="One sentence summarizing the fact, used for search snippets, e.g. Describes the three services that make up ReadmeForge. None when not written.",
+        question="What is a one-sentence summary of this fact?",
+    )
+
+    tags: list[str] = doc_field(
+        default_factory=list,
+        description="Short categorization strings of the fact, e.g. ['FunctionalRequirements', 'extracted']. Empty when none apply.",
+        question="Which short tags categorize this fact?",
+    )
+
+    sources: list[FactSource] = doc_field(
+        default_factory=list,
+        description="The DocStore files the fact was derived from, one entry per file, e.g. one FactSource for 'ReadmeForge/ReadmeForge SRS v0.3.pdf'. Empty for seed data.",
+        question="Which files did this fact come from?",
     )

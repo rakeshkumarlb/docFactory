@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import bundle, db, facts, okf_check
+from docfactory import db, facts
 from docfactory.agents.entity_extractor import EntityExtractor
 from docfactory.agents.ingestion_fallback import IngestionFallback
 from docfactory.agents.model_client_factory import default_client
@@ -56,7 +56,6 @@ def test_extraction_of_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypat
     for fact in stored.values():
         assert fact.status.value == "draft" and fact.verified == [] and fact.generated_by.startswith("okf-extraction-agent/"), fact.key
         assert f'resource: "{PATH}"' in fact.frontmatter, fact.key  # the source is the file the chunks came from
-    assert okf_check.check_bundle(bundle.bundles_root()) == []
 
     functional = json.loads(stored["ReadmeForge.FunctionalRequirements"].value)
     ids = [r["id"] for r in functional["requirements"]]

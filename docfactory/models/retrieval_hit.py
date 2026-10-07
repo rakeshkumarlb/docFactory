@@ -4,7 +4,7 @@ from docfactory.models.fact_status import FactStatus
 
 
 class RetrievalHit(DocFactoryModel):
-    """One knowledge fact found by a vector search over the OKF frontmatter, with its similarity score and the lifecycle flags a caller needs to judge it."""
+    """One knowledge fact found by a vector search over its OKF metadata and JSON value, with its similarity score and the lifecycle flags a caller needs to judge it."""
 
     key: str = doc_field(
         description="The fact key of the hit, <Scope>.<Name>, e.g. ReadmeForge.Architecture.",
@@ -16,11 +16,11 @@ class RetrievalHit(DocFactoryModel):
         question="What is the similarity score of this hit?",
     )
     title: str = doc_field(
-        description="The title from the fact's frontmatter, e.g. ReadmeForge architecture.",
+        description="The title of the fact, e.g. ReadmeForge architecture.",
         question="What is the title of the fact?",
     )
     type: str = doc_field(
-        description="The OKF type from the fact's frontmatter, e.g. Application Overview.",
+        description="The OKF type of the fact, e.g. Application Overview.",
         question="What is the OKF type of the fact?",
     )
     status: FactStatus = doc_field(
@@ -32,13 +32,8 @@ class RetrievalHit(DocFactoryModel):
         description="True when the current time is at or after the fact's stale_after instant, e.g. False for a fresh fact.",
         question="Is the fact stale?",
     )
-    file_path: str | None = doc_field(
-        default=None,
-        description="Path of the OKF bundle file under bundles/, forward slashes, e.g. ReadmeForge/Architecture.md. None when unknown.",
-        question="Where is the bundle file of the fact?",
-    )
     description: str | None = doc_field(
         default=None,
-        description="The description from the fact's frontmatter, e.g. How ReadmeForge is built. None when it has none.",
+        description="The one-sentence description of the fact, e.g. How ReadmeForge is built. None when it has none.",
         question="What is the description of the fact?",
     )

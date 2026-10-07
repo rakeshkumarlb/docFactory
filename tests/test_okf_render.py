@@ -1,12 +1,9 @@
-"""Deterministic OKF frontmatter and body rendering."""
-import json
-
+"""Deterministic OKF frontmatter rendering (the YmlFrontmatter column)."""
 from docfactory.models.fact_meta import FactMeta
 from docfactory.models.fact_record import FactRecord
 from docfactory.models.fact_source import FactSource
 from docfactory.models.fact_status import FactStatus
 from docfactory.models.fact_verification import FactVerification
-from docfactory.okf_body import render_body
 from docfactory.okf_frontmatter import render_frontmatter, type_name
 
 yaml = __import__("pytest").importorskip("yaml")
@@ -56,18 +53,3 @@ def test_frontmatter_is_deterministic():
     meta = FactMeta(generated_by="seed", tags=["a"])
     assert render_frontmatter(_record(), "Architecture", meta) == render_frontmatter(_record(), "Architecture", meta)
 
-
-def test_body_has_title_and_a_section_per_answered_field_and_leaves_empty_ones_out():
-    value = json.dumps({"name": "KitchenHQ", "empty": "", "none": None, "no_items": [], "owners": ["Ana", "Bo"], "ok": True,
-                        "unused": {"reason": "single tenant"}})
-    body = render_body("Kitchen", value)
-    assert body.startswith("# Kitchen\n\n## Name\n\nKitchenHQ\n")
-    assert "## Owners\n\n- Ana\n- Bo" in body and "## Ok\n\nyes" in body and "## Unused\n\nN/A - single tenant" in body
-    assert "Empty" not in body and "None" not in body and "No items" not in body
-
-
-def test_body_renders_nested_items_as_indented_bullets_and_is_deterministic():
-    value = json.dumps({"environments": [{"name": "prod", "regions": ["eu"], "owner": {"team": "ops"}}, {"name": "dev"}]})
-    body = render_body("T", value)
-    assert body == render_body("T", value)
-    assert ("## Environments\n\n- Item 1\n  - **Name:** prod\n  - **Regions:**\n    - eu\n  - **Owner:**\n    - **Team:** ops\n- Item 2\n  - **Name:** dev\n") in body

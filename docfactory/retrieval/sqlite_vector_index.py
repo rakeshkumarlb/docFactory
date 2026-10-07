@@ -6,15 +6,16 @@ from docfactory import clock, db, facts
 from docfactory.models.fact_status import FactStatus
 from docfactory.models.retrieval_hit import RetrievalHit
 from docfactory.retrieval.embedder import Embedder
-from docfactory.retrieval.frontmatter_values import frontmatter_value
 from docfactory.retrieval.vector_index import VectorIndex
+from docfactory.saver_resolution import ordered_value
 
 STABLE_BOOST = 0.05  # a stable fact outranks a draft of nearly the same similarity
 
 
 def _text_of(fact) -> str:
-    """What is embedded for a fact: its frontmatter (the key for a fact saved before OKF metadata existed)."""
-    return fact.frontmatter or fact.key
+    """What is embedded for a fact: its OKF metadata (the frontmatter; the key for a fact saved before metadata existed) and its JSON
+    value in model field order, so both the summary and the content words are searchable."""
+    return f"{fact.frontmatter or fact.key}\n{ordered_value(fact.key, fact.value)}"
 
 
 def _hash(text: str) -> str:
@@ -60,9 +61,7 @@ class SqliteVectorIndex(VectorIndex):
             if fact.status == FactStatus.STABLE:
                 score += STABLE_BOOST
             hits.append(RetrievalHit(
-                key=fact.key, score=round(score, 6), title=frontmatter_value(fact.frontmatter, "title") or fact.key,
-                type=frontmatter_value(fact.frontmatter, "type") or "", status=fact.status,
-                stale=fact.stale_after is not None and now >= fact.stale_after, file_path=fact.file_path,
-                description=frontmatter_value(fact.frontmatter, "description"),
+                key=fact.key, score=round(score, 6), title=fact.title or fact.key, type=fact.type or "", status=fact.status,
+                stale=fact.stale_after is not None and now >= fact.stale_after, description=fact.description,
             ))
         return sorted(hits, key=lambda hit: (-hit.score, hit.key))[:limit]

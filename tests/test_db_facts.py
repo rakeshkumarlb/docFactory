@@ -6,7 +6,11 @@ import pytest
 from docfactory import db
 
 OKF = {
-    "FilePath": "bundles/KitchenHQ/Architecture.md",
+    "FactType": "Architecture",
+    "Title": "KitchenHQ architecture",
+    "Description": "Three services.",
+    "Tags": '["architecture"]',
+    "Sources": '[{"resource":"KitchenHQ/srs.pdf"}]',
     "YmlFrontmatter": "type: Architecture\n",
     "GeneratedBy": "seed",
     "GeneratedAt": "2026-10-03T10:00:00Z",
@@ -32,7 +36,8 @@ def test_okf_columns_default_for_a_plain_write(tmp_db):
     db.write_row("KnowledgeFacts", KEY, "{}", "h", "KitchenHQ", 0.0, 1)
     row = db.get_row("KnowledgeFacts", KEY)
     assert row["Verified"] == "[]" and row["Status"] == "draft"
-    assert row["FilePath"] is None and row["YmlFrontmatter"] is None and row["GeneratedBy"] is None
+    assert row["Tags"] == "[]" and row["Sources"] == "[]" and "FilePath" not in row
+    assert row["FactType"] is None and row["Title"] is None and row["YmlFrontmatter"] is None and row["GeneratedBy"] is None
 
 
 def test_document_outputs_has_no_okf_columns(tmp_db):
@@ -89,5 +94,18 @@ def test_a_database_created_before_phase_3_is_migrated_and_keeps_its_rows(tmp_pa
     monkeypatch.setenv(db.ENV_VAR, str(path))
     row = db.get_row("KnowledgeFacts", KEY)
     assert row["Version"] == 2 and row["Completeness"] == 10.0
-    assert row["Status"] == "draft" and row["Verified"] == "[]" and row["FilePath"] is None
+    assert row["Status"] == "draft" and row["Verified"] == "[]" and row["Tags"] == "[]" and row["Title"] is None
     db.connect().close()  # migrating twice is harmless
+
+
+def test_the_file_path_column_of_the_removed_knowledge_files_is_dropped(tmp_path, monkeypatch):
+    path = tmp_path / "phase3.sqlite"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE KnowledgeFacts (FactKey TEXT PRIMARY KEY, Value TEXT NOT NULL, Hashcode TEXT NOT NULL, "
+                "AppID TEXT NULL, Completeness REAL NOT NULL, Version INTEGER NOT NULL, FilePath TEXT NULL, YmlFrontmatter TEXT NULL)")
+    con.execute("INSERT INTO KnowledgeFacts VALUES ('KitchenHQ.Architecture', '{}', 'h', 'KitchenHQ', 10.0, 2, 'bundles/x.md', 'type: A')")
+    con.commit()
+    con.close()
+    monkeypatch.setenv(db.ENV_VAR, str(path))
+    row = db.get_row("KnowledgeFacts", KEY)
+    assert "FilePath" not in row and row["YmlFrontmatter"] == "type: A" and row["Version"] == 2

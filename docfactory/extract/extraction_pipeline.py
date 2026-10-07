@@ -7,7 +7,7 @@ Per entity tagged in the file (`DocChunkTags`):
    batch of several chunks is split in half and retried (an answer too long for one reply is the usual cause);
 4. the result stored as this file's contribution (`FactContributions`), replacing its earlier one;
 5. all contributions of the fact merged (newest DocStore file first, '(existing)' last) and saved through the entity saver,
-   which writes KnowledgeFacts, its history and the bundle file.
+   which writes KnowledgeFacts (JSON value and OKF metadata columns) and its history.
 Before merging, an empty requirement priority is filled from the requirement's own keyword (SHALL -> MUST, ...; `priority_keywords`).
 An entity no longer tagged in the file loses this file's contribution and its fact is re-merged (REMOVED). A batch that fails is
 reported; when any batch failed the contribution keeps no chunks hash, so the next run tries again.

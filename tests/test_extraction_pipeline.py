@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from docfactory import bundle, clock, contributions, db, facts
+from docfactory import clock, contributions, db, facts
 from docfactory.agents.entity_extractor import EntityExtractor
 from docfactory.agents.fake_model_client import FakeModelClient
 from docfactory.canonical import sha256_hex
@@ -66,7 +66,7 @@ def test_a_new_file_is_extracted_in_batches_merged_and_saved(tmp_db):
     fact = facts.get_fact(FR)
     assert ids() == ["FR-01", "FR-02"] and fact.generated_by == "okf-extraction-agent/fake" and fact.status.value == "draft"
     assert f'resource: "{A}"' in fact.frontmatter and '"Login."' in fact.frontmatter
-    assert (bundle.bundles_root() / fact.file_path.removeprefix("bundles/")).exists()
+    assert [source.resource for source in fact.sources] == [A] and fact.description == "Login."
     assert contributions.get_contribution(FR, A).chunks_hash is not None
     assert any(q.startswith("summary:") for q in report.missing_questions)
 

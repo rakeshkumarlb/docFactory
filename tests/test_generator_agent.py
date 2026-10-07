@@ -44,8 +44,9 @@ def index(tmp_db):
 def test_the_prompt_loads_without_frontmatter_and_names_the_tools_it_may_use():
     prompt = load_prompt(PROMPT_FILE)
     assert prompt.startswith("You are the **docfactory-document-generator-agent**") and "name: docfactory" not in prompt
-    for tool in ("search_knowledge", "read_okf_file", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document"):
+    for tool in ("search_knowledge", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document"):
         assert tool in prompt
+    assert "read_okf_file" not in prompt
 
 
 def test_generates_a_document_end_to_end_and_hands_the_model_only_its_own_tools(index):
@@ -53,7 +54,7 @@ def test_generates_a_document_end_to_end_and_hands_the_model_only_its_own_tools(
     client = FakeModelClient([
         call("1", "get_document_schema", doc_type="Overview"),
         call("2", "search_knowledge", query="readme generator", app_id="ReadmeForge"),
-        call("3", "read_okf_file", key="ReadmeForge.ApplicationOverview"),
+        call("3", "get_fact", key="ReadmeForge.ApplicationOverview"),
         call("4", "save_overview_document", key="ReadmeForge.Outputs.Overview", payload=json.loads(body.model_dump_json())),
         ModelResponse(text="saved ReadmeForge.Outputs.Overview CREATED v1"),
     ])

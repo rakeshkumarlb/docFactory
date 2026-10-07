@@ -9,14 +9,13 @@ from typing import Annotated
 
 from pydantic import Field, WithJsonSchema
 
-from docfactory import bundle, documents
+from docfactory import documents
 from docfactory import facts as fact_reads
 from docfactory.base_saver import BaseSaver
 from docfactory.models.document_record import DocumentRecord
 from docfactory.models.fact_record import FactRecord
 from docfactory.models.retrieval_hit import RetrievalHit
 from docfactory.models.save_result import SaveResult
-from docfactory.retrieval.okf_links import bundle_links, fact_key_of_link
 from docfactory.retrieval.vector_index import VectorIndex
 from docfactory.saver_resolution import document_saver_classes, document_saver_for_key
 from docfactory.tools.schema_slim import inline_refs
@@ -25,7 +24,7 @@ from docfactory.tools.tool_package import ToolPackage
 from docfactory.tools.tool_registry import ToolRegistry
 
 GENERATION_PACKAGE_NAME = "generator"
-READ_AND_GENERIC_TOOL_NAMES = ["search_knowledge", "read_okf_file", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document"]
+READ_AND_GENERIC_TOOL_NAMES = ["search_knowledge", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document"]
 
 
 def _snake(name: str) -> str:
@@ -66,19 +65,6 @@ def get_document_schema(doc_type: Annotated[str, Field(description="The document
         raise ValueError(f"unknown document type {doc_type!r}; expected one of {sorted(_doc_types())}")
     schema = saver_class.model.model_json_schema()
     return inline_refs(schema, schema.get("$defs", {}))
-
-
-def read_okf_file(key: Annotated[str, Field(description="The fact key, e.g. 'ReadmeForge.Architecture' or 'Shared.Kpis'.")]) -> dict:
-    fact = fact_reads.get_fact(key)
-    if fact is None:
-        raise ValueError(f"no fact {key!r}; use search_knowledge or list_facts to find the key")
-    path = bundle.bundles_root() / bundle.file_path_of(key).removeprefix(f"{bundle.BUNDLE_DIR}/")
-    if not path.exists():
-        raise ValueError(f"the knowledge file of {key!r} is not written yet (python -m docfactory.bundle_rebuild writes it)")
-    text = path.read_text(encoding="utf-8")
-    links = bundle_links(text)
-    return {"key": key, "status": fact.status.value, "version": fact.version, "text": text,
-            "links": links, "linked_keys": [k for k in map(fact_key_of_link, links) if k]}
 
 
 def _search_tool(index: VectorIndex):
@@ -128,9 +114,8 @@ def list_facts(app_id: Annotated[str | None, Field(description="Only this applic
 
 
 _DESCRIPTIONS = {
-    "search_knowledge": "Search the knowledge facts by meaning (over their frontmatter). Returns hits best first with key, title, type, status (stable, draft, deprecated), a stale flag and the knowledge file. Prefer stable facts; mention draft or stale ones you rely on.",
-    "read_okf_file": "Read the full knowledge file of one fact by key: its frontmatter and every field, plus any links to other knowledge files. Read-only. Use it on the hits you need; follow links when they are relevant.",
-    "get_fact": "Read one stored fact by key (value as JSON, version, completeness, status). Returns null when no such fact exists.",
+    "search_knowledge": "Search the knowledge facts by meaning (over their title, description, tags and content). Returns hits best first with key, title, type, description, status (stable, draft, deprecated) and a stale flag. Prefer stable facts; mention draft or stale ones you rely on.",
+    "get_fact": "Read one stored fact in full by key: its value (the complete validated JSON object), version, completeness, status, title, description, tags and sources. Returns null when no such fact exists. Use it on the hits you need.",
     "list_facts": "List the stored facts (optionally one application's) with their values. Read-only.",
     "get_document": "Read a stored document row by key (body, .DocumentControl or .RevisionHistory). Returns null when none exists. Use it to see what is already saved before you replace it.",
     "get_document_schema": "The JSON schema of a document type's body, with a description of every field. Call it before building the document: it is the contract.",
@@ -153,7 +138,6 @@ def build_generation_registry(index: VectorIndex) -> ToolRegistry:
     """A registry holding the generator tools; `search_knowledge` queries `index`."""
     registry = ToolRegistry()
     registry.register(Tool(_search_tool(index), _DESCRIPTIONS["search_knowledge"]))
-    registry.register(Tool(read_okf_file, _DESCRIPTIONS["read_okf_file"]))
     for func in (get_fact, list_facts, get_document, get_document_schema):
         registry.register(Tool(func, _DESCRIPTIONS[func.__name__]))
     registry.register(Tool(_save_document_tool(), _DESCRIPTIONS["save_document"]))

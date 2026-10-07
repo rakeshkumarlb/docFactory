@@ -68,7 +68,7 @@ def test_query_ranks_the_closest_fact_first(index):
     hits = index.query("payroll batch processing")
     assert hits[0].key == "Other.ApplicationOverview"
     assert hits[0].title == "Other overview" and hits[0].type == "Application Overview"
-    assert hits[0].description == "payroll batch processing" and hits[0].file_path
+    assert hits[0].description == "payroll batch processing"
 
 
 def test_query_by_app_keeps_that_app_and_shared_facts(index):

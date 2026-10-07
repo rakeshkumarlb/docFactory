@@ -16,7 +16,7 @@ from docfactory.tools.generation_tools import generation_package, generation_too
 
 SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json"
 
-EXPECTED_TOOLS = ["search_knowledge", "read_okf_file", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document",
+EXPECTED_TOOLS = ["search_knowledge", "get_fact", "list_facts", "get_document", "get_document_schema", "save_document",
                   "save_overview_document", "save_smtd_document", "save_sop_document", "save_srs_document"]
 
 
@@ -63,10 +63,10 @@ def test_search_knowledge_returns_hits_with_status(package):
     assert {h["key"] for h in hits} == {"ReadmeForge.ApplicationOverview", "Shared.Kpis"}
 
 
-def test_read_okf_file_returns_the_file_and_feedback_for_unknown_keys(package):
-    result = package.call("read_okf_file", {"key": "ReadmeForge.ApplicationOverview"})
-    assert result["text"].startswith("---") and "ReadmeForge" in result["text"] and result["links"] == [] and result["status"] == "draft"
-    assert package.call("read_okf_file", {"key": "Nope.Thing"})["ok"] is False
+def test_get_fact_returns_the_json_value_and_its_metadata(package):
+    result = package.call("get_fact", {"key": "ReadmeForge.ApplicationOverview"})
+    assert json.loads(result["value"])["application_name"] and result["status"] == "draft" and result["type"] == "Application Overview"
+    assert "file_path" not in result and package.call("get_fact", {"key": "Nope.Thing"}) is None
 
 
 def test_get_document_schema_by_type_and_unknown_type(package):

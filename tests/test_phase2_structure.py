@@ -18,7 +18,7 @@ FUNCTION_MODULES = {"docstore_reads", "ingestion_tools", "paths", "file_hash", "
                     "run_ingestion", "model_client_factory", "extraction_tools", "prompt_file", "run_extraction",
                     "generation_tools", "run_generation", "schema_slim",
                     "batching", "fact_keys", "partial_schema", "model_shapes", "grounding", "merge", "missing_questions", "extraction_pipeline", "priority_keywords",
-                    "embedder_factory", "frontmatter_values", "okf_links", "index_rebuild",
+                    "embedder_factory", "index_rebuild",
                     "signals", "ontology_render",
                     "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
 
