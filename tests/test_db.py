@@ -103,3 +103,12 @@ def test_values_are_bound_as_parameters_not_pasted_into_sql(tmp_db):
 def test_unknown_tables_are_refused(tmp_db, call):
     with pytest.raises(ValueError):
         call()
+
+
+def test_the_fact_index_table_of_the_first_phase_4_build_is_dropped(tmp_db):
+    import sqlite3
+    with sqlite3.connect(tmp_db) as con:
+        con.execute("CREATE TABLE FactIndex (FactKey TEXT PRIMARY KEY)")
+    db.connect().close()
+    with sqlite3.connect(tmp_db) as con:
+        assert not con.execute("SELECT name FROM sqlite_master WHERE name = 'FactIndex'").fetchall()
