@@ -35,7 +35,7 @@ Never hand-write a file a script can generate, and never edit a generated model 
 
 - **One class per file.** A module never defines two classes, not even a small nested item.
 - **File name = snake_case of the class** (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`).
-- **Right folder.** Knowledge facts (entity models with a saver) -> `entitymodels/facts/`; their nested items and enums (no saver) -> `entitymodels/items/`; nothing sits directly in `entitymodels/`. Documents, sections, parts -> `documentmodels/<role>/`, where the role is `documents` (a document body), `shared` (reused by every document type, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`) or `entitybound` (a section whose fields bind to entity facts). `models/` holds machinery only (base model, `doc_field`, `NotApplicable`, `SaveAction`, `SaveResult`, `SaveError`); anything describing application information, even a small item used by both entities and documents, is an entity model. `models/` and `entitysaver/` are flat; nothing goes deeper than a role folder or `facts/`/`items/`. A document saver mirrors its model's role (`documentsaver/documents/` or `documentsaver/shared/`); an `entitybound` section has no saver.
+- **Right folder.** Knowledge facts (entity models with a saver) -> `entitymodels/facts/`; their nested items and enums (no saver) -> `entitymodels/items/`; nothing sits directly in `entitymodels/`. Documents, sections, parts -> `documentmodels/<role>/`, where the role is `documents` (a document body), `shared` (reused by every document type, never filled from facts: `DocumentControl`, `RevisionHistory`, `RevisionEntry`, `MissingInfo`) or `entitybound` (a section whose fields bind to entity facts). `models/` holds machinery only (base model, `doc_field`, `NotApplicable`, `SaveAction`, `SaveResult`, `SaveError`); anything describing application information, even a small item used by both entities and documents, is an entity model. `models/` and `entitysaver/` are flat; nothing goes deeper than a role folder or `facts/`/`items/`. A document saver mirrors its model's role (`documentsaver/documents/` or `documentsaver/shared/`); an `entitybound` section has no saver.
 - **A class does one thing.** A model describes and validates. A saver stores. The renderer renders. `db.py` talks to SQLite. Never put one's job in another.
 - Pydantic v2 is the only runtime dependency. Do not add another.
 
@@ -49,7 +49,7 @@ Never hand-write a file a script can generate, and never edit a generated model 
 6. **`N/A` is a typed `NotApplicable(reason)`** and is allowed only on fields declared `na_allowed`. Declare it only where "not applicable" is a real, meaningful answer to the question.
 7. **Aggregates.** An entity holds its list-like content as lists of item models inside one object. The whole object is saved at once; there are no partial updates.
 8. **Dates are ISO `YYYY-MM-DD`; paths are relative with forward slashes.**
-9. **Document fields declare their binding** (which fact key(s) supply them, e.g. `Architecture.environments`) plus the same metadata as entity fields. Document control and revision history are supplied by the caller, not bound to facts.
+9. **Document fields declare their binding** (which fact key(s) supply them, e.g. `Architecture.environments`) plus the same metadata as entity fields. Document control and revision history are never bound to facts (`binding="caller"`): the generate process maintains them (the seeds in Phase 1).
 10. **Completeness** counts fields answered (value differs from default, or a legal `NotApplicable`), recursively over nested models and list items. Design models so this works: leaf fields with honest defaults, no field whose default is also a valid answer unless that is unavoidable (then say so in the description and report it).
 
 ## Rules for savers
@@ -83,6 +83,6 @@ Use pytest and a temporary database (the `DOCFACTORY_DB` env var). Put them in `
 - Add a field without a description, or a mandatory field that is not necessary.
 - Put logic in a saver.
 - Write to the database, or hand-edit generated documents.
-- Implement Phase 2 (RAG, LLM, provenance, history, approval gate).
+- Implement pipelines, LLM calls, agent loops or the approval gate: you build models, savers and their tests only.
 - Commit. Leave that to the caller.
 - Skip or reorder the steps of the skill you were given, or report done without `GATE PASSED`.

@@ -7,7 +7,7 @@ Keeps application documentation (currently the Overview and the SMTD) up to date
 - **Phase 1 (DONE, closed 2026-10-03): fully deterministic.** Seed data -> hard-coded tool calls -> validated facts in SQLite -> composed document objects -> `.md` files. No LLM, no RAG, no approval gate, no provenance, no history. Everything is unit-testable.
 - **Phase 2 (DONE, redesigned and closed 2026-10-03): Ingest.** Original files (text, PDF, Word, HTML, ...) arrive in `incoming/`, move to `staging/`, are chunked deterministically from the raw file, tagged with entities against an ontology (rules first, a small LLM fallback for what the rules cannot tag or place), and moved into `DocStore/<scope>/`; the `DocStore`, `DocStoreHistory`, `DocChunks` and `DocChunkTags` tables track them (see "Phase 2: Ingest"). Verified on a real 50-page SRS and live against the test corpus (`tests/corpus/`).
 - **Phase 3 (DONE, redesigned and closed 2026-10-04): Extract knowledge (OKF).** **3a** is the deterministic OKF layer (columns, history table, typed reads; no LLM): OKF v0.2 metadata lives only in `KnowledgeFacts` columns, and the content of every fact is the validated JSON in `Value` (the OKF markdown files under `bundles/` were removed on 2026-10-07, see "OKF stays in the table"). **3b** (redesigned 2026-10-04) extracts on top of Phase 2's tagged chunks: per entity tagged in a `DocStore` file, its chunks go in small batches, one fresh single-tool LLM call per batch returns a partial object, and code checks, merges (batches, then every contributing file via `FactContributions`) and saves through the entity saver. The first 3b build (one agent, 18 tools, whole document) failed on a real 50-page SRS and was removed. Verified live on that SRS (all 172 non-empty FR and 162 NFR identifiers) and on the corpus SRS and its revision (see "Phase 3: Extract knowledge (OKF)"). `README.md` explains the process and lists the commands.
-- **Phase 4 (PENDING: rework, next; a first build exists, see "Phase 4: Generate"): Generate.** Each fact's OKF metadata and JSON value are indexed in a SQLite+numpy vector index, RAG finds the relevant facts, a document-generator agent reads their JSON in full and calls the document savers; rendering stays deterministic. Verified live only on the ReadmeForge Overview; to be reworked after Phase 3 (SRS as the standard template, MissingInfo when incomplete, no silent stop on large payloads, an embedding provider without local models).
+- **Phase 4 (PENDING: rework decided 2026-10-07, next to build; see "Phase 4: Generate"): Generate.** No RAG, no agent: for an application and a document template, code groups the stored fact JSON by the template's bindings into the document body, maintains the document control and revision history, saves them through the document savers and renders `output/<App>/<DocType>.md`. One small, checked LLM call turns the deterministic gaps into the document's needs list (the `MissingInfo` row, rendered to `<DocType>.missing.md`). SRS is the standard template. The first build (vector index + generator agent) is superseded and is removed by the rework.
 - **Phase 5 (PENDING, planned in outline): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
 - **Phase 6 (PENDING, planned in outline): Automate.** A watcher for `incoming/`, automatic triggering of the agents and the end-to-end workflow.
 - **Triggers are manual until Phase 6:** files are moved into `incoming/` and the user runs each agent by hand.
@@ -25,33 +25,33 @@ Nothing described here exists until it appears in the repo. If something is uncl
 2. **The facts in `KnowledgeFacts` are the source of truth.** Generated documents are views of them, never the other way round. `.json` files under `knowledgefacts/` and `.md` files under `output/` are views too (written for visibility), never edited by hand. The content of a fact is its validated JSON (`Value`); OKF is only the metadata in its row.
 3. **Only valid data is stored.** Every write goes through a Pydantic model. Invalid input is rejected with a structured error and nothing is written.
 4. **Models are the contract.** Every model and field has a description written for an LLM: what it means, what a good value looks like, what to ask when it is missing. The same model is the validator, the LLM's tool schema and the documentation.
-5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, SQL, completeness, composition, rendering. An LLM (Phases 2-4) only does judgment work: classify an incoming file, find the information and construct the call. Moving files, hashing, DB rows, frontmatter, indexing and rendering stay deterministic.
+5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, SQL, completeness, composition, rendering. An LLM (Phases 2-4) only does judgment work: tag what the rules cannot tag, pick a scope the rules cannot pick, find the information in a batch of chunks, and phrase a document's gaps as a needs list. Moving files, hashing, DB rows, frontmatter, merging, document composition, document control, revision history and rendering stay deterministic.
 6. **Never invent values.** A default is a placeholder, not knowledge. Completeness counts only what was actually answered. Do not fill fields to raise a score.
 7. **Errors are feedback.** A rejected call returns errors precise enough for a caller (test or LLM) to fix the payload or go and find the missing information.
 8. **Only tools write to the database.** No hand-edited rows, no hand-edited generated documents.
 9. **The tool layer is plain in-process Python function tools over the savers.** The tools an agent calls are ordinary Python functions that wrap the entity savers, the document savers and the read functions, collected in an in-process registry. No MCP server, no framework-specific tool classes. The tool schema is derived from the Pydantic models (Principle 4). Agent loops and any orchestration framework (LangGraph in Phase 5) only call these functions; they never contain business logic, so the tool layer is testable without an LLM and survives a change of runtime.
-10. **Least privilege for agents.** Every agent is given only the tools it needs to do its task, nothing more. Tools are grouped in **tool packages**, one package per agent (ingestion, extraction, generator), and an agent can reach only the tools of its own package. File operations are deterministic code that no agent controls; no agent gets a shell, a general file system or database access. A tool needed by two agents is listed in both packages explicitly. A test enforces each package's exact tool list, so a tool cannot be added to an agent unnoticed.
+10. **Least privilege for agents.** Every agent is given only the tools it needs to do its task, nothing more. Tools are grouped in **tool packages**, one package per agent call (ingestion tagging, ingestion scope, extraction, generation needs), and an agent can reach only the tools of its own package. File operations are deterministic code that no agent controls; no agent gets a shell, a general file system or database access. A tool needed by two agents is listed in both packages explicitly. A test enforces each package's exact tool list, so a tool cannot be added to an agent unnoticed.
 
 ## Data flow
 
 ```
-seed data (Phase 1)  ----------------\
-                                      >-- XSaver.save() --validate--> KnowledgeFacts (Value = entity JSON, hash, completeness, version,
-extraction (Phase 3): merged ------/                                  OKF metadata columns + YmlFrontmatter, trust, lifecycle)
-FactContributions, one per file                                                         |
-        ^ one small call per batch of an entity's tagged chunks                         v
-incoming/ -> staging/ -> chunk + tag (ontology rules, LLM fallback) (Phase 2) -> DocStore/ (+ DocStore, DocChunks, DocChunkTags)   vector index of metadata + JSON (Phase 4)
+incoming/ -> staging/ -> chunk + tag (ontology rules, LLM fallback) (Phase 2) -> DocStore/ (+ DocStore, DocChunks, DocChunkTags)
                                                                                         |
-                                              DocumentGeneratorAgent <-- RAG + get_fact (the JSON value)
-                                                                        |
-                                              document savers --validate--> DocumentOutputs
-                                                                        |
-              document models (composed Pydantic) --build--> document objects (Phase 1: build_document from facts)
-                                                                        v
-                                                       render (deterministic) --> output/<app>/<doc>.md
+        one small LLM call per batch of an entity's tagged chunks (Phase 3)  <----------/
+                                   |
+                                   v
+            FactContributions, one per file --merge--\
+seed data (Phase 1) ------------------------------------>-- XSaver.save() --validate--> KnowledgeFacts (Value = entity JSON, hash, completeness,
+                                                                                          version, OKF metadata columns, trust, lifecycle)
+                                                                                          + views knowledgefacts/<scope>/<Entity>.json / .missing.md
+                                                                                        |
+            document template (composed document model, bindings <Entity>.<field>)      |  (Phase 4)
+                                                                                        v
+              build_document --> body; code --> DocumentControl, RevisionHistory --document savers--> DocumentOutputs
+              gaps (unfilled fields + open questions of bound fields) --one checked LLM call--> MissingInfo row
+                                                                                        |
+              render_markdown --> output/<App>/<DocType>.md        MissingInfo --> output/<App>/<DocType>.missing.md
 ```
-
-In Phase 4 the generator agent supplies the document JSON through the document savers; `build_document` / `render_markdown` remain the deterministic Phase 1 path and are not replaced.
 
 ## Models
 
@@ -101,7 +101,7 @@ Two tables with the same shape, plus completeness and version columns. `Knowledg
 
 Rules enforced by code, not by convention:
 - `AppID` is NULL exactly when the key scope is `Shared`; otherwise it equals the key's first segment, case-sensitive.
-- The key must match one of the saver's own key patterns; the saver's model validates the value. (The key pattern -> saver resolution in the registry is added in Phase 3; the registry itself is built in Phase 2, see "Tool layer".)
+- The key must match one of the saver's own key patterns; the saver's model validates the value. `saver_resolution.py` resolves a key to exactly one saver.
 - **The whole object is saved, and only when its hash differs.** Identical `Hashcode` = no-op (`UNCHANGED`): the row's `Value`, `Hashcode`, `Version` and `Completeness` are untouched. (For a knowledge fact saved with `meta`, only the OKF metadata columns and `YmlFrontmatter` are refreshed in place, still without a version bump; see Phase 3.) A different hash replaces the row's `Value` and `Hashcode`, recomputes `Completeness` and sets `Version = Version + 1`. First write is `Version = 1`. There are no partial updates: a caller sends the complete object.
 - `Version` counts changes to the current row only. Phase 1 keeps no history of old values and no provenance (provenance arrives in Phase 3 through OKF `sources` and trust fields).
 - **Multi-component applications:** each component has its own keys, `<App>.Components.<Component>.<Entity>`, e.g. `ReadmeForge.Components.api.Architecture`, `ReadmeForge.Components.worker.Environments`. `AppID` is still the application (`ReadmeForge`). The application-level keys (`ReadmeForge.Architecture`, `ReadmeForge.Environments`, ...) hold the high-level view of the whole application. Component keys reuse the same models as application keys. The component name is free text and is not validated.
@@ -123,7 +123,7 @@ A field is **answered** when its value differs from its default, or it holds a l
 
 ## Savers
 
-Plain Python, no framework. Everything is deterministic and callable from tests and seed scripts. Phase 1 calls a saver directly (`ApplicationOverviewSaver().save(key, payload)`); the Phase 2 registry holds only the ingestion tools, and the generic dispatcher arrives in Phase 3, see "Tool layer".
+Plain Python, no framework. Everything is deterministic and callable from tests, seed scripts and pipelines (`ApplicationOverviewSaver().save(key, payload)`); no LLM calls a saver directly (see "Tool layer").
 
 - **`BaseSaver`** (`docfactory/base_saver.py`, generic over the model) owns all shared behaviour, so concrete savers contain no logic of their own:
   1. check the key against the saver's own `key_patterns`; derive `AppID` (NULL for `Shared`)
@@ -142,20 +142,21 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 ```
 
 - On `REJECTED` nothing is written. Each error carries the Pydantic message plus the field's description and question, so the caller knows what to fix or what to find out.
-- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `list_facts_by_source` (returning `FactRecord`) are in `docfactory/facts.py` (Phase 3a); `get_document` / `list_documents` (returning `DocumentRecord`) are in `docfactory/documents.py` (Phase 4a).
+- Read side (Phase 1): `db.get_row(table, key)` and `db.list_rows(table, app_id=None)` return stored rows. Typed `get_fact` / `list_facts` / `list_facts_by_source` (returning `FactRecord`) are in `docfactory/facts.py` (Phase 3a); `get_document` / `list_documents` (returning `DocumentRecord`) are in `docfactory/documents.py`.
 
 ## Documents
 
 - A document type (Overview, SMTD, ...) is a composed **DocumentModel**: it is made of section models, and each section is made of entity models or fields of them. Sections are reusable across document types (e.g. `DocumentControl` in every document). Each is its own file in the `docfactory/documentmodels/<role>/` folder for its role (see "Models").
 - Each document field declares its **binding**: which fact key(s) supply it (for example `Architecture.environments`) and the same field metadata as entities (description, question, `na_allowed`).
 - `build_document` is deterministic: it reads the app's facts and the shared facts, fills the document object, marks each field as content, `N/A - <reason>`, or missing, and computes completeness. It does not invent content.
-- Missing fields produce the **MissingInfo** list (field, question, expected source), generated from the model metadata, not written by hand.
-- **Every output document is three rows in `DocumentOutputs`**, each a validated Pydantic object with its own hash, completeness and version:
+- Missing fields produce **MissingInfo** entries (field, question, expected source), generated from the model metadata, not written by hand.
+- **Every output document is four rows in `DocumentOutputs`**, each a validated Pydantic object with its own hash, completeness and version (the fourth arrives with the Phase 4 rework):
   - `ReadmeForge.Outputs.SMTD` - the document body (all chapters), **without** document control and revision history. Built from the knowledge facts.
-  - `ReadmeForge.Outputs.SMTD.DocumentControl` - document id, title, version, status, owner, approvers, dates. Supplied by the caller (seed data in Phase 1), not derived from knowledge facts.
-  - `ReadmeForge.Outputs.SMTD.RevisionHistory` - the list of revisions (version, date, author, change summary). Supplied by the caller.
-  All three use the same `<App>.Outputs.<DocType>` prefix, so a document's parts are found by prefix. `DocumentControl` and `RevisionHistory` are reused by every document type.
-- `render_markdown` assembles the final `.md` from the three rows (default order: document control, revision history, body). Same rows in, same bytes out. The `.md` file under `output/<app>/` is a view and never truth. The body's completeness is computed over the body only; document control and revision history score their own.
+  - `ReadmeForge.Outputs.SMTD.DocumentControl` - document id, title, version, status, owner, approvers, dates. Never from knowledge facts: created and maintained by the generate process (Phase 4); the seeds supply it in Phase 1.
+  - `ReadmeForge.Outputs.SMTD.RevisionHistory` - the list of revisions (version, date, author, change summary). Never from knowledge facts: maintained by the generate process (Phase 4); the seeds supply it in Phase 1.
+  - `ReadmeForge.Outputs.SMTD.MissingInfo` - the needs list: what the document still lacks and the questions to ask for it (Phase 4, see "Phase 4: Generate").
+  All four use the same `<App>.Outputs.<DocType>` prefix, so a document's parts are found by prefix. `DocumentControl`, `RevisionHistory` and `MissingInfo` are reused by every document type.
+- `render_markdown` assembles the final `.md` from the body, document control and revision history (default order: document control, revision history, body); the `MissingInfo` row renders to its own `<DocType>.missing.md`. Same rows in, same bytes out. The `.md` file under `output/<app>/` is a view and never truth. The body's completeness is computed over the body only; document control and revision history score their own.
 
 ## The `docfactory-pydantic-developer-agent` (first deliverable of Phase 1)
 
@@ -222,7 +223,7 @@ output/<app>/          Rendered documents and MissingInfo files
 knowledgefacts/<scope>/...  One JSON file per fact key, the key segments as folders (ReadmeForge/Sop.json, Shared/Kpis.json, ReadmeForge/Components/api/Architecture.json): the fact's Value in model field order, and next to it `<Entity>.missing.md`, the fact's open questions (none = no file). Views written only by the saver (docfactory/fact_files.py; open_questions.py finds the questions, missing_md.py renders them, `FactQuestion` in models/); gitignored; `python -m docfactory.fact_files` rewrites them all from the database and removes orphans. Env DOCFACTORY_KNOWLEDGEFACTS relocates the folder (the tmp_db fixture sets it)
 docfactory/ingest/     Phase 2: the deterministic pipeline (pipeline.py: stage, lookup, commit, report), chunking.py + chunkers/ (pdf, word, html, text), tagging.py, scope_rules.py, chunk_rebuild, docstore_reads, paths, file_hash, target_rules. Function modules, no LLM
 docfactory/ontology/   Phase 2: signals.json (tagging signals per entity), signals.py (validated load), ontology_render.py (docs/ontology.md and the compact LLM summary)
-docfactory/tools/      Phase 2: Tool, ToolRegistry, ToolPackage (one class per file) and the two single-tool ingestion fallback packages (ingestion_tools.py). Phase 3 adds the extraction package; Phase 4 the generator package (generation_tools.py)
+docfactory/tools/      Phase 2: Tool, ToolRegistry, ToolPackage (one class per file) and the two single-tool ingestion fallback packages (ingestion_tools.py). Phase 3 adds the extraction package
 docfactory/agents/     Phase 2: ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), AgentLoop, IngestionFallback (tag and scope calls), model_client_factory, run_ingestion (manual trigger). Phase 5: LangGraph graph, checkpointer and approval nodes
 docfactory/env_file.py Loads .env into the environment (shell variables win); used only by entry points and the live test
 incoming/              Phase 2: drop zone for new original files (gitignored runtime data)
@@ -244,31 +245,33 @@ docfactory/tools/extraction_tools.py  Phase 3b: the single-tool extraction packa
 docfactory/agents/    also Phase 3b: AgentLoop (the shared thin loop), EntityExtractor (one call per batch), run_extraction, prompt_file
 docfactory/models/    also Phase 3b: ExtractionOutcome, FactContribution, EntityExtractionReport
 .claude/agents/        also docfactory-entity-extractor-agent.md (Phase 3b runtime prompt, loaded by EntityExtractor)
-docfactory/retrieval/ Phase 4a: Embedder (abstract), OllamaEmbedder, FakeEmbedder, embedder_factory, VectorIndex (abstract), SqliteVectorIndex (FactIndex table, cosine in numpy), index_rebuild (`python -m docfactory.retrieval.index_rebuild`)
-docfactory/documents.py  Phase 4a: get_document / list_documents (typed reads of DocumentOutputs)
-docfactory/models/    also Phase 4a: RetrievalHit, DocumentRecord
-docfactory/saver_resolution.py  also Phase 4: document_saver_classes(), document_saver_for_key(key)
-docfactory/tools/generation_tools.py  Phase 4b: the generator package
-docfactory/agents/    also Phase 4b: GeneratorAgent, run_generation
-.claude/agents/        also docfactory-document-generator-agent.md (Phase 4b runtime prompt, loaded by the loop)
+docfactory/documents.py  get_document / list_documents (typed reads of DocumentOutputs, returning DocumentRecord in models/)
+docfactory/saver_resolution.py  also document_saver_classes(), document_saver_for_key(key)
+--- first Phase 4 build, superseded: removed by the Phase 4 rework (see "Phase 4: Generate") ---
+docfactory/retrieval/ Embedder, OllamaEmbedder, FakeEmbedder, embedder_factory, VectorIndex, SqliteVectorIndex (FactIndex table, numpy), index_rebuild
+docfactory/tools/generation_tools.py, docfactory/agents/generator_agent.py, run_generation.py, models/retrieval_hit.py
+.claude/agents/docfactory-document-generator-agent.md, tests/test_live_generation.py
+--- planned, Phase 4 rework (see "Phase 4: Generate") ---
+docfactory/generate.py  the entry point `python -m docfactory.generate`; its function modules (document control, revision history, gaps, needs list) and the `generation-needs` tool package are placed when built
+.claude/agents/        docfactory-needs-list-agent.md (runtime prompt of the needs-list call)
 --- planned, do not create until the phase starts ---
 docfactory/agents/    Phase 5 adds the LangGraph graph, checkpointer and approval nodes
 ```
 
-Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING` and `DOCFACTORY_DOCSTORE` relocate `incoming/`, `staging/` and `DocStore/` (tests use temporary folders). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `DOCFACTORY_NUM_CTX` (Ollama context window, default 16384; enough for extraction, whose one tool schema is at most ~1.5k tokens; the generator agent needs more, e.g. 65536). Embeddings (Phase 4): `DOCFACTORY_EMBED_MODEL` (default `nomic-embed-text`), `DOCFACTORY_EMBED_HOST` and `DOCFACTORY_EMBED_API_KEY`; Ollama Cloud serves no embedding models, so point the embedder at a local Ollama (e.g. `http://localhost:11434`, model `mxbai-embed-large`); the chat key is never sent to the embed host.
+Env `DOCFACTORY_DB` points the code at another database file (tests use a temporary one). `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING` and `DOCFACTORY_DOCSTORE` relocate `incoming/`, `staging/` and `DocStore/` (tests use temporary folders). LLM settings (from `.env`): `DOCFACTORY_PROVIDER` (`ollama` default, or `anthropic`), `DOCFACTORY_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `DOCFACTORY_NUM_CTX` (Ollama context window, default 16384; enough for extraction, whose one tool schema is at most ~1.5k tokens). The embedding settings of the first Phase 4 build (`DOCFACTORY_EMBED_MODEL`, `DOCFACTORY_EMBED_HOST`, `DOCFACTORY_EMBED_API_KEY`) go with it.
 
 ## Phases 2-6 (outline agreed; not designed in detail; do not implement)
 
-Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG over each fact's metadata and JSON, then the fact's JSON in full) > Generate documents (document savers, then deterministic rendering).** Phases 5 and 6 wrap this pipeline in a human approval gate and then automate it. Each phase is built, tested and closed before the next starts. All agents are run manually until Phase 6.
+Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Generate documents (group the facts' JSON by the template, document savers, deterministic rendering, missing-information questions).** Phases 5 and 6 wrap this pipeline in a human approval gate and then automate it. Each phase is built, tested and closed before the next starts. All agents are run manually until Phase 6.
 
 ### Tool layer (decision, Principle 9)
 - **Function tools:** every capability an agent may use is a plain Python function with typed arguments and a typed return (a `SaveResult` for writes). Write tools wrap one saver each (`save_<entity>`, `save_<document>`); read tools wrap `db` reads; the ingestion fallback tools only validate and hand back an answer (file moves are pipeline code, not tools). No MCP.
 - **Registry and tool packages (Principle 10):** an in-process registry holds every function tool by name, each with a name, a description written for an LLM, and a schema derived from its argument and return models. A **tool package** is a named, fixed list of registry tools for one agent. An agent is constructed with exactly one package and the loop can only call tools in it; a call to any other tool is refused. The registry and the package are each one class in their own file (Principle 1) and contain no business logic.
-- **Registry types are built as the need arises:** each phase adds only the tool types and packages its agent needs, not a general catalogue up front. Tool types so far: answer tools (ingestion fallback), saver tools (extraction, later document generation), read tools, retrieval tools.
+- **Registry types are built as the need arises:** each phase adds only the tool types and packages its agent needs, not a general catalogue up front. Tool types so far: answer tools (ingestion fallback, extraction, generation needs): they validate the model's answer and write nothing.
 - **Where and when it is added:**
   - **Phase 2 (the registry is built here):** the registry, the tool and tool-package types, and (after the redesign) two **single-tool fallback packages**: `ingestion-tagging` = [`submit_chunk_tags`] and `ingestion-scope` = [`submit_scope`]. Each fallback call gets exactly one of them. The tools validate the model's answer and hand it back; they write nothing and move nothing (the pipeline does). Tests pin both lists.
   - **Phase 3 (after the 2026-10-04 redesign):** a **single-tool extraction package** `extraction` = [`submit_extraction`], built per call for one entity and one batch of its chunks. The tool validates the partial object against the entity's partial model and hands it back; it writes nothing (the pipeline merges and calls the entity saver). The first build's 18-tool package (`save_fact`, `save_<entity>`, reads) was removed. Tests pin the list; key pattern -> saver resolution stays tested in `saver_resolution`.
-  - **Phase 4:** add the **generator package**: the document savers (`save_document`, `get_document`) and the retrieval tool (RAG query), plus the read tools it needs (`get_fact` returns the JSON value). It contains no entity savers.
+  - **Phase 4 (rework):** one **single-tool package** `generation-needs` = [`submit_needs`] for the needs-list call. The tool checks coverage (see "Phase 4: Generate") and hands the answer back; code saves the `MissingInfo` row. Everything else in generation is deterministic code. The first build's `generator` package is removed.
   - **Phase 5:** LangGraph nodes call the registry tools unchanged and respect the same packages.
 - Agent loops (Phases 2-4) are thin: call the model, run the requested tool, return its result to the model, stop on `ok` or a retry cap. They are tested with a fake model.
 
@@ -276,7 +279,7 @@ Pipeline: **Ingest (move to store) > Extract knowledge (OKF) > Retrieve (RAG ove
 - `KnowledgeFacts` remains the source of truth. Document savers write `DocumentOutputs`; every other saver writes `KnowledgeFacts`. There is **no separate `KnowledgeStore` table**: `KnowledgeFacts` is extended instead.
 - LLMs only classify, extract and construct calls; everything else is deterministic (Principle 5). Validation errors (`REJECTED`) stay the feedback loop.
 - Files in `DocStore/` are written only by tools. Nothing is hand-edited.
-- Runtime dependencies beyond pydantic are added only in the phase that needs them: pdfplumber, python-docx and beautifulsoup4 in Phase 2 (the format-aware chunkers; markitdown was dropped in the redesign; the Ollama client uses only the standard library; `anthropic` is an optional extra), numpy (the vector index) in Phase 4, LangGraph in Phase 5. `reportlab` is dev-only (corpus generation and tests).
+- Runtime dependencies beyond pydantic are added only in the phase that needs them: pdfplumber, python-docx and beautifulsoup4 in Phase 2 (the format-aware chunkers; markitdown was dropped in the redesign; the Ollama client uses only the standard library; `anthropic` is an optional extra), LangGraph in Phase 5. Phase 4 adds none (numpy, added by the first Phase 4 build for the vector index, is removed by the rework). `reportlab` is dev-only (corpus generation and tests).
 
 ### Phase 2: Ingest (redesigned 2026-10-03)
 Phase 2 is **ingestion, chunking and movement** only; extraction is Phase 3. The first design (an LLM agent with six file tools that read the whole document, classified it and stored a markitdown sidecar) was replaced after it proved expensive and unreliable on a real 50-page SRS: markitdown flattens PDF tables (an ID column, then a statement column), and the LLM read every page just to classify. The redesign does everything deterministically and calls the LLM only where the rules give no answer.
@@ -344,17 +347,57 @@ Phase 2 is **ingestion, chunking and movement** only; extraction is Phase 3. The
 - **Verified live (2026-10-04, `gemma4:31b` on Ollama Cloud, default `DOCFACTORY_NUM_CTX`):** the real 50-page SRS gives all 172 non-empty FR identifiers (FR-47/48 are empty rows in the PDF) plus 14 unnumbered items, all 162 NFR identifiers, ApplicationOverview at 83%, Architecture, BackupRecovery, Environments, Monitoring; Slo skipped by scope; priorities FR MUST 127 / SHOULD 53, NFR MUST 165, none contradicting its keyword; FR in 10 calls (1m38), NFR in 6 (1m14); a second run makes no LLM call. `pytest -m live tests/test_live_extraction.py`: the corpus SRS (tagged by the ingestion fallback) gives its three requirements, its revision updates `FunctionalRequirements` to v2 and skips unchanged entities.
 - **Left open (none blocks Phase 4):** near-duplicate list entries across batches that differ in wording (e.g. two phrasings of one capability) are not merged; chunks tagged by the ingestion fallback with doubtful entities (real SRS 4.1 User Interfaces, 6.1, 6.3 tagged FunctionalRequirements) yield unnumbered items until the tags are reviewed; `index.md` / `log.md` are not written; `verified` and `stable` wait for Phase 5.
 
-### Phase 4: Generate
-- Each fact's `YmlFrontmatter` plus its JSON `Value` (in model field order) is indexed in the vector store; it is rebuilt from the database and sits behind one interface.
-- A **DocumentGeneratorAgent** receives a document request, runs the RAG query against the index to find the relevant knowledge records and where they are, then reads each relevant fact's JSON in full (`get_fact`), and builds the document JSON for the document savers. Retrieval prefers `stable` over `draft` and flags `draft`, `deprecated` and stale content.
-- Document generation then continues as in Phase 1: validation in the document savers, `DocumentOutputs`, deterministic `render_markdown`. Answers to MissingInfo questions re-enter as documents or sources.
+### Phase 4: Generate (rework decided 2026-10-07; to build)
+Generation **groups the stored fact JSON by the document template, writes the `.md`, maintains the document control and revision history, and writes the needs list for what is missing.** No RAG and no agent; one small, checked LLM call phrases the needs list.
 
-**Phase 4 as built (2026-10-03):**
-- **Decisions:** the vector index is a SQLite table plus numpy behind the `VectorIndex` interface (no new heavy dependency; one row per fact); embeddings come from Ollama `/api/embed` behind the `Embedder` interface (`FakeEmbedder` in tests). The embedding model is `DOCFACTORY_EMBED_MODEL`; Ollama Cloud has no embedding models, so `DOCFACTORY_EMBED_HOST` points the embedder at a local server (verified with `mxbai-embed-large`).
-- **4a (deterministic, no LLM):** table `FactIndex` (FactKey, TextHash of the embedded text, EmbedModel, Dim, float32 Vector blob), derived and rebuildable, never truth. `SqliteVectorIndex.rebuild()` embeds only facts whose metadata, value or embedding model changed and removes deleted facts. `query()` returns `RetrievalHit`s (key, score, title, type, status, stale, description, from the typed columns), best first, limited to the application plus `Shared`; `stable` gets a +0.05 boost over `draft`, `deprecated` is excluded unless asked for, `stale` means now >= `StaleAfter`. `documents.get_document` / `list_documents` return `DocumentRecord`; `saver_resolution.document_saver_for_key` resolves a body key to exactly one document saver.
-- **4b:** the `generator` package holds exactly `search_knowledge`, `get_fact`, `list_facts`, `get_document`, `get_document_schema`, `save_document` and one `save_<document>` tool per document body saver (`save_overview_document`, `save_smtd_document`, `save_sop_document`, `save_srs_document`); a test pins the list. It has no entity savers, no file tools and no savers for `DocumentControl` / `RevisionHistory` (the caller supplies those). Document savers take no `meta`, so a generated body carries no actor; recording who generated a document is left to Phase 5. `GeneratorAgent(client, index).run(app_id, doc_type)` is a thin `AgentLoop` subclass with the runtime prompt `.claude/agents/docfactory-document-generator-agent.md`. Manual trigger `python -m docfactory.agents.run_generation <App> <Overview|SMTD|SRS|SOP>`: rebuilds the index, runs the agent, prints the saved version and completeness, and renders to `output/<App>/<Type>.md` only if the `.DocumentControl` and `.RevisionHistory` rows exist.
-- **Verified live** (`pytest -m live tests/test_live_generation.py`, `gemma4:31b` on Ollama Cloud, embeddings from a local Ollama `mxbai-embed-large`): the agent generated the ReadmeForge Overview at 100% completeness and every value in it appears in the deterministic `build_document` result.
-- **Not done in Phase 4:** a MissingInfo list for an agent-generated body (the agent's summary names the gaps; `build_document` still produces the list); retrieval does not hide draft or stale hits (it flags them and the prompt requires naming them); only the Overview has been exercised live, SMTD, SRS and SOP are covered by fake-model tests only.
+**Why the first build is replaced.** The first build (2026-10-03) indexed every fact's frontmatter and JSON in a vector index (`FactIndex`, Ollama embeddings) and had a generator agent search it, read the facts and write the whole document body. What Phases 2 and 3 taught us makes that unnecessary and harmful:
+- Facts are already one key per entity (`<App>.<Entity>`, `Shared.<Entity>`), and every document field's `binding` (`<Entity>.<field>`) already says which fact fills it. Search finds nothing code does not already know.
+- An LLM re-writing a large fact (e.g. 186 functional requirements) into a body is the same large-payload failure that broke the first extraction, and it can only lose or alter values the facts state.
+- Ollama Cloud serves no embedding models and local models are not wanted.
+- Only the Overview ever ran live, and an agent-built body had no MissingInfo list.
+
+**Templates.** A template is a document body model in `documentmodels/documents/` composed of `entitybound/` sections; each section field is bound to `<Entity>.<field>`. **SRS is the standard template** (ApplicationOverview, FunctionalRequirements, NonFunctionalRequirements, `Shared.Slo`) and is built and verified first, on the extracted AI-Driven-Job-Matching-Platform facts; Overview, SMTD and SOP use the same code. A new document type is a new model (through the developer agent), not new generation code.
+
+**Flow per `<App> <DocType>`:**
+1. **Read the bound facts**: `<App>.<Entity>` for application entities, `Shared.<Entity>` for shared ones (the same JSON as the `knowledgefacts/` views).
+2. **Group** (code): `build_document` copies every answered field of those facts into the body, in the template's order. Nothing is rewritten, summarised, merged or invented.
+3. **Save the body** through its document saver as `<App>.Outputs.<DocType>` (validation, hash, version, completeness as for any save; `UNCHANGED` when the facts did not change).
+4. **Maintain document control and revision history** (code, below).
+5. **Build the needs list** (one LLM call, checked by code, below) and save it as `<App>.Outputs.<DocType>.MissingInfo`.
+6. **Render**: `render_markdown` writes `output/<App>/<DocType>.md` (document control, revision history, body; same rows, same bytes), and the `MissingInfo` row is rendered to `output/<App>/<DocType>.missing.md` (no needs = no file).
+
+**Never skip a document.** An absent or incomplete fact still gives a document: its fields render as `_Not provided._` and its gaps reach the needs list. Today `build_document` raises `BuildError` when a mandatory document field (e.g. `application_summary.application_name`, `purpose`) has no fact, and `render_markdown` refuses without the `.DocumentControl` and `.RevisionHistory` rows. The rework removes both obstacles (decided, user, 2026-10-07): **fields of `entitybound/` sections are not mandatory**; they get an honest default (empty text, empty list, `None`), because a section is a view and a fact that is not there yet is a gap, not an invalid document (the entity models keep their mandatory fields; never a placeholder value). Generate always writes the two rows. This changes the section models (through the developer agent), their tests and, where they show it, the golden files.
+
+**Document control and revision history (decided, user, 2026-10-07).** Both are created and maintained by the generate process; no input comes from `KnowledgeFacts`. Their fields keep `binding="caller"`, so `build_document` never fills them; the caller is now the generate process (the seeds in Phase 1). Every value is derived for certain or left to Phase 5:
+
+| Field | Value |
+|---|---|
+| `document_id` | `<App>-<DocType>` |
+| `title` | the template's document name with the application, e.g. `AI-Driven-Job-Matching-Platform Software Requirements Specification` |
+| `document_version` | `0.<body Version>` while the document is a draft |
+| `status` | `Draft` (until the Phase 5 approval) |
+| `owner` | always the system: `docFactory` |
+| `approvers` | empty; the Phase 5 approval adds the name of the person who reviewed it. Not a needs-list question |
+| `created_date` | the date of the body's first save; kept on later runs |
+| `last_updated_date` | the date the body last changed (`CREATED` / `UPDATED`) |
+
+`RevisionHistory` gets one `RevisionEntry` per body save that is `CREATED` or `UPDATED` (an `UNCHANGED` body adds none): `version` = the new `document_version`, `date` = today, `author` = `docFactory`, and a `summary` written by code, not the LLM: which sections changed and the fact keys and versions they came from. Existing entries are kept. Generate reads the existing rows and keeps what it does not own (the Phase 5 approvers and status).
+
+**The needs list (decided, user, 2026-10-07).** `MissingInfo` becomes the fourth document row, `<App>.Outputs.<DocType>.MissingInfo`: a model in `documentmodels/shared/` with its own saver in `documentsaver/shared/` (hash, version, completeness like every row). Today's `MissingInfo` (one unfilled field) becomes an item of it; the exact shape is designed with the developer agent.
+- **Input, built by code (the gaps):** every document field no fact fills (field, question, expected source `<Entity>.<field>`), and the open questions (`open_questions`) of the fact fields the template binds, one gap per field with 'missing in k of n items' and a few example items, never every item. Only fields the template binds count; a fact's unused fields are not this document's gaps. Each gap gets a number.
+- **One LLM call** (fresh context, single tool `submit_needs`, package `generation-needs`) turns the gaps into the needs list: related gaps merged into one question, phrased in the application's terms, grouped by who can answer (e.g. architect, product owner, operations), the gaps that matter most to the document first. Every need cites the gap numbers it covers.
+- **Code checks** the answer and feeds errors back: every gap covered by at least one need, no need without a gap, no unknown gap number. Only gaps reach the list, so no question is invented.
+- **Skip and fallback:** the row stores the hash of its input gaps (unscored); unchanged gaps = no LLM call. A failed call saves the gaps themselves as the needs list, one need per gap, so neither the document nor its needs list is ever blocked.
+- **Not stored per fact (decided):** no missing-information column in `KnowledgeFacts`. A fact's questions are derived data that would go stale when the model's questions change, and the needs list belongs to a document (it merges facts and depends on the template). A fact's own questions stay computed on demand (`open_questions`) and visible in `knowledgefacts/.../<Entity>.missing.md`.
+- Answers re-enter as new or changed source documents in `incoming/` (Phase 2 > 3 > 4 again), never as edits to an output.
+
+**Kept from the first build:** `build_document`, `render_markdown`, the document savers, `documents.get_document` / `list_documents` (`DocumentRecord`), `saver_resolution.document_saver_for_key`, `open_questions` / `missing_md`, `AgentLoop` and the model clients. **Removed by the rework:** `docfactory/retrieval/` (embedders, `VectorIndex`, `SqliteVectorIndex`, `index_rebuild`) and the `FactIndex` table, `RetrievalHit`, the `generator` tool package (`generation_tools.py`), `GeneratorAgent`, `run_generation` (replaced by `docfactory.generate`), the prompt `docfactory-document-generator-agent.md`, `tests/test_live_generation.py`, the numpy dependency and the `DOCFACTORY_EMBED_*` settings.
+
+**Tests:** the four golden files still match (the seeds keep supplying their own document control and revision history); an SRS over extracted-style facts (no prior rows, some facts missing, items lacking fields) renders, gets a generated `DocumentControl` and a first `RevisionEntry`, and its gaps cover exactly the unanswered part of the bound fields; a second run with unchanged facts changes no row and makes no LLM call; a changed fact adds one revision entry naming the changed section; `submit_needs` refuses an uncovered gap, a need without a gap and an unknown gap number (fake model); a failed call falls back to the gaps; rendering twice gives identical bytes.
+
+**Entry point (decided, user, 2026-10-07):** `python -m docfactory.generate <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]`. It runs the flow above for one document type or all four and reports per document: body action, version and completeness, the revision entry added (if any), the number of gaps and needs, and whether the needs list came from the LLM, the skip or the fallback. `--no-llm` saves the gaps as the needs list. No index, no embeddings.
+
+**Build order:** (1) section fields optional; (2) the needs-list model and its saver (`MissingInfo` row) through the developer agent; (3) deterministic generate (body, document control, revision history, gaps, render) with `--no-llm`, verified on the SRS of AI-Driven-Job-Matching-Platform; (4) the `submit_needs` call and its checks, fake-model tests, then a live run; (5) remove the first build; (6) README.md and STATUS.md brought to the as-built state.
 
 ### Phase 5: Human in the loop
 - The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).

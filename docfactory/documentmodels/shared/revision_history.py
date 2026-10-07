@@ -4,7 +4,7 @@ from docfactory.documentmodels.shared.revision_entry import RevisionEntry
 
 
 class RevisionHistory(DocFactoryModel):
-    """The revision history of one generated document: the ordered list of past revisions. Supplied by the caller (seed data in Phase 1), not derived from knowledge facts, and reused by every document type."""
+    """The revision history of one generated document: the ordered list of past revisions. Never derived from knowledge facts: maintained by the generate process, which adds one entry each time the document body changes (the seeds supply it in Phase 1). Reused by every document type."""
 
     revisions: list[RevisionEntry] = doc_field(
         default_factory=list,

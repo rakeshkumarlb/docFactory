@@ -3,7 +3,7 @@ from docfactory.models.doc_field import doc_field
 
 
 class DocumentControl(DocFactoryModel):
-    """Document control metadata for one generated document: identity, version label, status, ownership, approvers and key dates. Supplied by the caller (seed data in Phase 1), not derived from knowledge facts, and reused by every document type."""
+    """Document control metadata for one generated document: identity, version label, status, ownership, approvers and key dates. Never derived from knowledge facts: created and maintained by the generate process (the seeds supply it in Phase 1); the approvers are added by the human approval (Phase 5). Reused by every document type."""
 
     document_id: str = doc_field(
         description="Unique identifier of this document, e.g. 'KitchenHQ-SMTD-001'. Identifies which document this control record belongs to.",

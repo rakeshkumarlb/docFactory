@@ -29,7 +29,7 @@ Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymode
    - an entity model doing a document's job or the reverse; a shared model used by only one side;
    - a document field with a wrong binding; document control or revision history inside a body model; a section redefined instead of reused;
    - a test that is weak: asserts nothing meaningful, hard-codes a number without the arithmetic, or was skipped/loosened;
-   - Phase 2 features (RAG, LLM calls, provenance, history, approval gate) in the code.
+   - pipeline or LLM work (LLM calls, agent loops, file moves, approval gate) inside a model or saver.
 4. **Output.** Findings grouped by severity: **violates a principle** / **smell** / **nit**. Each: `file:line`, one-line problem, one-line suggested fix, which principle. End with a two-line summary and the pytest result. If there is nothing to review yet, say so and stop.
 
 Do not fix anything. Fixes are separate tasks (`/docfactory-add-field`, or re-running the relevant create skill).
