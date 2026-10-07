@@ -20,7 +20,7 @@ The `role` in the spec picks the sub-folder of `documentmodels/` (and of `docume
 | Role | Holds | Fields bind to | Saver | scaffold option |
 |---|---|---|---|---|
 | `documents` | a **document body** (e.g. `SmtdDocument`), composed of sections | `composed` | yes | `--doctype <Name>` -> key `{app}.Outputs.<Name>` |
-| `shared` | parts reused by every document type, never filled from facts (the generate process writes them; the seeds in Phase 1): `DocumentControl`, `RevisionHistory` (saver **once** each), and their parts `RevisionEntry`, `MissingInfo` (no saver; the Phase 4 rework adds the needs-list row with its own saver, see CLAUDE.md) | `caller` | `DocumentControl`, `RevisionHistory` only | `--pattern "{app}.Outputs.{doctype}.DocumentControl"` / `"...RevisionHistory"` |
+| `shared` | parts reused by every document type, never filled from facts (the generate process writes them; the seeds in Phase 1): `DocumentControl`, `RevisionHistory`, `MissingInfo` (saver **once** each), and their parts `RevisionEntry`, `DocumentGap`, `DocumentNeed`, `NeedsOrigin` (no saver) | `caller` | `DocumentControl`, `RevisionHistory` only | `--pattern "{app}.Outputs.{doctype}.DocumentControl"` / `"...RevisionHistory"` / `"...MissingInfo"` |
 | `entitybound` | a **section** in a specific format over entity facts (e.g. `ApplicationSummarySection`) and its nested parts | `Entity.field` | never (stored inside the document body) | none |
 
 Import rules, checked by `check_structure.py`: `documents` may import `entitybound` and `shared`; `entitybound` and `shared` import nothing else from `documentmodels/`. A document saver sits in the same role folder as its model. If the class is needed by entities as well, it is not a document model: it belongs in `models/`.

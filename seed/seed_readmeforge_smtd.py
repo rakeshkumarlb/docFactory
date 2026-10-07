@@ -9,7 +9,7 @@ Environments, Deployment, Monitoring, BackupRecovery, Support, KnownErrors, Sop)
 (Kpis, Slo). Saving a payload that is already stored is a no-op (UNCHANGED), so the script can be re-run and
 can be run before or after `seed.seed_readmeforge`. It then builds the SMTD body from the stored facts, saves
 it with a hard-coded DocumentControl and RevisionHistory (caller-supplied, not knowledge facts), and renders the
-three rows to output/ReadmeForge/SMTD.md, with the MissingInfo list in output/ReadmeForge/SMTD.missing.json.
+three rows to output/ReadmeForge/SMTD.md, with the list of DocumentGap items (the gaps build_document found) in output/ReadmeForge/SMTD.missing.json.
 """
 import json
 from pathlib import Path

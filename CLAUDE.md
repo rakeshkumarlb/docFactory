@@ -71,7 +71,7 @@ One Pydantic v2 model per file, in three folders. `models/` is flat; `entitymode
 | Role folder | Holds | Fields bind to | May import from |
 |---|---|---|---|
 | `documents/` | A document body, composed of sections: one per document type (`OverviewDocument`, `SmtdDocument`, `SrsDocument`, `SopDocument`) | `composed` sections | `entitybound/`, `shared/` |
-| `shared/` | Reusable parts every document type uses, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`, and `MissingInfo` | `caller` | nothing in `documentmodels/` |
+| `shared/` | Reusable parts every document type uses, supplied by the caller: `DocumentControl`, `RevisionHistory`, `RevisionEntry`, `MissingInfo` (the needs list) and its parts `DocumentGap`, `DocumentNeed`, `NeedsOrigin` | `caller` | nothing in `documentmodels/` |
 | `entitybound/` | A section in a specific format over entity facts: `ApplicationSummarySection`, `KpiSummarySection` | `Entity.field` | nothing in `documentmodels/` |
 
 Nothing goes deeper than the role folder. A document saver mirrors its model's role (`documentsaver/shared/document_control_saver.py` saves `documentmodels/shared/document_control.py`); `entitybound/` has no savers because a section is stored inside its document body. `shared/` here means "shared across document types"; a type used by both entities and documents is an entity model.
@@ -204,7 +204,7 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
     items/             nested item types and enums, no saver: Environment, Requirement, Alert, Component, RequirementPriority, ...
   documentmodels/      DocumentModels, one class per file, in role sub-folders:
     documents/         document bodies (OverviewDocument, SmtdDocument, SrsDocument, SopDocument)
-    shared/            caller-supplied parts reused by every document (DocumentControl, RevisionHistory, RevisionEntry, MissingInfo)
+    shared/            caller-supplied parts reused by every document (DocumentControl, RevisionHistory, RevisionEntry, MissingInfo, DocumentGap, DocumentNeed, NeedsOrigin)
     entitybound/       one section per entity fact (ApplicationSummarySection, ArchitectureSection, KpiSummarySection, ...)
   entitysaver/         One entity saver per file (write KnowledgeFacts)
   documentsaver/       One document saver per file (write DocumentOutputs), mirroring the model's role
@@ -214,7 +214,7 @@ docfactory/            Python package (pydantic v2 is the only runtime dependenc
   db.py                Connection, schema creation, upsert, reads
   canonical.py         canonical JSON + SHA-256
   completeness.py      completeness scoring
-  build.py render.py   build_document, render_markdown, MissingInfo
+  build.py render.py   build_document (returns DocumentGap items), render_markdown
 samples/json/<entity>/ Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo)
 seed/                  Hard-coded seed scripts for the ReadmeForge sample (Phase 1): overview, SMTD, requirements, SRS and SOP
 tests/                 pytest; tests/golden/ holds the golden .md files, tests/scripts/ tests the .claude/scripts
@@ -383,7 +383,7 @@ Generation **groups the stored fact JSON by the document template, writes the `.
 
 `RevisionHistory` gets one `RevisionEntry` per body save that is `CREATED` or `UPDATED` (an `UNCHANGED` body adds none): `version` = the new `document_version`, `date` = today, `author` = `docFactory`, and a `summary` written by code, not the LLM: which sections changed and the fact keys and versions they came from. Existing entries are kept. Generate reads the existing rows and keeps what it does not own (the Phase 5 approvers and status).
 
-**The needs list (decided, user, 2026-10-07).** `MissingInfo` becomes the fourth document row, `<App>.Outputs.<DocType>.MissingInfo`: a model in `documentmodels/shared/` with its own saver in `documentsaver/shared/` (hash, version, completeness like every row). Today's `MissingInfo` (one unfilled field) becomes an item of it; the exact shape is designed with the developer agent.
+**The needs list (decided, user, 2026-10-07).** `MissingInfo` becomes the fourth document row, `<App>.Outputs.<DocType>.MissingInfo`: a model in `documentmodels/shared/` with its own saver in `documentsaver/shared/` (hash, version, completeness like every row). Built (step 2): `MissingInfo` holds `gaps` (list of `DocumentGap`, the former one-field `MissingInfo`, now numbered), `needs` (list of `DocumentNeed`: question, audience, gap numbers; list order = priority), `gaps_hash` and `needs_origin` (`NeedsOrigin`: llm, fallback, no_llm), the last two unscored; saver `MissingInfoSaver`, key `{app}.Outputs.{doctype}.MissingInfo`.
 - **Input, built by code (the gaps):** every document field no fact fills (field, question, expected source `<Entity>.<field>`), and the open questions (`open_questions`) of the fact fields the template binds, one gap per field with 'missing in k of n items' and a few example items, never every item. Only fields the template binds count; a fact's unused fields are not this document's gaps. Each gap gets a number.
 - **One LLM call** (fresh context, single tool `submit_needs`, package `generation-needs`) turns the gaps into the needs list: related gaps merged into one question, phrased in the application's terms, grouped by who can answer (e.g. architect, product owner, operations), the gaps that matter most to the document first. Every need cites the gap numbers it covers.
 - **Code checks** the answer and feeds errors back: every gap covered by at least one need, no need without a gap, no unknown gap number. Only gaps reach the list, so no question is invented.

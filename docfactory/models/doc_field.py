@@ -18,6 +18,8 @@ def doc_field(
     min_length: int | None = None,
     pattern: str | None = None,
     render_as: str = "list",
+    ge: int | None = None,
+    max_length: int | None = None,
 ):
     """Declare a model field with its docFactory metadata. `default=...` means mandatory.
 
@@ -43,6 +45,10 @@ def doc_field(
         kwargs["min_length"] = min_length
     if pattern is not None:
         kwargs["pattern"] = pattern
+    if ge is not None:
+        kwargs["ge"] = ge
+    if max_length is not None:
+        kwargs["max_length"] = max_length
     if default_factory is not None:
         kwargs["default_factory"] = default_factory
     elif default is not ...:

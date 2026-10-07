@@ -9,7 +9,7 @@ and the Sop sample holds five alert-driven runbooks plus the notes on how alerts
 Saving a payload that is already stored is a no-op (UNCHANGED), so the script can be re-run and can be run before
 or after the other seed scripts. Each document body is built from the stored facts and saved with a hard-coded
 DocumentControl and RevisionHistory (caller-supplied, not knowledge facts), then rendered to
-output/ReadmeForge/<SRS|SOP>.md with the MissingInfo list in output/ReadmeForge/<SRS|SOP>.missing.json.
+output/ReadmeForge/<SRS|SOP>.md with the list of DocumentGap items (the gaps build_document found) in output/ReadmeForge/<SRS|SOP>.missing.json.
 """
 import json
 from pathlib import Path

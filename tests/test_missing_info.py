@@ -3,17 +3,20 @@ from pydantic import ValidationError
 
 from docfactory.documentmodels.shared.missing_info import MissingInfo
 from docfactory.models.not_applicable import NotApplicable
+from docfactory.documentmodels.shared.document_gap import DocumentGap
+from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.shared.needs_origin import NeedsOrigin
 
 MINIMAL = {
-    "field": "application_summary.business_overview",
-    "question": "What is the primary business purpose of this application?",
-    "expected_source": "ApplicationOverview.business_overview",
+    "gaps_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "needs_origin": NeedsOrigin.LLM,
 }
 
 FULL = {
-    "field": "application_summary.business_overview",
-    "question": "What is the primary business purpose of this application?",
-    "expected_source": "ApplicationOverview.business_overview",
+    "gaps": [],
+    "needs": [],
+    "gaps_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "needs_origin": NeedsOrigin.LLM,
 }
 
 
@@ -26,7 +29,7 @@ def test_full_payload_round_trips():
     assert MissingInfo.model_validate(obj.model_dump()) == obj
 
 
-@pytest.mark.parametrize("field", ["field", "question", "expected_source"])
+@pytest.mark.parametrize("field", ["gaps_hash", "needs_origin"])
 def test_missing_mandatory_field_is_rejected(field):
     payload = {k: v for k, v in FULL.items() if k != field}
     with pytest.raises(ValidationError) as caught:
@@ -39,13 +42,13 @@ def test_extra_field_is_rejected():
         MissingInfo.model_validate({**FULL, "not_a_field": "x"})
 
 
-@pytest.mark.parametrize("field", ["field", "question", "expected_source"])
-def test_empty_text_is_rejected_where_min_length_is_set(field):
-    with pytest.raises(ValidationError):
-        MissingInfo.model_validate({**FULL, field: ""})
+def test_optional_fields_default_to_their_declared_defaults():
+    obj = MissingInfo.model_validate(MINIMAL)
+    assert obj.gaps == []
+    assert obj.needs == []
 
 
-@pytest.mark.parametrize("field", ["field", "question", "expected_source"])
+@pytest.mark.parametrize("field", ["gaps", "needs", "gaps_hash", "needs_origin"])
 def test_not_applicable_is_rejected_where_not_allowed(field):
     with pytest.raises(ValidationError):
         MissingInfo.model_validate({**FULL, field: NotApplicable(reason="Not relevant for this test.")})

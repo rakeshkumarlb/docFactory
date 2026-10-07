@@ -88,7 +88,8 @@ def test_every_document_model_class_is_found_in_its_role_folder():
     roles = {cls.__name__: cls.__module__.split(".")[2] for cls in MODELS if cls.__module__.startswith("docfactory.documentmodels.")}
     assert roles["OverviewDocument"] == "documents"
     assert roles["ApplicationSummarySection"] == roles["KpiSummarySection"] == "entitybound"
-    assert {roles[name] for name in ("DocumentControl", "RevisionHistory", "RevisionEntry", "MissingInfo")} == {"shared"}
+    shared = ("DocumentControl", "RevisionHistory", "RevisionEntry", "MissingInfo", "DocumentGap", "DocumentNeed")
+    assert {roles[name] for name in shared} == {"shared"}
 
 
 @pytest.mark.parametrize("cls", MODELS, ids=lambda cls: cls.__name__)

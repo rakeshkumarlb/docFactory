@@ -1,25 +1,33 @@
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.doc_field import doc_field
+from docfactory.documentmodels.shared.document_gap import DocumentGap
+from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.shared.needs_origin import NeedsOrigin
 
 
 class MissingInfo(DocFactoryModel):
-    """One field build_document could not fill: which field, what to ask, and where the answer should come from."""
+    """The needs list of one generated document (row <App>.Outputs.<DocType>.MissingInfo): every gap the document has (a document field no fact fills, or a bound fact field still unanswered) and the needs, the questions that together cover all gaps. Never derived from knowledge facts: written by the generate process. Reused by every document type."""
 
-    field: str = doc_field(
-        description="Dotted path of the missing field within the document object, e.g. 'application_summary.business_overview'. Identifies exactly which slot in the built document has no value yet.",
-        question="Which document field is missing a value?",
-        min_length=1,
+    gaps: list[DocumentGap] = doc_field(
+        default_factory=list,
+        description="Every gap of the document, numbered 1..n in template order, e.g. one gap for application_summary.business_criticality. An empty list means the document lacks nothing.",
+        question="What does this document still lack?",
+        binding="caller",
+        render_as="table",
+    )
+    needs: list[DocumentNeed] = doc_field(
+        default_factory=list,
+        description="The needs list, most important first (the list order is the priority), e.g. a first need asking the product owner for the business criticality. Together the needs cover every gap.",
+        question="Which questions must be answered to close the gaps, most important first?",
         binding="caller",
     )
-    question: str = doc_field(
-        description="The question to ask to get this value, copied from the missing field's own metadata, e.g. 'What is the primary business purpose of this application?'.",
-        question="What question should be asked to obtain this value?",
-        min_length=1,
+    gaps_hash: str = doc_field(
+        description="SHA-256 hex of the canonical JSON of gaps; generate skips the LLM call when it is unchanged.",
+        scored=False,
         binding="caller",
     )
-    expected_source: str = doc_field(
-        description="The fact key/field that should have supplied this value, e.g. 'ApplicationOverview.business_overview'. Points the caller at the knowledge fact to fill in.",
-        question="Which fact key/field should supply this value?",
-        min_length=1,
+    needs_origin: NeedsOrigin = doc_field(
+        description="Where the needs came from: llm, fallback or no_llm.",
+        scored=False,
         binding="caller",
     )

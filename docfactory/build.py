@@ -10,7 +10,7 @@ import json
 from typing import get_args
 
 from docfactory import db
-from docfactory.documentmodels.shared.missing_info import MissingInfo
+from docfactory.documentmodels.shared.document_gap import DocumentGap
 from docfactory.entitymodels.facts.application_overview import ApplicationOverview
 from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
@@ -104,17 +104,19 @@ def _build_model(model_cls, app_id: str, cache: dict, prefix: str, missing: list
         if fact is not None and source_field is not None and _is_answered(source_field, getattr(fact, source_name)):
             values[name] = getattr(fact, source_name)
         else:
-            missing.append(MissingInfo(field=dotted, question=extra.get("question") or field.description, expected_source=binding))
+            missing.append(
+                DocumentGap(number=len(missing) + 1, field=dotted, question=extra.get("question") or field.description, expected_source=binding)
+            )
     return model_cls.model_validate(values)  # section fields all have defaults: an absent fact is a gap, never an invalid section
 
 
-def build_document(document_model: type[DocFactoryModel], app_id: str) -> tuple[DocFactoryModel, list[MissingInfo]]:
+def build_document(document_model: type[DocFactoryModel], app_id: str) -> tuple[DocFactoryModel, list[DocumentGap]]:
     """Build a `document_model` body object from `app_id`'s facts and the shared facts.
 
     Returns (instance, missing): `missing` lists every field build_document could not fill, generated
     from the model's own metadata. An absent or incomplete fact never stops the build: its fields keep
     their defaults and are listed in `missing`. Raises BuildError only for a wrongly wired model.
     """
-    missing: list[MissingInfo] = []
+    missing: list[DocumentGap] = []
     instance = _build_model(document_model, app_id, {}, "", missing)
     return instance, missing
