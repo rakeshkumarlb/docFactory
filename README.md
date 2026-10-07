@@ -189,7 +189,7 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `docfactory/retrieval/` | The search index over the facts (OKF metadata + JSON value): embedder and vector index (derived data, rebuildable) |
 | `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` and `docfactory-document-generator-agent.md` are the runtime prompts; edit them to tune behaviour |
 
-Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_BUNDLES`.
+Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_KNOWLEDGEFACTS`.
 
 ## Changing the models
 

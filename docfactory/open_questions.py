@@ -2,7 +2,8 @@
 
 Deterministic, read only from the model definition and the value. It uses the completeness rule (completeness.py): a field is
 unanswered when it equals its default or is an empty list; a NotApplicable and a mandatory field are answered. A nested model is
-asked about field by field; the fields of list items are asked once per field, with how many items lack them.
+asked about field by field; the fields of list items are asked once per field, with how many items lack them and which (each item named
+by its mandatory fields).
 """
 import json
 from enum import Enum
@@ -39,6 +40,12 @@ def default_in_words(field: FieldInfo) -> str:
     return json.dumps(default, ensure_ascii=False)
 
 
+def item_label(item: BaseModel) -> str:
+    """An item named by the values of its mandatory fields, joined by ' | ', e.g. 'FR-01 | Login | The system SHALL ...'."""
+    values = [getattr(item, name) for name, field in type(item).model_fields.items() if field.is_required()]
+    return " | ".join(str(v.value) if isinstance(v, Enum) else str(v) for v in values)
+
+
 def _unanswered(field: FieldInfo, value) -> bool:
     if isinstance(value, NotApplicable) or field.is_required():
         return False
@@ -52,9 +59,9 @@ def _walk(model: type[BaseModel], objects: list[BaseModel], prefix: str, in_list
             continue
         path = f"{prefix}{name}"
         values = [getattr(obj, name) for obj in objects]
-        missing = sum(_unanswered(field, value) for value in values)
-        if missing:
-            counts = {"missing_in": missing, "item_count": len(objects)} if in_list else {}
+        lacking = [obj for obj, value in zip(objects, values) if _unanswered(field, value)]
+        if lacking:
+            counts = {"missing_in": len(lacking), "item_count": len(objects), "missing_items": [item_label(obj) for obj in lacking]} if in_list else {}
             out.append(FactQuestion(path=path, question=question_of(field), default_assumed=default_in_words(field), **counts))
         present = [v for v in values if not _unanswered(field, v) and not isinstance(v, NotApplicable)]
         nested = [v for v in present if isinstance(v, BaseModel)]

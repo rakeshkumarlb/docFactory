@@ -31,3 +31,8 @@ class FactQuestion(DocFactoryModel):
         question="How many items does the list hold?",
     )
 
+    missing_items: list[str] = doc_field(
+        default_factory=list,
+        description="For a field of list items: the items that still hold the default, each named by the values of its mandatory fields joined by ' | ', e.g. 'FR-01 | Login | The system SHALL let users log in'. Empty for a field that is not inside a list.",
+        question="Which items leave the field unanswered?",
+    )

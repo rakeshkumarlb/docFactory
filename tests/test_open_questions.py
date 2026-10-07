@@ -27,7 +27,15 @@ def test_fields_of_list_items_are_asked_once_with_how_many_items_lack_them():
     by_path = {q.path: q for q in open_questions(sop)}
     assert (by_path["procedures[].purpose"].missing_in, by_path["procedures[].purpose"].item_count) == (1, 2)
     assert (by_path["procedures[].steps"].missing_in, by_path["procedures[].steps"].default_assumed) == (2, "empty list")
+    assert by_path["procedures[].purpose"].missing_items == ["Test-B"] and by_path["procedures[].steps"].missing_items == ["Test-A", "Test-B"]
     assert "procedures[].name" not in by_path and "notes" not in by_path and "procedures" not in by_path  # mandatory and answered fields
+
+
+def test_an_item_is_named_by_all_its_mandatory_fields():
+    from docfactory.entitymodels.facts.functional_requirements import FunctionalRequirements
+    fact = FunctionalRequirements.model_validate({"requirements": [{"id": "Test-01", "title": "Test title", "description": "Test text"}]})
+    question = next(q for q in open_questions(fact) if q.path == "requirements[].rationale")
+    assert question.missing_items == ["Test-01 | Test title | Test text"]
 
 
 def test_a_not_applicable_answer_is_not_a_question():
@@ -59,9 +67,11 @@ def test_default_in_words():
 
 def test_missing_md_is_a_numbered_list_with_question_and_default():
     questions = [FactQuestion(path="notes", question="Test question?", default_assumed="empty text"),
-                 FactQuestion(path="items[].steps", question="Test steps?", default_assumed="empty list", missing_in=2, item_count=3)]
+                 FactQuestion(path="items[].steps", question="Test steps?", default_assumed="empty list", missing_in=2, item_count=3,
+                              missing_items=["Test-A | Test title", "Test-B | " + "x" * 200])]
     text = missing_md("Test.Sop", questions)
     assert text.startswith("# Open questions: Test.Sop\n\n")
     assert "1. `notes`: Test question?\n   Assumed until answered: empty text\n" in text
     assert "2. `items[].steps` (missing in 2 of 3 items): Test steps?\n   Assumed until answered: empty list\n" in text
+    assert "   Items:\n   - Test-A | Test title\n   - Test-B | " + "x" * 108 + "...\n" in text
     assert text == missing_md("Test.Sop", questions)

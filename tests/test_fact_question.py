@@ -16,6 +16,7 @@ FULL = {
     "default_assumed": "empty text",
     "missing_in": 2,
     "item_count": 3,
+    "missing_items": ["Test-ID | Test title"],
 }
 
 
@@ -45,6 +46,7 @@ def test_optional_fields_default_to_their_declared_defaults():
     obj = FactQuestion.model_validate(MINIMAL)
     assert obj.missing_in is None
     assert obj.item_count is None
+    assert obj.missing_items == []
 
 
 @pytest.mark.parametrize("field", ["path", "question", "default_assumed"])
@@ -53,7 +55,7 @@ def test_empty_text_is_rejected_where_min_length_is_set(field):
         FactQuestion.model_validate({**FULL, field: ""})
 
 
-@pytest.mark.parametrize("field", ["path", "question", "default_assumed", "missing_in", "item_count"])
+@pytest.mark.parametrize("field", ["path", "question", "default_assumed", "missing_in", "item_count", "missing_items"])
 def test_not_applicable_is_rejected_where_not_allowed(field):
     with pytest.raises(ValidationError):
         FactQuestion.model_validate({**FULL, field: NotApplicable(reason="Not relevant for this test.")})
