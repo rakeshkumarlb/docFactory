@@ -54,30 +54,45 @@ def _extra(field) -> dict:
     return field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
 
 
-def _nested_model_class(annotation):
+def nested_model_class(annotation):
     """The single DocFactoryModel subclass inside an annotation (a plain type or wrapped in Optional/Union)."""
     if isinstance(annotation, type) and issubclass(annotation, DocFactoryModel):
         return annotation
     for argument in get_args(annotation):
-        found = _nested_model_class(argument)
+        found = nested_model_class(argument)
         if found is not None:
             return found
     return None
 
 
-def _load_fact(app_id: str, fact_name: str, cache: dict):
-    """The stored fact object for `fact_name`, or None when no row exists. Cached per build_document call."""
+def fact_key(app_id: str, fact_name: str) -> str:
+    """The KnowledgeFacts key a binding's fact name reads: Shared.<Fact> for shared facts, else <App>.<Fact>."""
+    spec = FACT_SPECS.get(fact_name)
+    if spec is None:
+        raise BuildError(f"build_document does not know how to load fact {fact_name!r}; add it to FACT_SPECS")
+    return f"Shared.{fact_name}" if spec["shared"] else f"{app_id}.{fact_name}"
+
+
+def load_fact(app_id: str, fact_name: str, cache: dict):
+    """The stored fact object for `fact_name`, or None when no row exists. Cached in `cache` (one dict per caller run)."""
     if fact_name not in cache:
-        spec = FACT_SPECS.get(fact_name)
-        if spec is None:
-            raise BuildError(f"build_document does not know how to load fact {fact_name!r}; add it to FACT_SPECS")
-        key = f"Shared.{fact_name}" if spec["shared"] else f"{app_id}.{fact_name}"
-        row = db.get_row("KnowledgeFacts", key)
-        cache[fact_name] = spec["model"].model_validate(json.loads(row["Value"])) if row else None
+        row = db.get_row("KnowledgeFacts", fact_key(app_id, fact_name))
+        cache[fact_name] = FACT_SPECS[fact_name]["model"].model_validate(json.loads(row["Value"])) if row else None
     return cache[fact_name]
 
 
-def _is_answered(source_field, value) -> bool:
+def bound_fields(model_cls, prefix: str = ""):
+    """(dotted document path, field, binding) of every fact-bound field of a document model, in template order, through composed sections."""
+    for name, field in model_cls.model_fields.items():
+        binding = _extra(field).get("binding")
+        dotted = f"{prefix}.{name}" if prefix else name
+        if binding == "composed":
+            yield from bound_fields(nested_model_class(field.annotation), dotted)
+        elif binding and binding != "caller":
+            yield dotted, field, binding
+
+
+def is_answered(source_field, value) -> bool:
     """A source field is answered when it is mandatory (guaranteed by validation), holds a NotApplicable, or differs from its own default."""
     if isinstance(value, NotApplicable) or source_field.is_required():
         return True
@@ -91,7 +106,7 @@ def _build_model(model_cls, app_id: str, cache: dict, prefix: str, missing: list
         binding = extra.get("binding")
         dotted = f"{prefix}.{name}" if prefix else name
         if binding == "composed":
-            values[name] = _build_model(_nested_model_class(field.annotation), app_id, cache, dotted, missing)
+            values[name] = _build_model(nested_model_class(field.annotation), app_id, cache, dotted, missing)
             continue
         if not binding or binding == "caller":
             raise BuildError(
@@ -99,9 +114,9 @@ def _build_model(model_cls, app_id: str, cache: dict, prefix: str, missing: list
                 "to a fact ('FactName.field') or 'composed' sections, never caller-supplied ones"
             )
         fact_name, _, source_name = binding.partition(".")
-        fact = _load_fact(app_id, fact_name, cache)
+        fact = load_fact(app_id, fact_name, cache)
         source_field = type(fact).model_fields.get(source_name) if fact is not None else None
-        if fact is not None and source_field is not None and _is_answered(source_field, getattr(fact, source_name)):
+        if fact is not None and source_field is not None and is_answered(source_field, getattr(fact, source_name)):
             values[name] = getattr(fact, source_name)
         else:
             missing.append(

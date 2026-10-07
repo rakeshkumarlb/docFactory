@@ -8,16 +8,14 @@ import json
 
 from docfactory import db
 from docfactory.documentmodels.shared.document_control import DocumentControl
-from docfactory.documentmodels.documents.overview_document import OverviewDocument
-from docfactory.documentmodels.documents.smtd_document import SmtdDocument
-from docfactory.documentmodels.documents.sop_document import SopDocument
-from docfactory.documentmodels.documents.srs_document import SrsDocument
+from docfactory.documentmodels.shared.missing_info import MissingInfo
 from docfactory.documentmodels.shared.revision_history import RevisionHistory
+from docfactory.generation.doc_types import DOC_TYPES
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 
-# The body model for each document type. A registry built from the document savers' key patterns is Phase 2.
-BODY_MODELS = {"Overview": OverviewDocument, "SMTD": SmtdDocument, "SOP": SopDocument, "SRS": SrsDocument}
+# The body model for each document type, from the one table of document types.
+BODY_MODELS = {doc_type: spec["model"] for doc_type, spec in DOC_TYPES.items()}
 
 NOT_PROVIDED = "_Not provided._"
 ACRONYMS = {"kpi": "KPI", "kpis": "KPIs", "id": "ID", "slo": "SLO", "slos": "SLOs", "sop": "SOP", "smtd": "SMTD", "srs": "SRS", "ci": "CI", "cd": "CD", "rpo": "RPO", "rto": "RTO", "url": "URL"}
@@ -165,3 +163,41 @@ def render_markdown(app_id: str, doc_type: str) -> str:
     body = _load(body_model, prefix)
     sections = [_render_document_control(control), _render_revision_history(history), _render_body(body)]
     return "\n\n".join(sections) + "\n"
+
+
+def _gap_line(gap) -> str:
+    counts = f" (missing in {gap.missing_in} of {gap.item_count})" if gap.missing_in is not None and gap.item_count is not None else ""
+    return f"#{gap.number} `{gap.field}`{counts}"
+
+
+def render_needs_markdown(app_id: str, doc_type: str) -> str | None:
+    """The needs list of `app_id`'s `doc_type` document as Markdown, from its `.MissingInfo` row; None when there is no row or no gap.
+
+    The needs in priority order, grouped by who can answer them (first appearance order), each with the gaps it covers; then every
+    gap with its source and example items. Same row in, same bytes out.
+    """
+    row = db.get_row("DocumentOutputs", f"{app_id}.Outputs.{doc_type}.MissingInfo")
+    if row is None:
+        return None
+    info = MissingInfo.model_validate(json.loads(row["Value"]))
+    if not info.gaps:
+        return None
+    gaps = {gap.number: gap for gap in info.gaps}
+    lines = [f"# {app_id} {doc_type}: what is still needed", "",
+             f"{len(info.needs)} question(s) covering {len(info.gaps)} gap(s); needs list: {info.needs_origin.value}.", ""]
+    audiences = list(dict.fromkeys(need.audience for need in info.needs))
+    for audience in audiences:
+        lines += [f"## {audience if audience else 'Questions'}", ""]
+        for number, need in enumerate(info.needs, start=1):
+            if need.audience != audience:
+                continue
+            lines.append(f"{number}. {need.question}")
+            lines.append(f"   - Covers: {', '.join(_gap_line(gaps[n]) for n in need.gaps if n in gaps)}")
+        lines.append("")
+    lines += ["## Gaps", ""]
+    for gap in info.gaps:
+        lines.append(f"{gap.number}. `{gap.field}`: {gap.question}")
+        counts = f", missing in {gap.missing_in} of {gap.item_count} items" if gap.missing_in is not None and gap.item_count is not None else ""
+        lines.append(f"   - Source: `{gap.expected_source}`{counts}")
+        lines += [f"   - e.g. {example}" for example in gap.example_items]
+    return "\n".join(lines).rstrip("\n") + "\n"
