@@ -1,30 +1,28 @@
 # AI-Driven-Job-Matching-Platform SRS: what is still needed
 
-8 question(s) covering 11 gap(s); needs list: llm.
+7 question(s) covering 11 gap(s); needs list: llm.
 
 ## product owner
 
-1. For the 186 functional requirements of the AI-Driven-Job-Matching-Platform, what are the rationales and acceptance criteria for each?
-   - Covers: #4 `functional_requirements.requirements[].rationale` (missing in 186 of 186), #5 `functional_requirements.requirements[].acceptance_criteria` (missing in 186 of 186)
-2. For 6 of the 186 functional requirements, what is the priority (MUST, SHOULD, COULD or WONT)?
-   - Covers: #3 `functional_requirements.requirements[].priority` (missing in 6 of 186)
-4. What is explicitly out of scope for the AI-Driven-Job-Matching-Platform?
+1. For the 186 functional requirements of the AI-Driven Job Matching Platform, please provide the rationale, acceptance criteria, and (for 6 items) the priority (MUST, SHOULD, COULD, or WONT).
+   - Covers: #3 `functional_requirements.requirements[].priority` (missing in 6 of 186), #4 `functional_requirements.requirements[].rationale` (missing in 186 of 186), #5 `functional_requirements.requirements[].acceptance_criteria` (missing in 186 of 186)
+3. What is explicitly out of scope for the AI-Driven Job Matching Platform?
    - Covers: #6 `functional_requirements.out_of_scope`
-6. How business-critical is the AI-Driven-Job-Matching-Platform and what is the impact if it becomes unavailable?
+5. How business-critical is the AI-Driven Job Matching Platform, and what is the impact if it becomes unavailable?
    - Covers: #1 `application_summary.business_criticality`
-7. How would you summarize the functional requirements of the platform?
+6. How would you summarize the functional requirements of the platform?
    - Covers: #2 `functional_requirements.summary`
 
 ## architect
 
-3. For the 165 non-functional requirements, what are the measurable targets and the methods for verification?
+2. For the 165 non-functional requirements, what are the measurable targets and the methods for verification?
    - Covers: #8 `non_functional_requirements.requirements[].target` (missing in 165 of 165), #9 `non_functional_requirements.requirements[].verification` (missing in 165 of 165)
-8. How would you summarize the non-functional requirements of the platform?
+7. How would you summarize the non-functional requirements of the platform?
    - Covers: #7 `non_functional_requirements.summary`
 
 ## service owner
 
-5. Which service level objectives (SLOs) apply to the platform, and is there any additional context for them?
+4. Which service level objectives (SLOs) apply to the platform, and is there any additional context regarding them?
    - Covers: #10 `service_levels.objectives`, #11 `service_levels.notes`
 
 ## Gaps

@@ -1,13 +1,9 @@
 """Loads and validates the JSON specs the agent writes (the judgment part). Scripts do the rest.
 
 Model spec:
-    {"class": "Environment", "doc": "One deployment environment.", "role": "entitybound",
+    {"class": "Environment", "doc": "One deployment environment.",
      "imports": ["from docfactory.entitymodels.facts.slo import Slo"],
      "fields": [ <field spec>, ... ]}
-
-    role          document models only, required: the sub-folder of documentmodels/, one of
-                  documents (a document body), shared (reused by every document type, supplied by the
-                  caller) or entitybound (a section whose fields bind to entity facts)
 
 Field spec (unknown keys are errors):
     name          snake_case identifier
@@ -17,7 +13,6 @@ Field spec (unknown keys are errors):
     question      optional, asked when the field is missing; must end with "?"
     na_allowed    optional bool; true only if the type includes NotApplicable
     scored        optional bool, default true
-    binding       document models only: "caller", "composed" or "<Entity>.<field>"
     min_length    optional int >= 1, only for a field typed exactly "str" (e.g. a non-empty reason)
     pattern       optional regular expression, only for a field typed "str" or "str | None" (e.g. an ISO 8601 timestamp)
     render_as     optional, "list" (default), "table" or "numbered": how a list field is rendered to Markdown ("numbered" is for lists of str)
@@ -30,8 +25,8 @@ import re
 import conventions as C
 import naming
 
-FIELD_KEYS = {"name", "type", "description", "default", "question", "na_allowed", "scored", "binding", "example", "min_length", "render_as", "pattern"}
-MODEL_KEYS = {"class", "doc", "role", "imports", "fields"}
+FIELD_KEYS = {"name", "type", "description", "default", "question", "na_allowed", "scored", "example", "min_length", "render_as", "pattern"}
+MODEL_KEYS = {"class", "doc", "imports", "fields"}
 REQUIRED = "REQUIRED"
 EXAMPLE_MARKER = re.compile(r"e\.g\.|for example|such as|example", re.IGNORECASE)
 
@@ -112,7 +107,7 @@ def _default_problem(default: str):
     return f"default {default!r} must be REQUIRED, [] , a literal, or an enum member"
 
 
-def validate_field(field, kind=None) -> list:
+def validate_field(field) -> list:
     if not isinstance(field, dict):
         return ["field spec must be an object"]
     label = f"field {field.get('name', '?')!r}"
@@ -175,15 +170,6 @@ def validate_field(field, kind=None) -> list:
     if question is not None and (not isinstance(question, str) or not question.strip().endswith("?")):
         problems.append(f"{label}: question must be a sentence ending with '?'")
 
-    binding = field.get("binding")
-    if kind == "document-model":
-        if not binding:
-            problems.append(f"{label}: document fields need a binding (caller, composed or Entity.field)")
-    elif binding:
-        problems.append(f"{label}: binding is only for document models")
-    if binding and binding not in (C.BINDING_CALLER, C.BINDING_COMPOSED):
-        if not re.fullmatch(r"[A-Z][A-Za-z0-9]*(\.[a-z][a-z0-9_]*)+", binding):
-            problems.append(f"{label}: binding must be caller, composed or Entity.field[.subfield]")
     return problems
 
 
@@ -201,7 +187,7 @@ def validate_import(line) -> list:
     return [f"import {line!r} brings in banned name(s) {sorted(banned)}"] if banned else []
 
 
-def validate_model_spec(spec, kind) -> list:
+def validate_model_spec(spec) -> list:
     if not isinstance(spec, dict):
         return ["model spec must be an object"]
     problems = [f"unknown key {key!r}" for key in sorted(set(spec) - MODEL_KEYS)]
@@ -212,7 +198,6 @@ def validate_model_spec(spec, kind) -> list:
         problems.append("'doc' (class docstring, for an LLM reader) is required, min 10 characters")
     elif '"""' in spec["doc"] or "\\" in spec["doc"]:
         problems.append("'doc' must not contain triple quotes or backslashes")
-    problems += naming.role_problems(kind, spec.get("role"))
     for line in spec.get("imports", []):
         problems += validate_import(line)
     fields = spec.get("fields")
@@ -221,42 +206,16 @@ def validate_model_spec(spec, kind) -> list:
         return problems
     seen = set()
     for field in fields:
-        problems += validate_field(field, kind)
+        problems += validate_field(field)
         if isinstance(field, dict) and field.get("name") in seen:
             problems.append(f"duplicate field name {field['name']!r}")
         seen.add(field.get("name") if isinstance(field, dict) else None)
     return problems
 
 
-def load_model_spec(path, kind) -> dict:
+def load_model_spec(path) -> dict:
     spec = load_json(path)
-    problems = validate_model_spec(spec, kind)
+    problems = validate_model_spec(spec)
     if problems:
         raise SpecError(problems)
     return spec
-
-
-def entity_fields(class_name: str):
-    """Field names of an entity model, or None when the class is not found in entitymodels/."""
-    files = naming.find_class(class_name, ("entitymodels",))
-    if len(files) != 1:
-        return None
-    tree = ast.parse(files[0].read_text(encoding="utf-8"))
-    cls = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == class_name)
-    return {n.target.id for n in cls.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
-
-
-def binding_problems(fields) -> list:
-    """A fact binding `Entity.field[.sub]` must point at an existing entity model and field."""
-    problems = []
-    for field in fields:
-        binding = field.get("binding")
-        if not binding or binding in (C.BINDING_CALLER, C.BINDING_COMPOSED):
-            continue
-        entity, attribute = binding.split(".")[:2]
-        known = entity_fields(entity)
-        if known is None:
-            problems.append(f"field {field['name']!r}: binding {binding!r}: entity model {entity} does not exist yet")
-        elif attribute not in known:
-            problems.append(f"field {field['name']!r}: binding {binding!r}: {entity} has no field {attribute!r}")
-    return problems

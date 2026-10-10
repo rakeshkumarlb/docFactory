@@ -10,7 +10,7 @@ class _Sample(DocFactoryModel):
 
     required: str = doc_field(description="A required text, e.g. test.", question="What is it?", min_length=1)
     optional: str | None = doc_field(default=None, description="An optional text, e.g. test.", na_allowed=True)
-    items: list[str] = doc_field(default_factory=list, description="Items, e.g. one.", scored=False, binding="Thing.items")
+    items: list[str] = doc_field(default_factory=list, description="Items, e.g. one.", scored=False)
 
 
 def _extra(name):
@@ -26,12 +26,10 @@ def test_metadata_reads_back_from_json_schema_extra():
         "question": "What is it?",
         "na_allowed": False,
         "scored": True,
-        "binding": None,
         "render_as": "list",
     }
     assert _extra("optional")["na_allowed"] is True
     assert _extra("items")["scored"] is False
-    assert _extra("items")["binding"] == "Thing.items"
 
 
 def test_render_as_defaults_to_list_and_accepts_table():

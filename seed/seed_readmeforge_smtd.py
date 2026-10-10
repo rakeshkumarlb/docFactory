@@ -9,16 +9,11 @@ Environments, Deployment, Monitoring, BackupRecovery, Support, KnownErrors, Sop)
 (Kpis, Slo). Saving a payload that is already stored is a no-op (UNCHANGED), so the script can be re-run and
 can be run before or after `seed.seed_readmeforge`. It then builds the SMTD body from the stored facts, saves
 it with a hard-coded DocumentControl and RevisionHistory (caller-supplied, not knowledge facts), and renders the
-three rows to output/ReadmeForge/SMTD.md, with the list of DocumentGap items (the gaps build_document found) in output/ReadmeForge/SMTD.missing.json.
+three rows to output/ReadmeForge/SMTD.md, with the list of DocumentGap items (the gaps) in SMTD.missing.json.
 """
 import json
 from pathlib import Path
 
-from docfactory.build import build_document
-from docfactory.documentmodels.documents.smtd_document import SmtdDocument
-from docfactory.documentsaver.documents.smtd_document_saver import SmtdDocumentSaver
-from docfactory.documentsaver.shared.document_control_saver import DocumentControlSaver
-from docfactory.documentsaver.shared.revision_history_saver import RevisionHistorySaver
 from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
 from docfactory.entitysaver.architecture_saver import ArchitectureSaver
 from docfactory.entitysaver.backup_recovery_saver import BackupRecoverySaver
@@ -30,7 +25,7 @@ from docfactory.entitysaver.monitoring_saver import MonitoringSaver
 from docfactory.entitysaver.slo_saver import SloSaver
 from docfactory.entitysaver.sop_saver import SopSaver
 from docfactory.entitysaver.support_saver import SupportSaver
-from docfactory.render import render_markdown
+from seed.seed_document import store_document
 from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,23 +75,7 @@ def main() -> None:
         print(f"{key}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 
-    document, missing = build_document(SmtdDocument, APP)
-    print(f"build_document: {len(missing)} missing field(s)")
-
-    body_result = SmtdDocumentSaver().save(f"{APP}.Outputs.SMTD", document.model_dump(mode="json"))
-    control_result = DocumentControlSaver().save(f"{APP}.Outputs.SMTD.DocumentControl", DOCUMENT_CONTROL)
-    history_result = RevisionHistorySaver().save(f"{APP}.Outputs.SMTD.RevisionHistory", REVISION_HISTORY)
-    for label, result in (("body", body_result), ("DocumentControl", control_result), ("RevisionHistory", history_result)):
-        print(f"{label}: {result.action} completeness={result.completeness}")
-        assert result.ok, result.errors
-
-    output_dir = ROOT / "output" / APP
-    output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "SMTD.md").write_text(render_markdown(APP, "SMTD"), encoding="utf-8", newline="\n")
-    (output_dir / "SMTD.missing.json").write_text(
-        json.dumps([item.model_dump(mode="json") for item in missing], indent=2), encoding="utf-8"
-    )
-    print(f"wrote {output_dir / 'SMTD.md'} and {output_dir / 'SMTD.missing.json'}")
+    store_document(APP, "SMTD", DOCUMENT_CONTROL, REVISION_HISTORY)
 
 
 if __name__ == "__main__":

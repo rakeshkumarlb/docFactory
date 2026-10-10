@@ -2,7 +2,7 @@
 import importlib
 import pkgutil
 
-from docfactory import documentsaver, entitysaver
+from docfactory import entitysaver
 from docfactory.base_saver import BaseSaver
 
 
@@ -22,13 +22,6 @@ def entity_saver_classes() -> list[type[BaseSaver]]:
     return _saver_classes(entitysaver)
 
 
-def document_saver_classes() -> list[type[BaseSaver]]:
-    """Every document body saver class (one per module of docfactory/documentsaver/documents/), ordered by the name of its model."""
-    from docfactory.documentsaver import documents
-
-    return _saver_classes(documents)
-
-
 def entity_saver_for(entity: str) -> type[BaseSaver] | None:
     """The entity saver class whose model is named `entity` (e.g. 'FunctionalRequirements'), or None."""
     return next((cls for cls in entity_saver_classes() if cls.model.__name__ == entity), None)
@@ -44,11 +37,6 @@ def _resolve(classes: list[type[BaseSaver]], key: str) -> BaseSaver | None:
 def saver_for_key(key: str) -> BaseSaver | None:
     """The entity saver whose key patterns accept `key`, or None. Two matching savers is a configuration error (RuntimeError)."""
     return _resolve(entity_saver_classes(), key)
-
-
-def document_saver_for_key(key: str) -> BaseSaver | None:
-    """The document body saver whose key patterns accept `key` (e.g. ReadmeForge.Outputs.SMTD), or None."""
-    return _resolve(document_saver_classes(), key)
 
 
 def ordered_value(key: str, value_json: str) -> str:

@@ -1,4 +1,4 @@
-from docfactory.documentmodels.shared.needs_origin import NeedsOrigin
+from docfactory.documentmodels.needs_origin import NeedsOrigin
 
 
 def test_members_and_values():

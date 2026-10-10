@@ -9,11 +9,11 @@
 
 ## operations
 
-2. How is support organized for the platform, including the support model, contact details, incident handling process, and the escalation path?
+2. How is support organized for the platform, including the support model, contact persons, incident handling process, and the escalation path?
    - Covers: #6 `support.support_model`, #7 `support.contacts`, #8 `support.escalation_path`, #9 `support.incident_process`
 3. Which runbooks and standard operating procedures exist for the platform, and is there any additional context or notes regarding these procedures?
    - Covers: #10 `support.runbooks`, #11 `standard_operating_procedures.procedures`, #12 `standard_operating_procedures.notes`
-4. For the 2 monitoring alerts (NFR-44, NFR-134), what are their severities, the required response actions when they fire, and their notification channels?
+4. For the 2 monitoring alerts (NFR-44, NFR-134), what are their respective severities, the required response actions when they fire, and their notification channels?
    - Covers: #2 `monitoring.alerts[].severity` (missing in 2 of 2), #3 `monitoring.alerts[].response_action` (missing in 2 of 2), #4 `monitoring.alerts[].notification_channel` (missing in 2 of 2)
 5. Where are the application logs for the AI-Driven-Job-Matching-Platform stored?
    - Covers: #5 `monitoring.log_locations`

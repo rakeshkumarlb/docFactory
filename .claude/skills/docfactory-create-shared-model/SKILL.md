@@ -27,8 +27,8 @@ Hand-written stages are the one-time code the scripts derive from. Everything ha
 1. `pyproject.toml`: project `docfactory`, dependency `pydantic>=2`, `[tool.pytest.ini_options]` with `pythonpath = ["."]` and `testpaths = ["tests"]`. Empty `docfactory/__init__.py`, and an `__init__.py` in each of the five folders.
 2. `docfactory/models/doc_factory_model.py`: `DocFactoryModel(pydantic.BaseModel)` with `model_config = ConfigDict(extra="forbid")` and a docstring. The only class allowed to derive from `BaseModel` directly. Test: an extra field is rejected.
 3. `docfactory/models/doc_field.py`: a function with exactly this contract (the generators emit calls to it):
-   `doc_field(default=..., *, default_factory=None, description, question=None, na_allowed=False, scored=True, binding=None, min_length=None)`.
-   It returns `pydantic.Field(...)`: `description` is the field's description; `question` (falling back to `description`), `na_allowed`, `scored`, `binding` go into `json_schema_extra` under those key names; `min_length` is forwarded to `Field`; `default=...` means required. Test: each piece of metadata reads back from `Model.model_fields[name].json_schema_extra`; required vs default vs default_factory.
+   `doc_field(default=..., *, default_factory=None, description, question=None, na_allowed=False, scored=True, min_length=None)`.
+   It returns `pydantic.Field(...)`: `description` is the field's description; `question` (falling back to `description`), `na_allowed`, `scored` go into `json_schema_extra` under those key names; `min_length` is forwarded to `Field`; `default=...` means required. Test: each piece of metadata reads back from `Model.model_fields[name].json_schema_extra`; required vs default vs default_factory.
 
 ### Stage B: shared models (scaffolded)
 For each, follow part 2 in this order: `NotApplicable`, `SaveAction`, `SaveError`, `SaveResult`. Contracts:

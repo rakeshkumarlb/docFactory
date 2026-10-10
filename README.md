@@ -119,8 +119,8 @@ python -m docfactory.generate AI-Driven-Job-Matching-Platform all --no-llm
 
 The arguments are the application name (as in the fact keys) and the document type: `Overview`, `SMTD`, `SRS`, `SOP` or `all`. Per document:
 
-1. **Group**: the template (the document model) says which fact field fills each section; code copies those values from `<App>.<Entity>` and `Shared.<Entity>`. Nothing is rewritten or invented. A missing fact leaves its section `_Not provided._`; the document is always produced.
-2. **Save** the body as `<App>.Outputs.<Type>` through its document saver (same facts = `UNCHANGED`).
+1. **Group**: the template (a YAML file in `docfactory/generation/templates/`; add a file to add a document type) says which fact field fills each section; code copies those values from `<App>.<Entity>` and `Shared.<Entity>`. Nothing is rewritten or invented. A missing fact leaves its section `_Not provided._`; the document is always produced.
+2. **Save** the body as `<App>.Outputs.<Type>` in the `DocumentOutputs` table (same facts = `UNCHANGED`).
 3. **Document control and revision history**, written by code, never from facts: id `<App>-<Type>`, title, version `0.<body version>`, status `Draft`, owner `docFactory`, dates; one revision entry each time the body changes, naming the changed sections and the fact versions they came from. Approvers are added by the human approval (Phase 5).
 4. **Needs list**: code lists the gaps (document fields no fact fills, and the open questions of the fact fields this template uses); one small LLM call merges and phrases them as questions grouped by who can answer, and code checks that every gap is covered and nothing is added. Unchanged gaps = no call; a failed call (or `--no-llm`) keeps the gaps themselves. Saved as `<App>.Outputs.<Type>.MissingInfo`.
 5. **Render** `output/<App>/<Type>.md` and `output/<App>/<Type>.missing.md`.
@@ -129,15 +129,7 @@ Answer the questions by adding or revising a source document in `incoming/` and 
 
 The report gives per document: the body's action, version and completeness, the document version, the revision entry added (if any), and the number of gaps and needs with where the needs came from (`llm`, `fallback` with the reason, or `no_llm`; "unchanged gaps, no LLM call" when the stored list was kept). Running it again with unchanged facts changes no row, writes no file and makes no LLM call, so it is safe to run whenever facts may have changed.
 
-On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (66% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner. The other three: Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SOP 48% (12 -> 5); all four in about 35 seconds. The documents of this run are in `samples/output/`.
-
-### Step 3b: generate with the configuration-based option (parallel)
-
-```
-python -m docfactory.generate_configured <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]
-```
-
-Same result as step 3, but each document is defined by a YAML template in `docfactory/configrender/templates/` (add a file to add a document type). Rows go to the `ConfiguredDocuments` table and files to `output/configured/<App>/`, so both options can be compared side by side. `pytest tests/test_configrender.py` asserts that both give identical Markdown for the same facts.
+On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (60% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner. The other three: Overview 70% (3 gaps -> 2 needs), SMTD 45% (42 -> 14), SOP 55% (12 -> 5); all four in about 35 seconds. The documents of this run are in `samples/output/`.
 
 ### Look at the results
 
@@ -159,7 +151,7 @@ The database is `db/docfactory.sqlite` (gitignored). Any SQLite viewer works for
 
 ### The ReadmeForge sample (documents, no LLM)
 
-Hard-coded seed data that builds and renders the four document types. The seeds supply their own document control and revision history; the golden files in `tests/golden/` are these outputs.
+Hard-coded seed data that stores and renders the four document types (through the YAML templates). The seeds supply their own document control and revision history; the golden files in `tests/golden/` are these outputs.
 
 ```
 python -m seed.seed_readmeforge
@@ -199,11 +191,11 @@ Every test uses a temporary database and DocStore, so none touches your real dat
 | `docs/okf/SPEC.md` | The OKF v0.2 specification (verbatim copy) |
 | `docfactory/models/` | Machinery models (base model, `SaveResult`, `FactMeta`, ...) |
 | `docfactory/entitymodels/` | What is known about an application: `facts/` (have a saver) and `items/` (nested types) |
-| `docfactory/documentmodels/` | Documents, their sections and parts |
+| `docfactory/documentmodels/` | The parts every document has: body, document control, revision history, needs list |
 | `docfactory/entitysaver/`, `documentsaver/` | The savers: the only code that writes facts and documents |
 | `docfactory/tools/`, `docfactory/agents/` | The tool packages (least privilege: one single-tool package per kind of LLM call) and the thin agent loops |
 | `docfactory/extract/` | Extraction code: batching, fact keys, partial models, merge, grounding checks, keyword priorities, missing-info questions, the pipeline |
-| `docfactory/generation/`, `docfactory/generate.py` | Generation code: the document types, gaps, document control, revision history, the fallback needs list, the per-document flow; and its entry point |
+| `docfactory/generation/`, `docfactory/generate.py` | Generation code: gaps, document control, revision history, the fallback needs list and shared steps; the YAML templates and the per-document flow; and its entry point |
 | `.claude/agents/` | Agent prompts. `docfactory-chunk-tagger-agent.md`, `docfactory-scope-agent.md` (ingestion fallback), `docfactory-entity-extractor-agent.md` (extraction) and `docfactory-needs-list-agent.md` (generation) are the runtime prompts; edit them to tune behaviour |
 
 Folders you can relocate with environment variables: `DOCFACTORY_DB`, `DOCFACTORY_INCOMING`, `DOCFACTORY_STAGING`, `DOCFACTORY_DOCSTORE`, `DOCFACTORY_KNOWLEDGEFACTS`, `DOCFACTORY_OUTPUT`.

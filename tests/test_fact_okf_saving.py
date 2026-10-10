@@ -6,7 +6,7 @@ import pytest
 
 from docfactory import clock, db, facts
 from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-from docfactory.documentsaver.shared.document_control_saver import DocumentControlSaver
+from docfactory.documentsaver.document_control_saver import DocumentControlSaver
 from docfactory.models.fact_meta import FactMeta
 from docfactory.models.fact_source import FactSource
 from docfactory.models.save_action import SaveAction

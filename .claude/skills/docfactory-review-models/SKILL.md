@@ -27,7 +27,7 @@ Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymode
    - `na_allowed` on a field where N/A is not a real answer, or missing where it is;
    - a list of `str` that hides structure and should be typed item models;
    - an entity model doing a document's job or the reverse; a shared model used by only one side;
-   - a document field with a wrong binding; document control or revision history inside a body model; a section redefined instead of reused;
+   - a document model that re-declares the shape of an entity fact (documents are YAML templates over facts, not models);
    - a test that is weak: asserts nothing meaningful, hard-codes a number without the arithmetic, or was skipped/loosened;
    - pipeline or LLM work (LLM calls, agent loops, file moves, approval gate) inside a model or saver.
 4. **Output.** Findings grouped by severity: **violates a principle** / **smell** / **nit**. Each: `file:line`, one-line problem, one-line suggested fix, which principle. End with a two-line summary and the pytest result. If there is nothing to review yet, say so and stop.

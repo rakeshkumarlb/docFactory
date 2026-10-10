@@ -2,10 +2,9 @@
 
 Everything is derived for certain or left to Phase 5: the id, title, version label and owner are set by code; the status and the approvers
 are kept from the stored row (the Phase 5 approval owns them), the status starts as Draft; the creation date is kept, the last-updated date
-moves only when the body changed.
+moves only when the body changed (or the history had to catch up).
 """
-from docfactory.documentmodels.shared.document_control import DocumentControl
-from docfactory.models.save_action import SaveAction
+from docfactory.documentmodels.document_control import DocumentControl
 
 OWNER = "docFactory"
 DRAFT = "Draft"
@@ -16,10 +15,9 @@ def document_version(body_version: int) -> str:
     return f"0.{body_version}"
 
 
-def next_control(app_id: str, doc_type: str, doc_name: str, existing: DocumentControl | None, body_action: SaveAction,
+def next_control(app_id: str, doc_type: str, doc_name: str, existing: DocumentControl | None, changed: bool,
                  body_version: int, today: str) -> DocumentControl:
-    """The document control after a body save with `body_action`; `existing` is the stored row, None on the first run."""
-    changed = body_action in (SaveAction.CREATED, SaveAction.UPDATED)
+    """The document control after a run; `changed` is true when the body changed (or the history had to catch up), `existing` is the stored row, None on the first run."""
     return DocumentControl(
         document_id=f"{app_id}-{doc_type}",
         title=f"{app_id} {doc_name}",

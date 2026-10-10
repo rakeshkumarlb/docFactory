@@ -4,9 +4,9 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.documentmodels.shared.revision_history import RevisionHistory
-from docfactory.documentsaver.shared.revision_history_saver import RevisionHistorySaver
-from docfactory.documentmodels.shared.revision_entry import RevisionEntry
+from docfactory.documentmodels.revision_history import RevisionHistory
+from docfactory.documentsaver.revision_history_saver import RevisionHistorySaver
+from docfactory.documentmodels.revision_entry import RevisionEntry
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

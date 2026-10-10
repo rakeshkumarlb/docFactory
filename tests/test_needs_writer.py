@@ -7,10 +7,11 @@ from docfactory import clock, db
 from docfactory.agents.fake_model_client import FakeModelClient
 from docfactory.agents.needs_writer import PROMPT_FILE, NeedsWriter
 from docfactory.agents.prompt_file import load_prompt
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.missing_info import MissingInfo
+from docfactory.generation import document_store
+from docfactory.generation.generate_document import generate_document
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.missing_info import MissingInfo
 from docfactory.entitysaver.functional_requirements_saver import FunctionalRequirementsSaver
-from docfactory.generation.generate_document import generate
 from docfactory.models.model_response import ModelResponse
 from docfactory.models.tool_call import ToolCall
 
@@ -96,10 +97,10 @@ def test_generate_with_the_writer_saves_the_llm_list_and_skips_the_call_when_the
     client = CoverAll()
     writer = NeedsWriter(client, system="S")
 
-    first = generate(app, "SRS", writer)
-    second = generate(app, "SRS", writer)
+    first = generate_document(app, "SRS", writer)
+    second = generate_document(app, "SRS", writer)
 
-    info = MissingInfo.model_validate(json.loads(db.get_row("DocumentOutputs", "Acme.Outputs.SRS.MissingInfo")["Value"]))
+    info = document_store.stored_model(MissingInfo, "Acme.Outputs.SRS.MissingInfo")
     assert first.needs_origin == "llm" and first.need_count == 1 and info.needs[0].gaps == [g.number for g in info.gaps]
     assert second.needs_skipped and client.calls == 2  # the call and its closing reply, both in the first run
 

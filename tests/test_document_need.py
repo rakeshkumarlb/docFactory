@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.document_need import DocumentNeed
 from docfactory.models.not_applicable import NotApplicable
 
 MINIMAL = {

@@ -2,8 +2,8 @@ from docfactory.agents.agent_loop import AgentLoop
 from docfactory.agents.model_client import ModelClient
 from docfactory.agents.prompt_file import load_prompt
 from docfactory.db import PROJECT_ROOT
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.document_need import DocumentNeed
 from docfactory.tools.needs_tools import needs_package
 
 PROMPT_FILE = PROJECT_ROOT / ".claude" / "agents" / "docfactory-needs-list-agent.md"

@@ -1,16 +1,16 @@
 """The gaps of a generated document, found by code: what its template binds that the facts do not answer.
 
-Walks the template's fact-bound fields in template order (build.bound_fields). A bound field whose fact is absent, or whose source
+Walks the template's fact-bound fields in template order. A bound field whose fact is absent, or whose source
 field is still unanswered, is one gap. A bound field that is answered and holds a nested model or list of items adds the fact's open
 questions under that field (open_questions.py: the same rule as completeness), re-pathed to the document field, 'missing in k of n'
 kept and at most three example items. Only bound fields count: a fact's fields the template does not use are not this document's gaps.
 Deterministic, numbered 1..n; `gaps_hash` is what lets generate skip the needs-list call when nothing changed.
 """
-from docfactory.build import bound_fields, is_answered, load_fact
+from docfactory.build import is_answered, load_fact
 from docfactory.canonical import canonical_json, sha256_hex
-from docfactory.documentmodels.shared.document_gap import DocumentGap
+from docfactory.documentmodels.document_gap import DocumentGap
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.open_questions import open_questions, question_of
+from docfactory.open_questions import open_questions
 
 EXAMPLE_ITEMS = 3
 EXAMPLE_CHARS = 120
@@ -20,15 +20,8 @@ def _example(label: str) -> str:
     return label if len(label) <= EXAMPLE_CHARS else label[:EXAMPLE_CHARS - 3].rstrip() + "..."
 
 
-def document_gaps(document_model, app_id: str) -> list[DocumentGap]:
-    """Every gap of `app_id`'s `document_model` document, numbered 1..n in template order."""
-    return gaps_of_bindings(((path, question_of(field), binding) for path, field, binding in bound_fields(document_model)), app_id)
-
-
 def gaps_of_bindings(bindings, app_id: str) -> list[DocumentGap]:
     """Every gap of a template given as (document path, question, '<Fact>.<field>') triples in template order, numbered 1..n.
-
-    The core shared by the model-based template (`document_gaps`) and the configuration-based one.
     """
     facts: dict = {}
     questions: dict = {}

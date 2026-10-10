@@ -18,7 +18,7 @@ Nothing described here exists until it appears in the repo. If something is uncl
 
 1. **Single Responsibility (strongest rule).** Every class lives in its own file, and every module has one reason to change.
    - Every Pydantic class, including small nested item classes, is in its own file. Entity models go in `docfactory/entitymodels/facts/` (facts, which have a saver) or `docfactory/entitymodels/items/` (nested items and enums, no saver), document models in `docfactory/documentmodels/`, common and shared models in `docfactory/models/`.
-   - Every entity saver is in its own file under `docfactory/entitysaver/`; every document saver is in its own file under `docfactory/documentsaver/<role>/`.
+   - Every entity saver is in its own file under `docfactory/entitysaver/`; every document saver is in its own file under `docfactory/documentsaver/`.
    - The file is named after its class in snake_case (`ApplicationOverview` -> `application_overview.py`, `ApplicationOverviewSaver` -> `application_overview_saver.py`). A module never defines two classes; a function module defines none.
    - A class does one thing: a model describes and validates data, a saver stores it, the renderer renders it, the database module talks to SQLite. None of them does another's job.
    - Tests enforce the file and naming rule (see "Tests").
@@ -45,41 +45,33 @@ seed data (Phase 1) ------------------------------------>-- XSaver.save() --vali
                                                                                           version, OKF metadata columns, trust, lifecycle)
                                                                                           + views knowledgefacts/<scope>/<Entity>.json / .missing.md
                                                                                         |
-            document template (composed document model, bindings <Entity>.<field>)      |  (Phase 4)
+            document template (YAML file, bindings <Entity>.<field>)                    |  (Phase 4)
                                                                                         v
-              build_document --> body; code --> DocumentControl, RevisionHistory --document savers--> DocumentOutputs
+              build_body --> body; code --> DocumentControl, RevisionHistory --document savers--> DocumentOutputs
               gaps (unfilled fields + open questions of bound fields) --one checked LLM call--> MissingInfo row
                                                                                         |
-              render_markdown --> output/<App>/<DocType>.md        MissingInfo --> output/<App>/<DocType>.missing.md
+              render_document_markdown --> output/<App>/<DocType>.md        MissingInfo --> output/<App>/<DocType>.missing.md
 ```
 
 ## Models
 
-One Pydantic v2 model per file, in three folders. `models/` is flat; `entitymodels/` has two sub-folders, `facts/` and `items/`; `documentmodels/` has one sub-folder per role (below):
+One Pydantic v2 model per file, in three folders. `models/` and `documentmodels/` are flat; `entitymodels/` has two sub-folders, `facts/` and `items/`:
 
 | Folder | Holds | Examples |
 |---|---|---|
 | `docfactory/entitymodels/facts/` | **EntityModels that are knowledge facts**: every entity model that has a saver in `entitysaver/` | `ApplicationOverview`, `Architecture`, `Environments`, `FunctionalRequirements`, `NonFunctionalRequirements`, `Slo`, `Kpis` |
 | `docfactory/entitymodels/items/` | **EntityModels that are nested items and enums**: every entity model with no saver | `Environment`, `Requirement`, `Alert`, `Component`, `RequirementPriority` |
-| `docfactory/documentmodels/<role>/` | **DocumentModels**: output documents, their sections and their parts, in three role sub-folders (below) | `OverviewDocument`, `DocumentControl`, `RevisionHistory`, `MissingInfo`, `ApplicationSummarySection` |
+| `docfactory/documentmodels/` | **DocumentModels**: the parts every generated document has (the body `DocumentBody`, document control, revision history, the needs list) | `DocumentBody`, `DocumentControl`, `RevisionHistory`, `MissingInfo` |
 | `docfactory/models/` | **Machinery models**: reusable building blocks of the system itself, independent of any application knowledge. They make the code work; they hold no information about an application | the base model, `doc_field`, `NotApplicable`, `SaveAction`, `SaveResult`, `SaveError`, `FactMeta`, the run reports |
 
-**The dividing line:** `models/` is for machinery (how the system validates, saves and reports). Anything that describes information about an application or its environment, including a small nested item type such as `Alert`, `Component`, `Environment` or `Integration`, is an entity model and lives in `entitymodels/` (`facts/` when it has a saver, else `items/`; nothing sits directly in `entitymodels/`), even when it is never saved on its own and even when a document section also uses it. Document models import entity models where they need them; the reverse never happens. `models/` never imports `entitymodels/` or `documentmodels/`.
+**The dividing line:** `models/` is for machinery (how the system validates, saves and reports). Anything that describes information about an application or its environment, including a small nested item type such as `Alert`, `Component`, `Environment` or `Integration`, is an entity model and lives in `entitymodels/` (`facts/` when it has a saver, else `items/`; nothing sits directly in `entitymodels/`), even when it is never saved on its own and even when a document section also uses it. Document models import entity models where they need them (today none does); the reverse never happens. `models/` never imports `entitymodels/` or `documentmodels/`.
 
-**Document model roles.** Every file in `documentmodels/` (and every document saver in `documentsaver/`) lives in exactly one role sub-folder, picked by what the class depends on:
-
-| Role folder | Holds | Fields bind to | May import from |
-|---|---|---|---|
-| `documents/` | A document body, composed of sections: one per document type (`OverviewDocument`, `SmtdDocument`, `SrsDocument`, `SopDocument`) | `composed` sections | `entitybound/`, `shared/` |
-| `shared/` | Parts every document type uses, written by the generate process: `DocumentControl`, `RevisionHistory` and its `RevisionEntry`, `MissingInfo` (the needs list) and its `DocumentGap`, `DocumentNeed`, `NeedsOrigin` | `caller` | nothing in `documentmodels/` |
-| `entitybound/` | A section in a specific format over entity facts: `ApplicationSummarySection`, `KpiSummarySection`, ... | `Entity.field` | nothing in `documentmodels/` |
-
-Nothing goes deeper than the role folder. A document saver mirrors its model's role (`documentsaver/shared/document_control_saver.py` saves `documentmodels/shared/document_control.py`); `entitybound/` has no savers because a section is stored inside its document body. `shared/` here means "shared across document types"; a type used by both entities and documents is an entity model.
+**Document models.** The parts every generated document has, written by the generate process: `DocumentBody` (the generic body filled from a template), `DocumentControl`, `RevisionHistory` and its `RevisionEntry`, `MissingInfo` (the needs list) and its `DocumentGap`, `DocumentNeed`, `NeedsOrigin`. A document type is not a model but a YAML template over entity facts (see "Documents"), so there is no body model, section class or body saver per document type. A document saver sits in `documentsaver/` next to a same-named model (`documentsaver/document_control_saver.py` saves `documentmodels/document_control.py`). A type used by both entities and documents is an entity model.
 
 - An entity is an **aggregate**: list-like content (requirements, environments, components, SLOs) is a list of typed item models inside one object.
 - All models derive from one base model (`docfactory/models/`, its own file) that sets `extra="forbid"` (a hallucinated field is an error) and requires a description on every field (enforced by a test).
 - **Mandatory fields are the absolutely necessary ones only** (what identifies the object or makes it meaningless). Everything else has a default where a default is legitimate (`None`, empty list, empty string). If no honest default exists, the field is mandatory. **Fields of `entitybound/` sections are never mandatory**: a section is a view, and a fact that is not there yet is a gap, not an invalid document.
-- Field metadata beyond the type (`doc_field`): `description` (meaning and what a good answer contains), `question` (asked when the field is missing; defaults to the description), whether `N/A` is a legal answer (`na_allowed`), `scored` (default true), `binding` (documents), `render_as` (`list`, `numbered`, `table`), and the constraints `min_length`, `max_length`, `ge`, `pattern`.
+- Field metadata beyond the type (`doc_field`): `description` (meaning and what a good answer contains), `question` (asked when the field is missing; defaults to the description), whether `N/A` is a legal answer (`na_allowed`), `scored` (default true), `render_as` (`list`, `numbered`, `table`), and the constraints `min_length`, `max_length`, `ge`, `pattern`.
 - Two kinds of knowledge fact, distinguished only by scope in the key:
   - **Common** to all applications: `Shared.Kpis`, `Shared.Slo` (AppID NULL).
   - **Application-specific:** `ReadmeForge.ApplicationOverview`, `ReadmeForge.Architecture` (AppID = `ReadmeForge`).
@@ -134,7 +126,7 @@ Plain Python, no framework. Everything is deterministic and callable from tests,
   6. write in one transaction (never on `REJECTED`); entity savers also write the OKF columns, a `KnowledgeFactsHistory` row on `UPDATED`, the source index (`docfactory/fact_writer.py`) and the fact's views under `knowledgefacts/` (`docfactory/fact_files.py`)
 - `save(key, payload, app_id=None, meta=None)`: `meta` (`FactMeta`) is for entity savers only; a document save with `meta` is rejected (`meta_not_allowed`).
 - **Entity savers** (`docfactory/entitysaver/`, one file each) inherit `BaseSaver`, declare only the model and key pattern, and write `KnowledgeFacts`.
-- **Document savers** (`docfactory/documentsaver/documents/` and `docfactory/documentsaver/shared/`, one file each) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs` (body, `.DocumentControl`, `.RevisionHistory`, `.MissingInfo`).
+- **Document savers** (`docfactory/documentsaver/`, one file each) inherit `BaseSaver`, declare only the model and key pattern, and write `DocumentOutputs`: `DocumentBodySaver` (the body, `<App>.Outputs.<DocType>`) and the savers of `.DocumentControl`, `.RevisionHistory` and `.MissingInfo`.
 - Return value is always a `SaveResult` model, never an exception for bad input:
 
 ```
@@ -147,16 +139,16 @@ SaveResult { ok, key, action: CREATED|UPDATED|UNCHANGED|REJECTED, version, hashc
 
 ## Documents
 
-- A document type (Overview, SMTD, SRS, SOP) is a composed **DocumentModel**, its **template**: it is made of `entitybound/` section models, and each section field is bound to a fact field. Sections are reusable across document types. Each is its own file in the `docfactory/documentmodels/<role>/` folder for its role (see "Models"). A new document type is a new body model (through the developer agent) plus one line in `docfactory/generation/doc_types.py`; no new generation code.
-- Each document field declares its **binding**: which fact field supplies it (for example `FunctionalRequirements.requirements`), plus the same field metadata as entities (description, question, `na_allowed`).
-- `build_document` is deterministic: it reads the app's facts and the shared facts, copies every answered bound field into the document object, and leaves the rest at their defaults, listed as gaps. It does not invent content and never fails on a missing fact (`BuildError` only means a wrongly wired template).
+- A document type (Overview, SMTD, SRS, SOP) is a **YAML template**, `docfactory/generation/templates/<DocType>.yaml` (relocatable with `DOCFACTORY_TEMPLATES`), validated by one generic model (`DocumentTemplate` > `TemplateSection` > `TemplateField`). A document is a view of facts: every value in it was already validated by its entity model and saver, so the document layer only chooses which fact fields appear, in which order and format. A new document type is a new YAML file; no model, saver or generation code.
+- Each template field declares its **binding** `<Entity>.<field>` (which fact field supplies it) and optionally a `label`, a `render_as` (`list`, `numbered`, `table`) and a `question` (asked when the field is missing; defaults to the entity field's question). A wrongly wired template (unknown entity or field, duplicate id or binding, bad `render_as`) raises `TemplateError` when it is loaded.
+- `build_body.build_body` is deterministic: it reads the app's facts and the shared facts and copies every answered bound field (as canonical JSON in `DocumentField.value`, status `answered`, else `missing`) into a `DocumentBody`. It does not invent content and never fails on a missing fact.
 - **Every output document is four rows in `DocumentOutputs`**, each a validated Pydantic object with its own hash, completeness and version:
-  - `<App>.Outputs.<DocType>` - the document body (all chapters), **without** document control and revision history. Built from the knowledge facts.
+  - `<App>.Outputs.<DocType>` - the document body (all sections), **without** document control and revision history. Built from the knowledge facts. Its completeness = answered bound fields / all bound fields.
   - `<App>.Outputs.<DocType>.DocumentControl` - document id, title, version, status, owner, approvers, dates. Never from knowledge facts: maintained by the generate process (the ReadmeForge seeds supply their own).
   - `<App>.Outputs.<DocType>.RevisionHistory` - the list of revisions (version, date, author, change summary). Never from knowledge facts: maintained by the generate process (the seeds supply their own).
   - `<App>.Outputs.<DocType>.MissingInfo` - the needs list: the document's gaps and the questions to ask for them (see "Phase 4: Generate").
   All four use the same `<App>.Outputs.<DocType>` prefix, so a document's parts are found by prefix.
-- `render_markdown` assembles the final `.md` from the body, document control and revision history (order: document control, revision history, body); it refuses with a clear `RenderError` when a row is missing. `render_needs_markdown` renders the `MissingInfo` row to `<DocType>.missing.md`. Same rows in, same bytes out. The files under `output/<App>/` are views and never truth. The body's completeness is computed over the body only; the other rows score their own.
+- `render_document_markdown` assembles the final `.md` from the body, document control and revision history (order: document control, revision history, body); it refuses with a clear `RenderError` when a row is missing. `render_document_needs` renders the `MissingInfo` row to `<DocType>.missing.md`. Same rows in, same bytes out. The files under `output/configured/<App>/` are views and never truth.
 
 ## The `docfactory-pydantic-developer-agent`
 
@@ -164,21 +156,21 @@ All models and savers are produced through a specialized agent, `.claude/agents/
 
 - **The agent** knows and enforces: single responsibility (one class per file, file name = snake_case of the class, correct folder), the base model, descriptions and questions on every field, honest defaults and minimal mandatory fields, typed lists and no `dict`/`Any`, `NotApplicable` only where `na_allowed`, scoring rules, and that savers inherit `BaseSaver` and contain no logic. It writes a test with every class it creates and runs the suite before it reports done.
 - **Entry skills** (in `.claude/skills/`, invoked as `/docfactory-<task>`; **every skill and custom agent in this project is named with the `docfactory-` prefix**, enforced by a test), one per repeatable task, each pinning the agent and model (`context: fork`, `agent: docfactory-pydantic-developer-agent`, `model: sonnet`) and defining the exact step-by-step procedure: `docfactory-create-shared-model` (base classes and package skeleton, or one shared model), `docfactory-create-entity-model` and `docfactory-create-document-model` (each also creates the saver where one belongs), `docfactory-add-field`, `docfactory-review-models`. Two reference skills (`docfactory-field-spec`, `docfactory-quality-gate`) are preloaded into the agent. Skills cannot be `.claude/commands/` files: only skills support `agent` and `context: fork`.
-- **Deterministic scripts** (`.claude/scripts/`, tested in `tests/scripts/`): the agent supplies judgment as a JSON spec; scripts resolve names and paths, generate models, savers and their tests, add fields, check structure and run the quality gate. Conventions the generated code relies on (base model `DocFactoryModel`, field helper `doc_field`, `BaseSaver`, key-pattern placeholders) are in `.claude/scripts/conventions.py`. The spec scripts do not yet emit the `ge` and `max_length` constraints of `doc_field`; write those by hand.
+- **Deterministic scripts** (`.claude/scripts/`, tested in `tests/scripts/`): the agent supplies judgment as a JSON spec; scripts resolve names and paths, generate models, savers and their tests, add fields, check structure and run the quality gate. Conventions the generated code relies on (base model `DocFactoryModel`, field helper `doc_field`, `BaseSaver`, key-pattern placeholders) are in `.claude/scripts/conventions.py`. The spec scripts do not yet emit the `ge` and `max_length` constraints of `doc_field`; write those by hand. They scaffold entity and shared (`models/`) models; there is no document-model kind, because a document body is a YAML template.
 - The agent never edits the database or generated documents by hand, and never invents field content.
 
 ## Sample data
 
-- **ReadmeForge** (the Phase 1 sample application): hard-coded seed scripts in `seed/` save its facts from `samples/json/<entity>/` and build, save and render its four documents with their own document control and revision history. The golden files in `tests/golden/` are these outputs.
+- **ReadmeForge** (the Phase 1 sample application): hard-coded seed scripts in `seed/` save its facts from `samples/json/<entity>/` and store and render its four documents (to `output/ReadmeForge/`) with their own document control and revision history. The golden files in `tests/golden/` are rendered from small TestApp facts by `tests/test_golden_documents.py`.
 - **AI-Driven-Job-Matching-Platform** (a real 50-page SRS): a committed snapshot of one end-to-end run (ingest, extract, generate) in `samples/DocStore/`, `samples/knowledgefacts/` and `samples/output/`. Copies for reading; the code never reads them.
 
 ## Tests (pytest, every test uses a temporary database and temporary folders)
 
-- **Structure:** every module in `models/`, `entitymodels/<facts|items>/`, `documentmodels/<role>/`, `entitysaver/` and `documentsaver/<role>/` defines exactly one class, named after the file (snake_case); documents and savers sit in a role folder, a class in `entitymodels/facts/` has a matching saver and one in `entitymodels/items/` has none, a document saver sits in the same role as its model, and `documentmodels/` roles only import as allowed by the role table; every Pydantic class is under `models/`, `entitymodels/` or `documentmodels/`; every field of every registered model has a description; no model contains `dict`, `Any` or untyped list items. In `tools/`, `agents/`, `ingest/`, `ontology/`, `extract/` and `generation/`, a class module defines one class named after the file and a function module defines none (`tests/test_phase2_structure.py`).
+- **Structure:** every module in `models/`, `entitymodels/<facts|items>/`, `documentmodels/`, `entitysaver/` and `documentsaver/` defines exactly one class, named after the file (snake_case); only `entitymodels/` has sub-folders, a class in `entitymodels/facts/` has a matching saver and one in `entitymodels/items/` has none, a document saver has a same-named model in `documentmodels/`, and `models/` and `entitymodels/` never import `documentmodels/`; every Pydantic class is under `models/`, `entitymodels/` or `documentmodels/`; every field of every registered model has a description; no model contains `dict`, `Any` or untyped list items. In `tools/`, `agents/`, `ingest/`, `ontology/`, `extract/` and `generation/`, a class module defines one class named after the file and a function module defines none (`tests/test_phase2_structure.py`).
 - Savers: valid payload -> `CREATED` with canonical JSON, SHA-256, AppID, completeness and `Version = 1`; same payload -> `UNCHANGED`; changed payload -> `UPDATED`, `Version = 2`; changing back is a new change (`Version = 3`); a new saver subclass gets all this with no code of its own; key order does not change the hash; component keys store the application's AppID; `Shared.*` stores NULL AppID; a mismatching AppID or a key matching none of the saver's patterns is rejected; missing mandatory field, wrong type, bad enum, extra field -> `REJECTED`, nothing written, errors with path, description and question.
 - Completeness: defaults are not answered (even when passed explicitly); a legal `NotApplicable(reason)` is; `N/A` on a field without `na_allowed`, or with an empty reason, is rejected; item-level scoring as above.
 - Every JSON file under `samples/json/` validates against the model of its folder, and every sample folder has a model (`tests/test_samples.py`).
-- Build + render of the ReadmeForge documents match the golden files; rendering twice gives identical bytes; a missing fact leaves its field at the default and listed as a gap; rendering with a missing `.DocumentControl` row fails with a clear error.
+- Build + render of the four documents match the golden files; rendering twice gives identical bytes; a missing fact leaves its field missing and listed as a gap; rendering with a missing `.DocumentControl` or `.RevisionHistory` row fails with a clear error; the four shipped templates generate with all, some or no facts; a wrongly wired template is refused.
 - Ingestion, extraction and generation pipelines are tested with a fake model client; the tool packages' exact tool lists are pinned. Live tests (`-m live`) call the configured LLM and skip themselves when it is unreachable.
 
 ## Repo layout
@@ -192,34 +184,27 @@ docfactory/            Python package
   entitymodels/        EntityModels, one class per file, in two sub-folders:
     facts/             the facts, each with a saver: ApplicationOverview, Architecture, Environments, Deployment, Monitoring, BackupRecovery, KnownErrors, Sop, Support, Slo, Kpis, FunctionalRequirements, NonFunctionalRequirements
     items/             nested item types and enums, no saver: Environment, Requirement, Alert, Component, RequirementPriority, ...
-  documentmodels/      DocumentModels, one class per file, in role sub-folders:
-    documents/         document bodies (OverviewDocument, SmtdDocument, SrsDocument, SopDocument)
-    shared/            DocumentControl, RevisionHistory, RevisionEntry, MissingInfo, DocumentGap, DocumentNeed, NeedsOrigin
-    entitybound/       one section per entity fact (ApplicationSummarySection, ArchitectureSection, KpiSummarySection, ...)
+  documentmodels/      DocumentModels, one class per file: DocumentBody, DocumentControl, RevisionHistory, RevisionEntry, MissingInfo, DocumentGap, DocumentNeed, NeedsOrigin
   entitysaver/         One entity saver per file (write KnowledgeFacts)
-  documentsaver/       One document saver per file (write DocumentOutputs), mirroring the model's role
-    documents/         savers of document bodies
-    shared/            savers of DocumentControl, RevisionHistory, MissingInfo
+  documentsaver/       One document saver per file (write DocumentOutputs): DocumentBodySaver, DocumentControlSaver, RevisionHistorySaver, MissingInfoSaver
   base_saver.py        BaseSaver
-  db.py                Connection, schema creation and migration, upsert, reads
+  db.py                Connection, schema creation, upsert, reads
   canonical.py         canonical JSON + SHA-256
   completeness.py      completeness scoring
   clock.py             now_iso() (tests replace it)
-  build.py             build_document and its helpers (fact_key, load_fact, is_answered, bound_fields)
-  render.py            render_markdown, render_needs_markdown
+  build.py             FACT_SPECS (the facts a binding can name), fact_key, load_fact, is_answered
+  render.py            the Markdown building blocks: field_lines, render_document_control, render_revision_history, needs_markdown, title_of, RenderError
   facts.py documents.py  typed reads of KnowledgeFacts (FactRecord) and DocumentOutputs (DocumentRecord)
   okf_frontmatter.py fact_writer.py   the YmlFrontmatter column; fact storing with the OKF columns (called by BaseSaver)
   fact_files.py open_questions.py missing_md.py   the knowledgefacts/ views; `python -m docfactory.fact_files` rewrites them all from the database and removes orphans
   contributions.py     typed access to FactContributions (FactContribution); EXISTING = '(existing)' for a value stored before any extraction
-  saver_resolution.py  entity_saver_classes(), entity_saver_for(entity), saver_for_key(key), document_saver_classes(), document_saver_for_key(key), ordered_value (a stored value in model field order)
+  saver_resolution.py  entity_saver_classes(), entity_saver_for(entity), saver_for_key(key), ordered_value (a stored value in model field order)
   env_file.py          Loads .env into the environment (shell variables win); used only by entry points and live tests
   ingest/              Phase 2 function modules: pipeline (stage, lookup, commit, report), chunking + chunkers/ (pdf, word, html, text), tagging, scope_rules, chunk_rebuild, docstore_reads, paths, file_hash, target_rules. No LLM
   ontology/            signals.json (tagging signals per entity, edited by people), signals.py (validated load), ontology_render.py (docs/ontology.md and the compact LLM summary)
   extract/             Phase 3 function modules: batching (BATCH_CHARS, chunks_hash), fact_keys, partial_schema, model_shapes, grounding, merge, priority_keywords, missing_questions, extraction_pipeline (extract_file, format_reports)
-  generation/          Phase 4 function modules: doc_types (DOC_TYPES: body model, saver, document name per type), gaps (document_gaps, gaps_hash), document_control (next_control), revision_history (changed_sections, section_sources, revision_summary, next_history), fallback_needs, generate_document (generate, format_reports, output_dir)
+  generation/          Phase 4 (generate a document): the YAML `templates/` (one file per document type), template_loader/check/error, bindings, build_body (the body from the facts), generate_document (the flow), template_gaps, gaps (gaps_of_bindings, gaps_hash), revision_sources, revision_history (history_is_behind, revision_summary, next_history), document_control (next_control), fallback_needs, document_store (stored rows), render_document, generation_steps (save_object, choose_needs, write_if_changed, output_dir, format_reports)
   generate.py          Entry point `python -m docfactory.generate <App> <DocType|all> [--no-llm]`
-  configrender/        Configuration-based rendering (parallel option): YAML `templates/`, template_loader/check, bindings, build_configured, configured_gaps/revision/store, render_configured, configured_document, `savers/` (table ConfiguredDocuments)
-  generate_configured.py  Entry point `python -m docfactory.generate_configured <App> <DocType|all> [--no-llm]`
   tools/               Tool, ToolRegistry, ToolPackage (one class per file); the single-tool packages ingestion_tools (submit_chunk_tags, submit_scope), extraction_tools (submit_extraction), needs_tools (submit_needs); schema_slim (inline_refs for tool schemas)
   agents/              ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), model_client_factory, AgentLoop (the shared thin loop), prompt_file, IngestionFallback, EntityExtractor, NeedsWriter; entry points run_ingestion, run_extraction
 samples/json/<entity>/ Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo), used by the seeds and tests
@@ -330,16 +315,16 @@ Extraction turns the tagged chunks of a new or changed `DocStore` file into fact
 ### Phase 4: Generate
 Generation **groups the stored fact JSON by the document template, writes the `.md`, maintains the document control and revision history, and writes the needs list for what is missing.** No retrieval and no generating agent: every document field's binding (`<Entity>.<field>`) already says which fact fills it, and copying keeps every value exactly as the facts state it. One small, checked LLM call phrases the needs list.
 
-**Templates.** A template is a document body model in `documentmodels/documents/` composed of `entitybound/` sections; each section field is bound to `<Entity>.<field>`. The four templates are Overview, SMTD, SRS (ApplicationOverview, FunctionalRequirements, NonFunctionalRequirements, `Shared.Slo`) and SOP; `docfactory/generation/doc_types.py` lists each with its body saver and document name.
+**Templates.** A template is a YAML file in `generation/templates/` (see "Documents"); each field is bound to `<Entity>.<field>`. The four templates are Overview, SMTD, SRS (ApplicationOverview, FunctionalRequirements, NonFunctionalRequirements, `Shared.Slo`) and SOP; each file names its document (used in the title).
 
-**Flow per `<App> <DocType>`** (`generation/generate_document.py`):
-1. **Group** (code): `build_document` reads `<App>.<Entity>` and `Shared.<Entity>` and copies every answered bound field into the body, in the template's order. Nothing is rewritten, summarised, merged or invented. An absent or incomplete fact still gives a document: its fields render as `_Not provided._` and reach the needs list.
-2. **Save the body** through its document saver as `<App>.Outputs.<DocType>` (`UNCHANGED` when the facts did not change).
+**Flow per `<App> <DocType>`** (`generation/generate_document.py`, with the shared steps in `generation/generation_steps.py`):
+1. **Group** (code): `build_body` reads `<App>.<Entity>` and `Shared.<Entity>` and copies every answered bound field into the body, in the template's order. Nothing is rewritten, summarised, merged or invented. An absent or incomplete fact still gives a document: its fields render as `_Not provided._` and reach the needs list.
+2. **Save the body** through `DocumentBodySaver` as `<App>.Outputs.<DocType>` (`UNCHANGED` when the facts did not change).
 3. **Document control and revision history** (code, below), saved as `.DocumentControl` and `.RevisionHistory`.
 4. **Gaps** (code, below), then the **needs list** (one checked LLM call, below), saved as `.MissingInfo`.
-5. **Render** `output/<App>/<DocType>.md` (`render_markdown`) and `output/<App>/<DocType>.missing.md` (`render_needs_markdown`; removed when there is no gap). A file whose bytes are unchanged is not rewritten.
+5. **Render** `output/<App>/<DocType>.md` (`render_document_markdown`) and `output/<App>/<DocType>.missing.md` (`render_document_needs`; removed when there is no gap). A file whose bytes are unchanged is not rewritten.
 
-**Document control and revision history (user decisions).** Both are maintained by the generate process; no input comes from `KnowledgeFacts`. Their fields have `binding="caller"`, so `build_document` never fills them.
+**Document control and revision history (user decisions).** Both are maintained by the generate process; no input comes from `KnowledgeFacts`. `build_body` never fills them.
 
 | Field | Value |
 |---|---|
@@ -352,9 +337,9 @@ Generation **groups the stored fact JSON by the document template, writes the `.
 | `created_date` | the date of the first generation; kept on later runs |
 | `last_updated_date` | the date the body last changed (`CREATED` / `UPDATED`) |
 
-`RevisionHistory` gets one `RevisionEntry` per body save that is `CREATED` or `UPDATED`, or when no history row exists yet; an `UNCHANGED` body adds none. `version` = the new `document_version`, `date` = today, `author` = `docFactory`, and a `summary` written by code: 'Generated from <key> v<n>, ...' (facts not stored yet are named '(not available)'), or 'Changed sections: <section> (from <key> v<n>)'. Existing entries are kept.
+`RevisionHistory` gets one `RevisionEntry` per body save that is `CREATED` or `UPDATED`, or when no history row exists yet; an `UNCHANGED` body adds none, unless the history is behind the body (its latest entry is not the body's document version, because an earlier run stopped between saving the body and saving the history): then one entry, 'Revision recorded late...', catches it up and the control's last-updated date moves. `version` = the new `document_version`, `date` = today, `author` = `docFactory`, and a `summary` written by code: 'Generated from <key> v<n>, ...' (facts not stored yet are named '(not available)'), or 'Changed sections: <section> (from <key> v<n>)'. Existing entries are kept.
 
-**Gaps** (`generation/gaps.py`): the template's fact-bound fields in template order (`build.bound_fields`). A bound field whose fact is absent, or whose source field is unanswered, is one gap. A bound field that is answered and holds a nested model or list of items adds the fact's `open_questions` under it, re-pathed to the document field, with 'missing in k of n' and at most 3 example items. Only fields the template binds count. Gaps are numbered 1..n; `gaps_hash` is the SHA-256 of their canonical JSON.
+**Gaps** (`generation/gaps.py`): the template's fact-bound fields in template order (`template_gaps`). A bound field whose fact is absent, or whose source field is unanswered, is one gap. A bound field that is answered and holds a nested model or list of items adds the fact's `open_questions` under it, re-pathed to the document field, with 'missing in k of n' and at most 3 example items. Only fields the template binds count. Gaps are numbered 1..n; `gaps_hash` is the SHA-256 of their canonical JSON.
 
 **The needs list** (`<App>.Outputs.<DocType>.MissingInfo`, saver `MissingInfoSaver`): `gaps` (`DocumentGap`: `number`, `field`, `question`, `expected_source`, `missing_in`, `item_count`, `example_items`), `needs` (`DocumentNeed`: `question`, `audience`, `gaps`, at least one gap number; list order = priority), and the unscored `gaps_hash` and `needs_origin` (`NeedsOrigin`: `llm`, `fallback`, `no_llm`).
 - **One LLM call** (`agents/needs_writer.py`, `NeedsWriter`; fresh context, single tool `submit_needs`, package `generation-needs`; prompt `.claude/agents/docfactory-needs-list-agent.md`) sees the application, the document name and the numbered gaps, and turns them into needs: related gaps merged into one question, phrased in the application's terms, grouped by who can answer (e.g. product owner, architect, operations, service owner), most important first.
@@ -370,13 +355,7 @@ Generation **groups the stored fact JSON by the document template, writes the `.
 
 **Verified** on the real AI-Driven-Job-Matching-Platform SRS (`gemma4:31b`): Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SRS 66% with all 186 FR and 165 NFR rows (11 -> 8), SOP 48% (12 -> 5), all needs lists from the LLM, about 35 seconds for all four; a rerun changes no row, writes no file and makes no LLM call. `pytest -m live tests/test_live_generate.py` covers the needs call on a small SRS.
 
-### Configuration-based rendering (parallel option to Phase 4)
-Branch `ConfigurationBasedExtraction`. A document is a **YAML template** (`docfactory/configrender/templates/<DocType>.yaml`, relocatable with `DOCFACTORY_TEMPLATES`) validated by one generic model (`DocumentTemplate` > `TemplateSection` > `TemplateField`: `binding` `<Entity>.<field>`, optional `label`, `render_as`, `question`), instead of a per-type document model, section classes and body saver. Generic code builds, stores and renders it; Phase 4 stays untouched and runs side by side.
-- **Flow** (`configrender/configured_document.py`, same as Phase 4): `build_configured.build_body` copies every answered bound fact field (as canonical JSON in `ConfiguredField.value`, status `answered` / `missing`) -> `ConfiguredBody` saved as `<App>.Configured.<DocType>` in the table **`ConfiguredDocuments`** (same shape as `DocumentOutputs`; savers in `configrender/savers/` set `table`) -> document control, revision history, gaps (`generation/gaps.gaps_of_bindings`, shared with Phase 4) and needs list (`NeedsWriter`, `fallback_needs`) all reused unchanged, saved as `.DocumentControl`, `.RevisionHistory`, `.MissingInfo` -> `output/configured/<App>/<DocType>.md` and `.missing.md`.
-- **Same bytes:** the renderer shares `render.field_lines` with Phase 4; a test (`tests/test_configrender.py`) generates both options from the same facts (all, two, none) and asserts byte-identical `.md` and `.missing.md` files for Overview, SMTD, SRS and SOP.
-- **Completeness** of a configured body = answered bound fields / all bound fields (only `ConfiguredField.value` is scored).
-- A wrongly wired template (unknown entity or field, duplicate id or binding, bad `render_as`) raises `TemplateError`. A new document type is a new YAML file.
-- **Entry point:** `python -m docfactory.generate_configured <App> <DocType|all> [--no-llm]`.
+**Class-based documents removed (2026-10-10).** Phase 4 first built documents from per-type body models (`OverviewDocument`, ...), `entitybound/` section classes and body savers. They only re-declared the shape of facts that their entity models and savers had already validated, so they were replaced by the YAML templates above. On the real AI-Driven-Job-Matching-Platform data both produced identical `.md` files (dates aside) and identical gap lists; the completeness figures below are from the class-based run, and the configured score is answered bound fields over all bound fields (SMTD 45%, SOP 55%, SRS 60%).
 
 ### Phase 5: Human in the loop
 - The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).

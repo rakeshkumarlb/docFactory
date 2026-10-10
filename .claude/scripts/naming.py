@@ -20,7 +20,7 @@ def rel(path) -> str:
 
 
 def package_parts(path) -> tuple:
-    """The path below the package folder, e.g. ('documentmodels', 'shared', 'document_control.py'); () if outside it."""
+    """The path below the package folder, e.g. ('documentmodels', 'document_control.py'); () if outside it."""
     try:
         return path.relative_to(C.ROOT / C.PACKAGE).parts
     except ValueError:
@@ -31,12 +31,6 @@ def top_folder(path):
     """`models`, `entitymodels`, `documentmodels`, ... for a file in the package, else None."""
     parts = package_parts(path)
     return parts[0] if len(parts) > 1 else None
-
-
-def role_of(path):
-    """The role sub-folder (documents, shared, entitybound) of a file under documentmodels/ or documentsaver/, else None."""
-    parts = package_parts(path)
-    return parts[1] if len(parts) > 2 and parts[0] in C.ROLE_FOLDERS else None
 
 
 def entity_sub_of(path):
@@ -66,29 +60,18 @@ def find_class(class_name: str, folders=C.ALL_FOLDERS) -> list:
     return found
 
 
-def role_problems(kind: str, role) -> list:
-    """A document model needs a role (its sub-folder); no other kind has one."""
-    if kind == "document-model":
-        if role not in C.DOCUMENT_ROLES:
-            return [f"a document model needs a role, one of {list(C.DOCUMENT_ROLES)} (got {role!r})"]
-    elif role is not None:
-        return [f"role is only for document models (got {role!r} for {kind})"]
-    return []
-
-
-def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
+def resolve(kind: str, class_name: str, fact: bool = False) -> dict:
     """Where the files for a model class go: folder, module, file and test file, plus any errors.
 
-    `role` (documents, shared or entitybound) is required for a document model and selects its sub-folder.
     An entity model goes to entitymodels/facts/ when it gets a saver (`fact=True`), else entitymodels/items/.
     """
     if kind not in C.KINDS:
         return {"errors": [f"unknown kind {kind!r}; expected one of {sorted(C.KINDS)}"]}
-    errors = role_problems(kind, role)
+    errors = []
     if not is_pascal(class_name):
         errors.append(f"{class_name!r} is not PascalCase (letters and digits, starts with a capital)")
     stem = to_snake(class_name)
-    folder = C.KINDS[kind]["folder"] + (f"/{role}" if role in C.DOCUMENT_ROLES else "")
+    folder = C.KINDS[kind]["folder"]
     if kind == "entity-model":
         folder += f"/{C.ENTITY_FACTS if fact else C.ENTITY_ITEMS}"
     path = C.ROOT / C.PACKAGE / folder / f"{stem}.py"
@@ -103,7 +86,6 @@ def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
         "kind": kind,
         "class": class_name,
         "folder": f"{C.PACKAGE}/{folder}",
-        "role": role,
         "fact": fact if kind == "entity-model" else None,
         "module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}",
         "file": rel(path),
@@ -113,13 +95,10 @@ def resolve(kind: str, class_name: str, role=None, fact: bool = False) -> dict:
     }
 
 
-def saver_target(kind: str, model_class: str, model_module: str, role=None) -> dict:
-    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model or document-model).
-
-    A document saver mirrors its model's role sub-folder (documentsaver/<role>/).
-    """
+def saver_target(kind: str, model_class: str, model_module: str) -> dict:
+    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model)."""
     stem = to_snake(model_class)
-    folder = C.SAVERS[kind]["folder"] + (f"/{role}" if kind == "document-model" and role else "")
+    folder = C.SAVERS[kind]["folder"]
     path = C.ROOT / C.PACKAGE / folder / f"{stem}_saver.py"
     return {
         "kind": kind,
@@ -134,7 +113,7 @@ def saver_target(kind: str, model_class: str, model_module: str, role=None) -> d
     }
 
 
-SEGMENT = re.compile(r"[A-Za-z][A-Za-z0-9]*|\{(app|component|doctype)\}")
+SEGMENT = re.compile(r"[A-Za-z][A-Za-z0-9]*|\{(app|component)\}")
 
 
 def pattern_problems(kind: str, pattern: str) -> list:
@@ -145,8 +124,6 @@ def pattern_problems(kind: str, pattern: str) -> list:
         problems.append(f"pattern {pattern!r}: needs at least <scope>.<name>")
     elif kind == "entity-model" and segments[0] not in ("{app}", "Shared"):
         problems.append(f"pattern {pattern!r}: entity keys start with {{app}} or Shared")
-    elif kind == "document-model" and (segments[0] != "{app}" or len(segments) < 3 or segments[1] != "Outputs"):
-        problems.append(f"pattern {pattern!r}: document keys look like {{app}}.Outputs.<...>")
     return problems
 
 

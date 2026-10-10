@@ -1,11 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from docfactory.documentmodels.shared.missing_info import MissingInfo
+from docfactory.documentmodels.missing_info import MissingInfo
 from docfactory.models.not_applicable import NotApplicable
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.document_need import DocumentNeed
-from docfactory.documentmodels.shared.needs_origin import NeedsOrigin
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.document_need import DocumentNeed
+from docfactory.documentmodels.needs_origin import NeedsOrigin
 
 MINIMAL = {
     "gaps_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

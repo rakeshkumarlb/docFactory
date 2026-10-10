@@ -79,17 +79,8 @@ def test_every_package_folder_has_an_init_file():
     for sub in ("facts", "items"):
         assert (package / "entitymodels" / sub / "__init__.py").is_file(), f"entitymodels/{sub}"
     assert sorted(p.name for p in (package / "entitymodels").glob("*.py")) == ["__init__.py"]
-    for folder in ("documentmodels", "documentsaver"):
-        for role in ("documents", "shared", "entitybound") if folder == "documentmodels" else ("documents", "shared"):
-            assert (package / folder / role / "__init__.py").is_file(), f"{folder}/{role}"
-
-
-def test_every_document_model_class_is_found_in_its_role_folder():
-    roles = {cls.__name__: cls.__module__.split(".")[2] for cls in MODELS if cls.__module__.startswith("docfactory.documentmodels.")}
-    assert roles["OverviewDocument"] == "documents"
-    assert roles["ApplicationSummarySection"] == roles["KpiSummarySection"] == "entitybound"
-    shared = ("DocumentControl", "RevisionHistory", "RevisionEntry", "MissingInfo", "DocumentGap", "DocumentNeed")
-    assert {roles[name] for name in shared} == {"shared"}
+    for folder in ("models", "documentmodels", "entitysaver", "documentsaver"):
+        assert sorted(p.name for p in (package / folder).iterdir() if p.is_dir() and p.name != "__pycache__") == [], f"{folder}/ is flat"
 
 
 @pytest.mark.parametrize("cls", MODELS, ids=lambda cls: cls.__name__)
@@ -115,7 +106,7 @@ def test_every_model_derives_from_the_project_base_model_and_forbids_extras(cls)
 def test_every_field_declares_the_docfactory_metadata(cls):
     for name, field in cls.model_fields.items():
         extra = field.json_schema_extra
-        assert isinstance(extra, dict) and {"question", "na_allowed", "scored", "binding"} <= set(extra), f"{cls.__name__}.{name} is not declared with doc_field"
+        assert isinstance(extra, dict) and {"question", "na_allowed", "scored"} <= set(extra), f"{cls.__name__}.{name} is not declared with doc_field"
 
 
 def test_the_forbidden_type_detector_catches_what_it_should():

@@ -5,14 +5,14 @@
 - **Status:** Draft
 - **Owner:** docFactory
 - **Approvers:** _Not provided._
-- **Created:** 2026-10-07
-- **Last Updated:** 2026-10-07
+- **Created:** 2026-10-10
+- **Last Updated:** 2026-10-10
 
 ## Revision History
 
 | Version | Date | Author | Summary |
 |---|---|---|---|
-| 0.1 | 2026-10-07 | docFactory | Generated from AI-Driven-Job-Matching-Platform.ApplicationOverview v1, Shared.Kpis (not available). |
+| 0.1 | 2026-10-10 | docFactory | Generated from AI-Driven-Job-Matching-Platform.ApplicationOverview v1, Shared.Kpis (not available). |
 
 ## Application Summary
 

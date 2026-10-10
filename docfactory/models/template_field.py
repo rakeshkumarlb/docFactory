@@ -3,7 +3,7 @@ from docfactory.models.doc_field import doc_field
 
 
 class TemplateField(DocFactoryModel):
-    """One field of a configuration-based document template: which fact field fills it, how it is labelled and how it is rendered. The template is a YAML file; this is the validated form of one line of it."""
+    """One field of a document template: which fact field fills it, how it is labelled and how it is rendered. The template is a YAML file; this is the validated form of one line of it."""
 
     binding: str = doc_field(
         description="The fact field that supplies this field, written '<Entity>.<field>', e.g. 'FunctionalRequirements.requirements' or 'Kpis.kpis'. The entity and the field must exist in the entity models; shared entities (Kpis, Slo) are read from their Shared fact.",

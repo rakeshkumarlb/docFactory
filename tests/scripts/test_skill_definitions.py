@@ -7,7 +7,7 @@ from conftest import REPO
 
 yaml = pytest.importorskip("yaml")
 
-ENTRY_SKILLS = {"docfactory-create-shared-model", "docfactory-create-entity-model", "docfactory-create-document-model", "docfactory-add-field", "docfactory-review-models"}
+ENTRY_SKILLS = {"docfactory-create-shared-model", "docfactory-create-entity-model", "docfactory-add-field", "docfactory-review-models"}
 # Entry skills the model may invoke itself; every other entry skill is reserved for the user.
 MODEL_INVOCABLE = {"docfactory-create-shared-model"}
 FILES = sorted((REPO / ".claude" / "skills").glob("*/SKILL.md")) + sorted((REPO / ".claude" / "agents").glob("*.md"))

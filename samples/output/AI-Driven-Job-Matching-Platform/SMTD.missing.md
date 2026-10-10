@@ -9,9 +9,9 @@
 
 ## architect
 
-2. What is the overall architectural style of the platform, where can the architecture diagram be found, and is there any additional context to provide?
+2. What is the overall architectural style of the platform, where is the architecture diagram stored, and is there any additional context to provide?
    - Covers: #2 `architecture.architecture_style`, #13 `architecture.diagram_reference`, #14 `architecture.notes`
-3. For the 7 architectural components (e.g., Application servers, Database servers, Storage systems), what are their purposes, the technologies used, the owning teams/roles, and their dependencies?
+3. For the 7 architectural components (e.g., Application servers, Database servers), what are their purposes, the technologies used, the owning teams/roles, and their dependencies?
    - Covers: #3 `architecture.components[].purpose` (missing in 7 of 7), #4 `architecture.components[].technology` (missing in 7 of 7), #5 `architecture.components[].owner` (missing in 7 of 7), #6 `architecture.components[].dependencies` (missing in 7 of 7)
 4. Which data stores does the AI-Driven-Job-Matching-Platform use?
    - Covers: #7 `architecture.data_stores`
@@ -28,7 +28,7 @@
    - Covers: #25 `monitoring.alerts[].severity` (missing in 2 of 2), #26 `monitoring.alerts[].response_action` (missing in 2 of 2), #27 `monitoring.alerts[].notification_channel` (missing in 2 of 2), #28 `monitoring.log_locations`
 9. What is the backup retention period for the platform?
    - Covers: #29 `backup_recovery.backup_retention`
-12. Which standard operating procedures (SOPs) exist and is there any additional context for these procedures?
+12. Which standard operating procedures (SOPs) exist and is there any additional context for them?
    - Covers: #37 `standard_operating_procedures.procedures`, #38 `standard_operating_procedures.notes`
 
 ## service owner

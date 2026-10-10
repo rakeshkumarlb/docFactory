@@ -18,7 +18,7 @@ def field(**overrides):
 
 
 def test_valid_spec_has_no_problems():
-    assert field_spec.validate_model_spec(copy.deepcopy(ENVIRONMENT_SPEC), "entity-model") == []
+    assert field_spec.validate_model_spec(copy.deepcopy(ENVIRONMENT_SPEC)) == []
 
 
 @pytest.mark.parametrize(
@@ -66,27 +66,18 @@ def test_bad_default_unknown_key_and_bad_example():
     assert field_spec.validate_field(field(example="not python ("))
 
 
-def test_bindings_only_for_document_models_and_required_there():
-    assert field_spec.validate_field(field(binding="Architecture.environments"), "entity-model")
-    assert field_spec.validate_field(field(), "document-model")
-    assert field_spec.validate_field(field(binding="Architecture.environments"), "document-model") == []
-    assert field_spec.validate_field(field(binding="caller"), "document-model") == []
-    assert field_spec.validate_field(field(binding="composed"), "document-model") == []
-    assert field_spec.validate_field(field(binding="somewhere"), "document-model")
-
-
 def test_model_spec_rules():
     spec = copy.deepcopy(ENVIRONMENT_SPEC)
     spec["fields"].append(copy.deepcopy(spec["fields"][0]))
-    assert any("duplicate" in p for p in field_spec.validate_model_spec(spec, "entity-model"))
+    assert any("duplicate" in p for p in field_spec.validate_model_spec(spec))
     spec = copy.deepcopy(ENVIRONMENT_SPEC)
     spec["class"] = "environment"
-    assert field_spec.validate_model_spec(spec, "entity-model")
+    assert field_spec.validate_model_spec(spec)
     spec = copy.deepcopy(ENVIRONMENT_SPEC)
     spec["imports"] = ["from pydantic import BaseModel"]
-    assert field_spec.validate_model_spec(spec, "entity-model")
+    assert field_spec.validate_model_spec(spec)
     spec["imports"] = ["import os; import sys"]
-    assert field_spec.validate_model_spec(spec, "entity-model")
+    assert field_spec.validate_model_spec(spec)
 
 
 def test_min_length_rules():

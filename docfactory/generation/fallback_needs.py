@@ -1,6 +1,6 @@
 """The needs list when no LLM phrases it (--no-llm, or a failed call): one need per gap, in gap order, the gap's own question."""
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.document_need import DocumentNeed
 
 
 def fallback_needs(gaps: list[DocumentGap]) -> list[DocumentNeed]:

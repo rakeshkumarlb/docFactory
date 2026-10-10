@@ -4,11 +4,11 @@ import os
 import sqlite3
 
 import pytest
-from docfactory.documentmodels.shared.missing_info import MissingInfo
-from docfactory.documentsaver.shared.missing_info_saver import MissingInfoSaver
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.document_need import DocumentNeed
-from docfactory.documentmodels.shared.needs_origin import NeedsOrigin
+from docfactory.documentmodels.missing_info import MissingInfo
+from docfactory.documentsaver.missing_info_saver import MissingInfoSaver
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.document_need import DocumentNeed
+from docfactory.documentmodels.needs_origin import NeedsOrigin
 
 pytestmark = pytest.mark.usefixtures("tmp_db")
 

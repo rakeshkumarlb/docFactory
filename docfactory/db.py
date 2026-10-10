@@ -7,7 +7,7 @@ ENV_VAR = "DOCFACTORY_DB"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # The only tables that exist and the name of each one's key column. Table names never come from callers.
-TABLE_KEYS = {"KnowledgeFacts": "FactKey", "DocumentOutputs": "DocumentKey", "ConfiguredDocuments": "DocumentKey"}
+TABLE_KEYS = {"KnowledgeFacts": "FactKey", "DocumentOutputs": "DocumentKey"}
 
 _COLUMNS = (
     "Value TEXT NOT NULL, Hashcode TEXT NOT NULL, AppID TEXT NULL, "
@@ -25,7 +25,6 @@ _DOCSTORE_COLUMNS = "Hashcode TEXT NOT NULL, Version INTEGER NOT NULL, Timestamp
 
 # The OKF columns of KnowledgeFacts (Phase 3): column name -> SQL definition. All are derived by the saver, never hand-written.
 # OKF lives only in these columns; the content is the JSON in Value (there are no knowledge files). Tags and Sources are JSON lists.
-# Rows written before Phase 3 get NULL / the defaults until they are saved again with metadata.
 FACT_OKF_COLUMNS = {
     "FactType": "TEXT NULL",
     "Title": "TEXT NULL",
@@ -42,27 +41,12 @@ FACT_OKF_COLUMNS = {
 _FACT_OKF_SQL = ", ".join(f"{name} {definition}" for name, definition in FACT_OKF_COLUMNS.items())
 
 
-_DROPPED_FACT_COLUMNS = ["FilePath"]  # the path of the removed bundles/ knowledge file
-
-
-def _migrate_knowledge_facts(con: sqlite3.Connection) -> None:
-    """Add the OKF columns to an older KnowledgeFacts table and drop the columns that no longer exist."""
-    present = {row[1] for row in con.execute("PRAGMA table_info(KnowledgeFacts)")}
-    for name, definition in FACT_OKF_COLUMNS.items():
-        if name not in present:
-            con.execute(f"ALTER TABLE KnowledgeFacts ADD COLUMN {name} {definition}")
-    for name in _DROPPED_FACT_COLUMNS:
-        if name in present:
-            con.execute(f"ALTER TABLE KnowledgeFacts DROP COLUMN {name}")
-
-
 def init_schema(con: sqlite3.Connection) -> None:
-    """Create all tables if they do not exist and migrate older ones. Safe to call any number of times."""
+    """Create all tables if they do not exist. Safe to call any number of times."""
     with con:
         for table, key_column in TABLE_KEYS.items():
             extra = f", {_FACT_OKF_SQL}" if table == "KnowledgeFacts" else ""
             con.execute(f"CREATE TABLE IF NOT EXISTS {table} ({key_column} TEXT PRIMARY KEY, {_COLUMNS}{extra})")
-        _migrate_knowledge_facts(con)
         con.execute(
             "CREATE TABLE IF NOT EXISTS KnowledgeFactsHistory (FactKey TEXT NOT NULL, Hashcode TEXT NOT NULL, "
             "Version INTEGER NOT NULL, Timestamp TEXT NOT NULL, GeneratedBy TEXT NULL, PRIMARY KEY (FactKey, Version))"
@@ -71,7 +55,6 @@ def init_schema(con: sqlite3.Connection) -> None:
             "CREATE TABLE IF NOT EXISTS KnowledgeFactSources (FactKey TEXT NOT NULL, Resource TEXT NOT NULL, "
             "PRIMARY KEY (FactKey, Resource))"
         )
-        con.execute("DROP TABLE IF EXISTS FactIndex")  # the vector index of the first Phase 4 build, removed by the rework
         con.execute(  # what each DocStore file contributed to a fact (Phase 3): the fact is the merge of its contributions
             "CREATE TABLE IF NOT EXISTS FactContributions (FactKey TEXT NOT NULL, Resource TEXT NOT NULL, Value TEXT NOT NULL, "
             "Hashcode TEXT NOT NULL, ChunksHash TEXT NULL, Description TEXT NULL, GeneratedBy TEXT NOT NULL, Timestamp TEXT NOT NULL, "

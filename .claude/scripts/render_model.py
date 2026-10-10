@@ -26,8 +26,6 @@ def render_field(field: dict) -> str:
         args.append(f"pattern={q(field['pattern'])}")
     if field.get("scored") is False:
         args.append("scored=False")
-    if field.get("binding"):
-        args.append(f"binding={q(field['binding'])}")
     if field.get("render_as") in ("table", "numbered"):
         args.append(f'render_as="{field["render_as"]}"')
     body = "".join(f"        {arg},\n" for arg in args)

@@ -4,7 +4,7 @@ from docfactory.models.template_field import TemplateField
 
 
 class TemplateSection(DocFactoryModel):
-    """One section (a `##` heading and its fields) of a configuration-based document template."""
+    """One section (a `##` heading and its fields) of a document template."""
 
     id: str = doc_field(
         description="The section's identifier in snake_case, e.g. 'functional_requirements'. It names the section in gaps ('functional_requirements.requirements') and in the revision history, so it is unique within the template.",

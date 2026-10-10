@@ -1,16 +1,12 @@
-"""Builds a document body object from an application's stored facts, deterministically.
+"""How a document binding finds its fact: the fact registry, the key a binding reads, the stored fact and the "answered" rule.
 
-`build_document` walks a document model's own fields, using each field's `binding` metadata
-(set by `doc_field`) to find the fact and source field that supply it. It invents nothing: a
-field is copied over only when its source fact answers it (see `completeness.py` for the same
-"answered" rule); otherwise the field is left at its own default and recorded in the returned
-`missing` list, generated from the model's metadata rather than written by hand.
+A binding `<Fact>.<field>` of a document template names the fact (FACT_SPECS), `fact_key` gives its KnowledgeFacts key, `load_fact`
+reads it and `is_answered` applies the same rule as `completeness.py`. Nothing here invents a value: an absent fact or an
+unanswered field is a gap for the caller to report.
 """
 import json
-from typing import get_args
 
 from docfactory import db
-from docfactory.documentmodels.shared.document_gap import DocumentGap
 from docfactory.entitymodels.facts.application_overview import ApplicationOverview
 from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
@@ -24,7 +20,6 @@ from docfactory.entitymodels.facts.non_functional_requirements import NonFunctio
 from docfactory.entitymodels.facts.slo import Slo
 from docfactory.entitymodels.facts.sop import Sop
 from docfactory.entitymodels.facts.support import Support
-from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.not_applicable import NotApplicable
 
 # Which fact name a "<FactName>.<field>" binding loads, and whether it is Shared (AppID NULL) or
@@ -47,29 +42,14 @@ FACT_SPECS = {
 
 
 class BuildError(Exception):
-    """Raised when a document model is wired wrongly: a binding names an unknown fact, or a field has no fact binding."""
-
-
-def _extra(field) -> dict:
-    return field.json_schema_extra if isinstance(field.json_schema_extra, dict) else {}
-
-
-def nested_model_class(annotation):
-    """The single DocFactoryModel subclass inside an annotation (a plain type or wrapped in Optional/Union)."""
-    if isinstance(annotation, type) and issubclass(annotation, DocFactoryModel):
-        return annotation
-    for argument in get_args(annotation):
-        found = nested_model_class(argument)
-        if found is not None:
-            return found
-    return None
+    """Raised when a binding names a fact that FACT_SPECS does not know (a wrongly wired template)."""
 
 
 def fact_key(app_id: str, fact_name: str) -> str:
     """The KnowledgeFacts key a binding's fact name reads: Shared.<Fact> for shared facts, else <App>.<Fact>."""
     spec = FACT_SPECS.get(fact_name)
     if spec is None:
-        raise BuildError(f"build_document does not know how to load fact {fact_name!r}; add it to FACT_SPECS")
+        raise BuildError(f"cannot load fact {fact_name!r}; add it to FACT_SPECS")
     return f"Shared.{fact_name}" if spec["shared"] else f"{app_id}.{fact_name}"
 
 
@@ -81,57 +61,8 @@ def load_fact(app_id: str, fact_name: str, cache: dict):
     return cache[fact_name]
 
 
-def bound_fields(model_cls, prefix: str = ""):
-    """(dotted document path, field, binding) of every fact-bound field of a document model, in template order, through composed sections."""
-    for name, field in model_cls.model_fields.items():
-        binding = _extra(field).get("binding")
-        dotted = f"{prefix}.{name}" if prefix else name
-        if binding == "composed":
-            yield from bound_fields(nested_model_class(field.annotation), dotted)
-        elif binding and binding != "caller":
-            yield dotted, field, binding
-
-
 def is_answered(source_field, value) -> bool:
     """A source field is answered when it is mandatory (guaranteed by validation), holds a NotApplicable, or differs from its own default."""
     if isinstance(value, NotApplicable) or source_field.is_required():
         return True
     return value != source_field.get_default(call_default_factory=True)
-
-
-def _build_model(model_cls, app_id: str, cache: dict, prefix: str, missing: list):
-    values = {}
-    for name, field in model_cls.model_fields.items():
-        extra = _extra(field)
-        binding = extra.get("binding")
-        dotted = f"{prefix}.{name}" if prefix else name
-        if binding == "composed":
-            values[name] = _build_model(nested_model_class(field.annotation), app_id, cache, dotted, missing)
-            continue
-        if not binding or binding == "caller":
-            raise BuildError(
-                f"{model_cls.__name__}.{name} has binding {binding!r}; build_document only builds fields bound "
-                "to a fact ('FactName.field') or 'composed' sections, never caller-supplied ones"
-            )
-        fact_name, _, source_name = binding.partition(".")
-        fact = load_fact(app_id, fact_name, cache)
-        source_field = type(fact).model_fields.get(source_name) if fact is not None else None
-        if fact is not None and source_field is not None and is_answered(source_field, getattr(fact, source_name)):
-            values[name] = getattr(fact, source_name)
-        else:
-            missing.append(
-                DocumentGap(number=len(missing) + 1, field=dotted, question=extra.get("question") or field.description, expected_source=binding)
-            )
-    return model_cls.model_validate(values)  # section fields all have defaults: an absent fact is a gap, never an invalid section
-
-
-def build_document(document_model: type[DocFactoryModel], app_id: str) -> tuple[DocFactoryModel, list[DocumentGap]]:
-    """Build a `document_model` body object from `app_id`'s facts and the shared facts.
-
-    Returns (instance, missing): `missing` lists every field build_document could not fill, generated
-    from the model's own metadata. An absent or incomplete fact never stops the build: its fields keep
-    their defaults and are listed in `missing`. Raises BuildError only for a wrongly wired model.
-    """
-    missing: list[DocumentGap] = []
-    instance = _build_model(document_model, app_id, {}, "", missing)
-    return instance, missing

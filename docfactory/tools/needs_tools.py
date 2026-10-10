@@ -9,8 +9,8 @@ from typing import Annotated
 
 from pydantic import Field, WithJsonSchema
 
-from docfactory.documentmodels.shared.document_gap import DocumentGap
-from docfactory.documentmodels.shared.document_need import DocumentNeed
+from docfactory.documentmodels.document_gap import DocumentGap
+from docfactory.documentmodels.document_need import DocumentNeed
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
 from docfactory.tools.tool_package import ToolPackage

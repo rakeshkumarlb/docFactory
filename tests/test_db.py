@@ -46,7 +46,7 @@ def test_init_schema_is_idempotent(tmp_db):
     assert db.get_row("KnowledgeFacts", "A.B")["Version"] == 1
 
 
-@pytest.mark.parametrize("table,key", [("KnowledgeFacts", "KitchenHQ.Architecture"), ("DocumentOutputs", "KitchenHQ.Outputs.SMTD"), ("ConfiguredDocuments", "KitchenHQ.Configured.SMTD")])
+@pytest.mark.parametrize("table,key", [("KnowledgeFacts", "KitchenHQ.Architecture"), ("DocumentOutputs", "KitchenHQ.Outputs.SMTD")])
 def test_write_then_get_round_trips(tmp_db, table, key):
     db.write_row(table, key, '{"a":1}', "abc", "KitchenHQ", 12.5, 3)
     row = db.get_row(table, key)
@@ -103,12 +103,3 @@ def test_values_are_bound_as_parameters_not_pasted_into_sql(tmp_db):
 def test_unknown_tables_are_refused(tmp_db, call):
     with pytest.raises(ValueError):
         call()
-
-
-def test_the_fact_index_table_of_the_first_phase_4_build_is_dropped(tmp_db):
-    import sqlite3
-    with sqlite3.connect(tmp_db) as con:
-        con.execute("CREATE TABLE FactIndex (FactKey TEXT PRIMARY KEY)")
-    db.connect().close()
-    with sqlite3.connect(tmp_db) as con:
-        assert not con.execute("SELECT name FROM sqlite_master WHERE name = 'FactIndex'").fetchall()

@@ -1,5 +1,5 @@
 """The single-tool needs-list package (Phase 4): submit_needs checks coverage and writes nothing."""
-from docfactory.documentmodels.shared.document_gap import DocumentGap
+from docfactory.documentmodels.document_gap import DocumentGap
 from docfactory.tools.needs_tools import NEEDS_PACKAGE_NAME, NEEDS_TOOL_NAMES, needs_package
 
 GAPS = [DocumentGap(number=n, field=f"section.field_{n}", question=f"Question {n}?", expected_source=f"Entity.field_{n}") for n in (1, 2, 3)]

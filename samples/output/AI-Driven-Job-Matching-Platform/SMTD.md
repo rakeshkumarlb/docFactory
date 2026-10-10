@@ -5,14 +5,14 @@
 - **Status:** Draft
 - **Owner:** docFactory
 - **Approvers:** _Not provided._
-- **Created:** 2026-10-07
-- **Last Updated:** 2026-10-07
+- **Created:** 2026-10-10
+- **Last Updated:** 2026-10-10
 
 ## Revision History
 
 | Version | Date | Author | Summary |
 |---|---|---|---|
-| 0.1 | 2026-10-07 | docFactory | Generated from AI-Driven-Job-Matching-Platform.ApplicationOverview v1, AI-Driven-Job-Matching-Platform.Architecture v1, AI-Driven-Job-Matching-Platform.Environments v1, AI-Driven-Job-Matching-Platform.Deployment (not available), AI-Driven-Job-Matching-Platform.Monitoring v1, AI-Driven-Job-Matching-Platform.BackupRecovery v1, AI-Driven-Job-Matching-Platform.Support (not available), AI-Driven-Job-Matching-Platform.KnownErrors (not available), AI-Driven-Job-Matching-Platform.Sop (not available), Shared.Slo (not available), Shared.Kpis (not available). |
+| 0.1 | 2026-10-10 | docFactory | Generated from AI-Driven-Job-Matching-Platform.ApplicationOverview v1, AI-Driven-Job-Matching-Platform.Architecture v1, AI-Driven-Job-Matching-Platform.Environments v1, AI-Driven-Job-Matching-Platform.Deployment (not available), AI-Driven-Job-Matching-Platform.Monitoring v1, AI-Driven-Job-Matching-Platform.BackupRecovery v1, AI-Driven-Job-Matching-Platform.Support (not available), AI-Driven-Job-Matching-Platform.KnownErrors (not available), AI-Driven-Job-Matching-Platform.Sop (not available), Shared.Slo (not available), Shared.Kpis (not available). |
 
 ## Application Summary
 

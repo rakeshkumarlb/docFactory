@@ -1,4 +1,4 @@
-"""KnowledgeFacts OKF columns, migration, KnowledgeFactsHistory and the source index (Phase 3a)."""
+"""KnowledgeFacts OKF columns, KnowledgeFactsHistory and the source index (Phase 3a)."""
 import sqlite3
 
 import pytest
@@ -81,31 +81,3 @@ def test_sources_find_the_facts_derived_from_a_file_and_are_replaced_on_save(tmp
     assert db.list_fact_keys_by_source("nothing.pdf") == []
     db.update_fact_metadata("KitchenHQ.Architecture", {}, ["KitchenHQ/arch.docx"])
     assert db.list_fact_keys_by_source("KitchenHQ/srs.pdf") == ["KitchenHQ.Environments"]
-
-
-def test_a_database_created_before_phase_3_is_migrated_and_keeps_its_rows(tmp_path, monkeypatch):
-    path = tmp_path / "old.sqlite"
-    con = sqlite3.connect(path)
-    con.execute("CREATE TABLE KnowledgeFacts (FactKey TEXT PRIMARY KEY, Value TEXT NOT NULL, Hashcode TEXT NOT NULL, "
-                "AppID TEXT NULL, Completeness REAL NOT NULL, Version INTEGER NOT NULL)")
-    con.execute("INSERT INTO KnowledgeFacts VALUES ('KitchenHQ.Architecture', '{}', 'h', 'KitchenHQ', 10.0, 2)")
-    con.commit()
-    con.close()
-    monkeypatch.setenv(db.ENV_VAR, str(path))
-    row = db.get_row("KnowledgeFacts", KEY)
-    assert row["Version"] == 2 and row["Completeness"] == 10.0
-    assert row["Status"] == "draft" and row["Verified"] == "[]" and row["Tags"] == "[]" and row["Title"] is None
-    db.connect().close()  # migrating twice is harmless
-
-
-def test_the_file_path_column_of_the_removed_knowledge_files_is_dropped(tmp_path, monkeypatch):
-    path = tmp_path / "phase3.sqlite"
-    con = sqlite3.connect(path)
-    con.execute("CREATE TABLE KnowledgeFacts (FactKey TEXT PRIMARY KEY, Value TEXT NOT NULL, Hashcode TEXT NOT NULL, "
-                "AppID TEXT NULL, Completeness REAL NOT NULL, Version INTEGER NOT NULL, FilePath TEXT NULL, YmlFrontmatter TEXT NULL)")
-    con.execute("INSERT INTO KnowledgeFacts VALUES ('KitchenHQ.Architecture', '{}', 'h', 'KitchenHQ', 10.0, 2, 'bundles/x.md', 'type: A')")
-    con.commit()
-    con.close()
-    monkeypatch.setenv(db.ENV_VAR, str(path))
-    row = db.get_row("KnowledgeFacts", KEY)
-    assert "FilePath" not in row and row["YmlFrontmatter"] == "type: A" and row["Version"] == 2

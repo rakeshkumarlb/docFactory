@@ -1,37 +1,20 @@
 """The revision history of a generated document, maintained by code: one entry per body save that changed the body.
 
 The summary is written by code, never by the LLM: which sections changed and the fact keys and versions they came from. Existing
-entries are kept. An unchanged body adds no entry, except when no history exists yet (a body saved before generate kept its history).
+entries are kept. An unchanged body adds no entry, unless the history is behind the body: the latest entry is not the body's version
+(no history yet, or an earlier run saved the body and then stopped before saving its history). Then one entry catches it up.
 """
-import json
-
-from docfactory import db
-from docfactory.build import bound_fields, fact_key
-from docfactory.documentmodels.shared.revision_entry import RevisionEntry
-from docfactory.documentmodels.shared.revision_history import RevisionHistory
+from docfactory.documentmodels.revision_entry import RevisionEntry
+from docfactory.documentmodels.revision_history import RevisionHistory
 from docfactory.generation.document_control import OWNER
 
 
-def changed_sections(old_body_json: str | None, new_body) -> list[str]:
-    """The body's top-level sections whose content differs from the stored body; every section when there was none."""
-    new = new_body.model_dump(mode="json")
-    if old_body_json is None:
-        return list(new)
-    old = json.loads(old_body_json)
-    return [name for name in new if old.get(name) != new[name]]
+RECOVERED = "Revision recorded late: an earlier run saved this body version without its revision entry; its changed sections were not kept."
 
 
-def section_sources(document_model, app_id: str) -> dict[str, list[str]]:
-    """Per top-level section, the facts it is built from as '<key> v<version>', or '<key> (not available)', in template order."""
-    sources: dict[str, list[str]] = {}
-    for path, _, binding in bound_fields(document_model):
-        section = path.split(".")[0]
-        key = fact_key(app_id, binding.partition(".")[0])
-        row = db.get_row("KnowledgeFacts", key)
-        text = f"{key} v{row['Version']}" if row else f"{key} (not available)"
-        if text not in sources.setdefault(section, []):
-            sources[section].append(text)
-    return sources
+def history_is_behind(existing: RevisionHistory | None, version: str) -> bool:
+    """True when `existing` has no revision, or its latest revision is not `version` (the document version of the stored body)."""
+    return existing is None or not existing.revisions or existing.revisions[-1].version != version
 
 
 def revision_summary(created: bool, sections: list[str], sources: dict[str, list[str]]) -> str:

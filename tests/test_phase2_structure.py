@@ -10,15 +10,15 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "docfactory"
-FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "ontology", "extract", "generation", "configrender", "configrender/savers")
+FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "ontology", "extract", "generation")
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
 FUNCTION_MODULES = {"docstore_reads", "ingestion_tools", "paths", "file_hash", "target_rules",
                     "run_ingestion", "model_client_factory", "extraction_tools", "prompt_file", "run_extraction",
                     "schema_slim", "needs_tools",
-                    "bindings", "template_check", "template_loader", "configured_store", "build_configured", "configured_gaps", "configured_revision", "render_configured", "configured_document",
-                    "doc_types", "gaps", "document_control", "revision_history", "fallback_needs", "generate_document",
+                    "bindings", "template_check", "template_loader", "document_store", "build_body", "template_gaps", "revision_sources", "render_document", "generate_document",
+                    "gaps", "document_control", "revision_history", "fallback_needs", "generation_steps",
                     "batching", "fact_keys", "partial_schema", "model_shapes", "grounding", "merge", "missing_questions", "extraction_pipeline", "priority_keywords",
                     "signals", "ontology_render",
                     "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}

@@ -1,7 +1,7 @@
 """Slim JSON schemas for tool arguments: references inlined (a schema embedded in a tool argument has no $defs) and keys that only cost tokens dropped."""
 
 # Schema keys that only add tokens: bookkeeping metadata of our fields and generic Pydantic output. The model sees the rest.
-_NOISE_KEYS = {"$defs", "binding", "render_as", "scored", "title", "additionalProperties", "question"}  # a rejected save returns the question as feedback
+_NOISE_KEYS = {"$defs", "render_as", "scored", "title", "additionalProperties", "question"}  # a rejected save returns the question as feedback
 
 
 def inline_refs(schema, defs: dict):

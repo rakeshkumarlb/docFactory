@@ -75,7 +75,7 @@ def test_an_unsafe_key_is_rejected_and_nothing_is_written(tmp_db):
 
 
 def test_a_rejected_payload_and_a_document_write_no_file(tmp_db):
-    from docfactory.documentsaver.shared.document_control_saver import DocumentControlSaver
+    from docfactory.documentsaver.document_control_saver import DocumentControlSaver
     assert not SopSaver().save("ReadmeForge.Sop", {"bogus": 1}).ok
     DocumentControlSaver().save("ReadmeForge.Outputs.SMTD.DocumentControl", {})
     assert not fact_files.facts_root().exists()

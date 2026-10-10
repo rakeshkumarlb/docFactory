@@ -4,7 +4,7 @@ from docfactory.models.template_section import TemplateSection
 
 
 class DocumentTemplate(DocFactoryModel):
-    """A configuration-based document template: the validated form of one YAML file under configrender/templates/. It replaces the per-type document model, its sections and its saver: sections of fields bound to fact fields, in order."""
+    """A document template: the validated form of one YAML file under generation/templates/. It replaces the per-type document model, its sections and its saver: sections of fields bound to fact fields, in order."""
 
     doc_type: str = doc_field(
         description="The short document type, e.g. 'SRS'. It is the file name of the template and part of the stored keys and output file names.",

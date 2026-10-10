@@ -1,22 +1,16 @@
 """Usage: python .claude/scripts/scaffold_model.py <kind> <spec.json> [saver options] [--dry-run]
 
-kind: entity-model | document-model | shared-model
+kind: entity-model | shared-model
 
 Validates the spec (see field_spec.py), then writes the model file and its test file. With a saver
 option it also writes the saver and its test file, all or nothing. Never overwrites.
 
-A document-model spec carries a `role` that picks the sub-folder: documents/ (a document body), shared/
-(reused by every document type) or entitybound/ (a section bound to entity facts). Its saver mirrors it in
-documentsaver/<role>/; an entitybound section gets no saver.
-
 An entity-model with a saver is a fact and goes to entitymodels/facts/; without one it is an item and goes
 to entitymodels/items/.
 
-Saver options (entity-model and document-model only; nested items, sections and shared models get none):
+Saver options (entity-model only; nested items and shared models get none):
     --scope app|shared      entity: keys {app}.<Class> (+ {app}.Components.{component}.<Class>) or Shared.<Class>
-    --doctype <Name>        document body: key {app}.Outputs.<Name>
-    --pattern <pattern>     explicit key pattern, repeatable (e.g. "{app}.Outputs.{doctype}.DocumentControl");
-                            replaces --scope/--doctype
+    --pattern <pattern>     explicit key pattern, repeatable (e.g. "{app}.Thing"); replaces --scope
 A saver needs the package skeleton (BaseSaver, tools, tests/conftest.py with the tmp_db fixture).
 --dry-run prints every file and writes nothing. Exit 0 written, 1 rejected (problems listed), 2 usage.
 """
@@ -38,10 +32,7 @@ def saver_patterns(args, kind, class_name):
         return [f"{{app}}.{class_name}", f"{{app}}.Components.{{component}}.{class_name}"], []
     if kind == "entity-model" and args.scope == "shared":
         return [f"Shared.{class_name}"], []
-    if kind == "document-model" and args.doctype:
-        return [f"{{app}}.Outputs.{args.doctype}"], []
-    hint = "--scope app|shared" if kind == "entity-model" else "--doctype <Name> or --pattern <pattern>"
-    return [], [f"a saver needs its key pattern(s): pass {hint}"]
+    return [], ["a saver needs its key pattern(s): pass --scope app|shared or --pattern <pattern>"]
 
 
 def main(argv) -> int:
@@ -49,7 +40,6 @@ def main(argv) -> int:
     parser.add_argument("kind", choices=sorted(C.KINDS))
     parser.add_argument("spec")
     parser.add_argument("--scope", choices=["app", "shared"])
-    parser.add_argument("--doctype")
     parser.add_argument("--pattern", action="append")
     parser.add_argument("--dry-run", action="store_true")
     try:
@@ -57,17 +47,15 @@ def main(argv) -> int:
     except SystemExit:
         return 2
     kind = args.kind
-    wants_saver = bool(args.scope or args.doctype or args.pattern)
+    wants_saver = bool(args.scope or args.pattern)
 
     try:
-        spec = field_spec.load_model_spec(args.spec, kind)
+        spec = field_spec.load_model_spec(args.spec)
     except field_spec.SpecError as error:
         print("SPEC REJECTED:", *error.problems, sep="\n  - ")
         return 1
-    info = naming.resolve(kind, spec["class"], spec.get("role"), fact=wants_saver)
+    info = naming.resolve(kind, spec["class"], fact=wants_saver)
     problems = list(info["errors"])
-    if kind == "document-model":
-        problems += field_spec.binding_problems(spec["fields"])
     if info["exists"]:
         problems.append(f"{info['file']} already exists: use the docfactory-add-field skill to change it")
     if (C.ROOT / info["test_file"]).exists():
@@ -78,13 +66,11 @@ def main(argv) -> int:
     if wants_saver:
         if kind == "shared-model":
             problems.append("shared models get no saver")
-        elif spec.get("role") not in (None, *C.SAVER_ROLES):
-            problems.append(f"a {spec['role']} model gets no saver: it is stored inside its document body")
         else:
             patterns, pattern_errors = saver_patterns(args, kind, spec["class"])
             problems += pattern_errors
             problems += [p for pattern in patterns for p in naming.pattern_problems(kind, pattern)]
-            saver = naming.saver_target(kind, spec["class"], info["module"], spec.get("role"))
+            saver = naming.saver_target(kind, spec["class"], info["module"])
             if saver["exists"] or (C.ROOT / saver["test_file"]).exists():
                 problems.append(f"{saver['file']} or {saver['test_file']} already exists")
             if render_saver.changed_field(spec) is None:

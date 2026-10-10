@@ -21,9 +21,9 @@ STUBS = {
     "docfactory/models/doc_field.py": (
         "from pydantic import Field\n\n\n"
         "def doc_field(default=..., *, default_factory=None, description, question=None,\n"
-        "              na_allowed=False, scored=True, binding=None, min_length=None):\n"
+        "              na_allowed=False, scored=True, min_length=None):\n"
         '    extra = {"question": question or description, "na_allowed": na_allowed,\n'
-        '             "scored": scored, "binding": binding}\n'
+        '             "scored": scored}\n'
         '    kwargs = {"description": description, "json_schema_extra": extra}\n'
         "    if min_length is not None:\n"
         '        kwargs["min_length"] = min_length\n'

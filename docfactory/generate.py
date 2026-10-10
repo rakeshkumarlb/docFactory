@@ -1,8 +1,8 @@
-"""Manual trigger for generation: `python -m docfactory.generate <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]`.
+"""Manual trigger for generation: `python -m docfactory.generate <App> <DocType|all> [--no-llm]`.
 
-For each document type: build the body from the stored facts, maintain document control and revision history, save the needs list and
-render output/<App>/<DocType>.md and <DocType>.missing.md. One small checked LLM call (NeedsWriter, settings from .env) phrases the needs
-list when the gaps changed; --no-llm saves one need per gap instead.
+The document is defined by a YAML template (generation/templates/<DocType>.yaml), stored
+in DocumentOutputs and rendered to output/<App>/<DocType>.md and <DocType>.missing.md. The needs list is phrased by the
+same small checked LLM call; --no-llm saves one need per gap instead.
 """
 import argparse
 import sys
@@ -10,9 +10,11 @@ import sys
 from docfactory import db
 from docfactory.agents.model_client_factory import default_client
 from docfactory.agents.needs_writer import NeedsWriter
+from docfactory.generation.generate_document import generate_document
+from docfactory.generation.template_error import TemplateError
+from docfactory.generation.template_loader import list_doc_types
 from docfactory.env_file import load_env_file
-from docfactory.generation.doc_types import DOC_TYPES
-from docfactory.generation.generate_document import format_reports, generate
+from docfactory.generation.generation_steps import format_reports
 
 
 def _apps() -> list[str]:
@@ -22,7 +24,7 @@ def _apps() -> list[str]:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="python -m docfactory.generate")
     parser.add_argument("app", help="the application, as its fact key scope, e.g. AI-Driven-Job-Matching-Platform")
-    parser.add_argument("doc_type", choices=[*DOC_TYPES, "all"], help="the document type, or all")
+    parser.add_argument("doc_type", help=f"the document type ({', '.join(list_doc_types())}), or all")
     parser.add_argument("--no-llm", action="store_true", help="save one need per gap instead of asking the LLM to phrase the needs list")
     args = parser.parse_args(argv)
     if args.app not in _apps():
@@ -32,8 +34,12 @@ def main(argv: list[str]) -> int:
     if not args.no_llm:
         load_env_file()  # settings from .env; variables already set in the shell win
         writer = NeedsWriter(default_client())
-    doc_types = list(DOC_TYPES) if args.doc_type == "all" else [args.doc_type]
-    reports = [generate(args.app, doc_type, writer) for doc_type in doc_types]
+    doc_types = list_doc_types() if args.doc_type == "all" else [args.doc_type]
+    try:
+        reports = [generate_document(args.app, doc_type, writer) for doc_type in doc_types]
+    except TemplateError as error:
+        print(f"template error: {error}")
+        return 1
     print(format_reports(args.app, reports))
     return 1 if any(r.errors for r in reports) else 0
 

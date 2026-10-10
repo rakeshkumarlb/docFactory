@@ -1,6 +1,6 @@
 ---
 name: docfactory-field-spec
-description: How to write the JSON spec for a docFactory model or field (description, question, default, na_allowed, binding, example). Reference for the docfactory-pydantic-developer-agent; the scripts validate everything written here.
+description: How to write the JSON spec for a docFactory model or field (description, question, default, na_allowed, example). Reference for the docfactory-pydantic-developer-agent; the scripts validate everything written here.
 user-invocable: false
 ---
 
@@ -29,9 +29,8 @@ You supply the **judgment**: names, types, descriptions, questions, defaults. Th
 }
 ```
 
-Unknown keys are errors. Keys: `class`, `doc`, `role`, `imports`, `fields`; per field `name`, `type`, `description`, `default`, `question`, `na_allowed`, `scored`, `binding`, `min_length`, `example`.
+Unknown keys are errors. Keys: `class`, `doc`, `imports`, `fields`; per field `name`, `type`, `description`, `default`, `question`, `na_allowed`, `scored`, `min_length`, `example`.
 
-`role` is for **document models only, and required there**: `documents` (a document body), `shared` (reused by every document type, never filled from facts) or `entitybound` (a section whose fields bind to entity facts). It picks the sub-folder of `documentmodels/`. Other kinds must not have it.
 
 ## Rules per key (all checked by `field_spec.py`)
 
@@ -45,7 +44,6 @@ Unknown keys are errors. Keys: `class`, `doc`, `role`, `imports`, `fields`; per 
 | mandatory | Only what identifies the object or makes it meaningless. When in doubt, optional |
 | `na_allowed` | `true` only when "not applicable" is a real answer to the question. Then the type must include `NotApplicable` (e.g. `str \| NotApplicable`) and the default must not be `REQUIRED`. Otherwise the type must not mention it |
 | `scored` | `false` only for purely technical fields (excluded from completeness) |
-| `binding` | Document models only, and required there: `"caller"` (not from facts; written by the generate process, e.g. document control), `"composed"` (a nested section model that carries its own bindings) or `"Entity.field"` (the entity model and field must already exist) |
 | `min_length` | Optional integer >= 1, only for a field typed exactly `str`: use it for mandatory text that must not be empty (names, reasons). The generated test checks an empty string is rejected |
 | `example` | A Python expression used as test data. Obviously test data (`"Test-Env"`), never something that looks like real knowledge |
 | `imports` | Single import statements for the nested types and enums you use. `BaseModel`, `Any`, `dict` are refused. `DocFactoryModel`, `doc_field` and `NotApplicable` are added automatically |
@@ -58,4 +56,4 @@ Unknown keys are errors. Keys: `class`, `doc`, `role`, `imports`, `fields`; per 
 
 ## Enums
 
-An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/facts/` or `entitymodels/items/`, `documentmodels/<role>/` or `models/`; an enum has no saver, so it is an item), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.
+An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/facts/` or `entitymodels/items/`, `documentmodels/` or `models/`; an enum has no saver, so it is an item), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.

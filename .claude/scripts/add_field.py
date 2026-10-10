@@ -36,8 +36,7 @@ def main(argv) -> int:
         print("CANNOT ADD:", *problems, sep="\n  - ")
         return 1
     path = files[0]
-    kind = "document-model" if naming.top_folder(path) == "documentmodels" else None
-    problems += field_spec.validate_field(field, kind)
+    problems += field_spec.validate_field(field)
     for line in imports:
         problems += field_spec.validate_import(line)
     if problems:
@@ -50,8 +49,6 @@ def main(argv) -> int:
     existing = {n.target.id for n in cls.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
     if field["name"] in existing:
         problems.append(f"field {field['name']!r} already exists in {class_name}")
-    if kind == "document-model":
-        problems += field_spec.binding_problems([field])
     if field_spec.default_of(field)[0] and not allow_mandatory:
         problems.append("a mandatory field breaks all stored payloads; make it optional or pass --allow-mandatory")
     if problems:
