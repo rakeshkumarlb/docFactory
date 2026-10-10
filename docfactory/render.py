@@ -29,7 +29,7 @@ class RenderError(Exception):
     """Raised when render_markdown cannot find a DocumentOutputs row it needs."""
 
 
-def _title(name: str) -> str:
+def title_of(name: str) -> str:
     return " ".join(ACRONYMS.get(word, word.capitalize()) for word in name.split("_"))
 
 
@@ -60,13 +60,13 @@ def _item_lines(item: DocFactoryModel) -> list[str]:
     for name, field in type(item).model_fields.items():
         value = getattr(item, name)
         if isinstance(value, list) and value:
-            lines.append(f"  - **{_title(name)}:**")
+            lines.append(f"  - **{title_of(name)}:**")
             lines += _list_lines(value, _extra(field).get("render_as"), "    ")
         elif isinstance(value, list):
-            lines.append(f"  - **{_title(name)}:** {NOT_PROVIDED}")
+            lines.append(f"  - **{title_of(name)}:** {NOT_PROVIDED}")
         else:
             text = _scalar_text(value)
-            lines.append(f"  - **{_title(name)}:** {text if text else NOT_PROVIDED}")
+            lines.append(f"  - **{title_of(name)}:** {text if text else NOT_PROVIDED}")
     return lines
 
 
@@ -78,7 +78,7 @@ def _table_cell(value) -> str:
 
 def _item_table(items: list[DocFactoryModel]) -> list[str]:
     fields = list(type(items[0]).model_fields)
-    headers = [_title(name) for name in fields]
+    headers = [title_of(name) for name in fields]
     lines = [f"| {' | '.join(headers)} |", f"|{'|'.join(['---'] * len(headers))}|"]
     for item in items:
         cells = [_table_cell(getattr(item, name)) for name in fields]
@@ -87,37 +87,47 @@ def _item_table(items: list[DocFactoryModel]) -> list[str]:
     return lines
 
 
-def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
+def field_lines(label: str, value, render_as: str | None, heading_level: int) -> list[str]:
+    """The Markdown lines of one labelled value, ending with the blank line that separates it from the next.
+
+    A nested model becomes a sub-heading with its own fields, a list of models a table (`render_as="table"`) or numbered detail
+    items, any other list bullets or an ordered list (`"numbered"`), anything else `**Label:** value`. Shared by the model-based and
+    the configuration-based renderer, so both give the same bytes.
+    """
     lines = []
-    for name in type(model).model_fields:
-        value = getattr(model, name)
-        label = _title(name)
-        if isinstance(value, DocFactoryModel) and not isinstance(value, NotApplicable):
-            lines.append(f"{'#' * heading_level} {label}")
+    if isinstance(value, DocFactoryModel) and not isinstance(value, NotApplicable):
+        lines.append(f"{'#' * heading_level} {label}")
+        lines.append("")
+        lines += _field_lines(value, heading_level + 1)
+        lines.append("")
+    elif isinstance(value, list) and value and isinstance(value[0], DocFactoryModel):
+        lines.append(f"**{label}:**")
+        if render_as == "table":
             lines.append("")
-            lines += _field_lines(value, heading_level + 1)
-            lines.append("")
-        elif isinstance(value, list) and value and isinstance(value[0], DocFactoryModel):
-            lines.append(f"**{label}:**")
-            if _extra(type(model).model_fields[name]).get("render_as") == "table":
-                lines.append("")
-                lines += _item_table(value)
-            else:
-                for index, item in enumerate(value, start=1):
-                    lines.append(f"{index}.")
-                    lines += _item_lines(item)
-                lines.append("")
-        elif isinstance(value, list):
-            lines.append(f"**{label}:**" if value else f"**{label}:** {NOT_PROVIDED}")
-            lines += _list_lines(value, _extra(type(model).model_fields[name]).get("render_as"), "")
-            lines.append("")
+            lines += _item_table(value)
         else:
-            lines.append(f"**{label}:** {_scalar_text(value)}")
+            for index, item in enumerate(value, start=1):
+                lines.append(f"{index}.")
+                lines += _item_lines(item)
             lines.append("")
+    elif isinstance(value, list):
+        lines.append(f"**{label}:**" if value else f"**{label}:** {NOT_PROVIDED}")
+        lines += _list_lines(value, render_as, "")
+        lines.append("")
+    else:
+        lines.append(f"**{label}:** {_scalar_text(value)}")
+        lines.append("")
     return lines
 
 
-def _render_document_control(control: DocumentControl) -> str:
+def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
+    lines = []
+    for name, field in type(model).model_fields.items():
+        lines += field_lines(title_of(name), getattr(model, name), _extra(field).get("render_as"), heading_level)
+    return lines
+
+
+def render_document_control(control: DocumentControl) -> str:
     lines = [
         f"# {control.title}",
         "",
@@ -132,7 +142,7 @@ def _render_document_control(control: DocumentControl) -> str:
     return "\n".join(lines)
 
 
-def _render_revision_history(history: RevisionHistory) -> str:
+def render_revision_history(history: RevisionHistory) -> str:
     lines = ["## Revision History", ""]
     if history.revisions:
         lines += ["| Version | Date | Author | Summary |", "|---|---|---|---|"]
@@ -161,7 +171,7 @@ def render_markdown(app_id: str, doc_type: str) -> str:
     control = _load(DocumentControl, f"{prefix}.DocumentControl")
     history = _load(RevisionHistory, f"{prefix}.RevisionHistory")
     body = _load(body_model, prefix)
-    sections = [_render_document_control(control), _render_revision_history(history), _render_body(body)]
+    sections = [render_document_control(control), render_revision_history(history), _render_body(body)]
     return "\n\n".join(sections) + "\n"
 
 
@@ -171,15 +181,17 @@ def _gap_line(gap) -> str:
 
 
 def render_needs_markdown(app_id: str, doc_type: str) -> str | None:
-    """The needs list of `app_id`'s `doc_type` document as Markdown, from its `.MissingInfo` row; None when there is no row or no gap.
+    """The needs list of `app_id`'s `doc_type` document as Markdown, from its `.MissingInfo` row; None when there is no row or no gap."""
+    row = db.get_row("DocumentOutputs", f"{app_id}.Outputs.{doc_type}.MissingInfo")
+    return None if row is None else needs_markdown(app_id, doc_type, MissingInfo.model_validate(json.loads(row["Value"])))
+
+
+def needs_markdown(app_id: str, doc_type: str, info: MissingInfo) -> str | None:
+    """A needs list as Markdown; None when it has no gap.
 
     The needs in priority order, grouped by who can answer them (first appearance order), each with the gaps it covers; then every
-    gap with its source and example items. Same row in, same bytes out.
+    gap with its source and example items. Same list in, same bytes out.
     """
-    row = db.get_row("DocumentOutputs", f"{app_id}.Outputs.{doc_type}.MissingInfo")
-    if row is None:
-        return None
-    info = MissingInfo.model_validate(json.loads(row["Value"]))
     if not info.gaps:
         return None
     gaps = {gap.number: gap for gap in info.gaps}

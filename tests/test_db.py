@@ -46,7 +46,7 @@ def test_init_schema_is_idempotent(tmp_db):
     assert db.get_row("KnowledgeFacts", "A.B")["Version"] == 1
 
 
-@pytest.mark.parametrize("table,key", [("KnowledgeFacts", "KitchenHQ.Architecture"), ("DocumentOutputs", "KitchenHQ.Outputs.SMTD")])
+@pytest.mark.parametrize("table,key", [("KnowledgeFacts", "KitchenHQ.Architecture"), ("DocumentOutputs", "KitchenHQ.Outputs.SMTD"), ("ConfiguredDocuments", "KitchenHQ.Configured.SMTD")])
 def test_write_then_get_round_trips(tmp_db, table, key):
     db.write_row(table, key, '{"a":1}', "abc", "KitchenHQ", 12.5, 3)
     row = db.get_row(table, key)

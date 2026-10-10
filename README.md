@@ -131,6 +131,14 @@ The report gives per document: the body's action, version and completeness, the 
 
 On the real 50-page SRS of AI-Driven-Job-Matching-Platform: the body holds all 186 functional and 165 non-functional requirements (66% complete, `Shared.Slo` not stored yet), and the 11 gaps became 8 questions for the product owner, the architect and the service owner. The other three: Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SOP 48% (12 -> 5); all four in about 35 seconds. The documents of this run are in `samples/output/`.
 
+### Step 3b: generate with the configuration-based option (parallel)
+
+```
+python -m docfactory.generate_configured <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]
+```
+
+Same result as step 3, but each document is defined by a YAML template in `docfactory/configrender/templates/` (add a file to add a document type). Rows go to the `ConfiguredDocuments` table and files to `output/configured/<App>/`, so both options can be compared side by side. `pytest tests/test_configrender.py` asserts that both give identical Markdown for the same facts.
+
 ### Look at the results
 
 | I want to... | Command or place |

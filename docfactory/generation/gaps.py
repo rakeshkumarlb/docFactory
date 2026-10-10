@@ -22,16 +22,24 @@ def _example(label: str) -> str:
 
 def document_gaps(document_model, app_id: str) -> list[DocumentGap]:
     """Every gap of `app_id`'s `document_model` document, numbered 1..n in template order."""
+    return gaps_of_bindings(((path, question_of(field), binding) for path, field, binding in bound_fields(document_model)), app_id)
+
+
+def gaps_of_bindings(bindings, app_id: str) -> list[DocumentGap]:
+    """Every gap of a template given as (document path, question, '<Fact>.<field>') triples in template order, numbered 1..n.
+
+    The core shared by the model-based template (`document_gaps`) and the configuration-based one.
+    """
     facts: dict = {}
     questions: dict = {}
     found: list[dict] = []
-    for path, field, binding in bound_fields(document_model):
+    for path, question_text, binding in bindings:
         fact_name, _, source = binding.partition(".")
         fact = load_fact(app_id, fact_name, facts)
         source_field = type(fact).model_fields.get(source) if fact is not None else None
         value = getattr(fact, source) if source_field is not None else None
         if source_field is None or not is_answered(source_field, value):
-            found.append({"field": path, "question": question_of(field), "expected_source": binding})
+            found.append({"field": path, "question": question_text, "expected_source": binding})
             continue
         if isinstance(value, NotApplicable):
             continue

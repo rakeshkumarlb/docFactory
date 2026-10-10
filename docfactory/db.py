@@ -7,7 +7,7 @@ ENV_VAR = "DOCFACTORY_DB"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # The only tables that exist and the name of each one's key column. Table names never come from callers.
-TABLE_KEYS = {"KnowledgeFacts": "FactKey", "DocumentOutputs": "DocumentKey"}
+TABLE_KEYS = {"KnowledgeFacts": "FactKey", "DocumentOutputs": "DocumentKey", "ConfiguredDocuments": "DocumentKey"}
 
 _COLUMNS = (
     "Value TEXT NOT NULL, Hashcode TEXT NOT NULL, AppID TEXT NULL, "

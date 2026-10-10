@@ -218,6 +218,8 @@ docfactory/            Python package
   extract/             Phase 3 function modules: batching (BATCH_CHARS, chunks_hash), fact_keys, partial_schema, model_shapes, grounding, merge, priority_keywords, missing_questions, extraction_pipeline (extract_file, format_reports)
   generation/          Phase 4 function modules: doc_types (DOC_TYPES: body model, saver, document name per type), gaps (document_gaps, gaps_hash), document_control (next_control), revision_history (changed_sections, section_sources, revision_summary, next_history), fallback_needs, generate_document (generate, format_reports, output_dir)
   generate.py          Entry point `python -m docfactory.generate <App> <DocType|all> [--no-llm]`
+  configrender/        Configuration-based rendering (parallel option): YAML `templates/`, template_loader/check, bindings, build_configured, configured_gaps/revision/store, render_configured, configured_document, `savers/` (table ConfiguredDocuments)
+  generate_configured.py  Entry point `python -m docfactory.generate_configured <App> <DocType|all> [--no-llm]`
   tools/               Tool, ToolRegistry, ToolPackage (one class per file); the single-tool packages ingestion_tools (submit_chunk_tags, submit_scope), extraction_tools (submit_extraction), needs_tools (submit_needs); schema_slim (inline_refs for tool schemas)
   agents/              ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), model_client_factory, AgentLoop (the shared thin loop), prompt_file, IngestionFallback, EntityExtractor, NeedsWriter; entry points run_ingestion, run_extraction
 samples/json/<entity>/ Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo), used by the seeds and tests
@@ -367,6 +369,14 @@ Generation **groups the stored fact JSON by the document template, writes the `.
 **Entry point:** `python -m docfactory.generate <App> <Overview|SMTD|SRS|SOP|all> [--no-llm]`. An application with no facts is refused with the list of applications that have facts.
 
 **Verified** on the real AI-Driven-Job-Matching-Platform SRS (`gemma4:31b`): Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SRS 66% with all 186 FR and 165 NFR rows (11 -> 8), SOP 48% (12 -> 5), all needs lists from the LLM, about 35 seconds for all four; a rerun changes no row, writes no file and makes no LLM call. `pytest -m live tests/test_live_generate.py` covers the needs call on a small SRS.
+
+### Configuration-based rendering (parallel option to Phase 4)
+Branch `ConfigurationBasedExtraction`. A document is a **YAML template** (`docfactory/configrender/templates/<DocType>.yaml`, relocatable with `DOCFACTORY_TEMPLATES`) validated by one generic model (`DocumentTemplate` > `TemplateSection` > `TemplateField`: `binding` `<Entity>.<field>`, optional `label`, `render_as`, `question`), instead of a per-type document model, section classes and body saver. Generic code builds, stores and renders it; Phase 4 stays untouched and runs side by side.
+- **Flow** (`configrender/configured_document.py`, same as Phase 4): `build_configured.build_body` copies every answered bound fact field (as canonical JSON in `ConfiguredField.value`, status `answered` / `missing`) -> `ConfiguredBody` saved as `<App>.Configured.<DocType>` in the table **`ConfiguredDocuments`** (same shape as `DocumentOutputs`; savers in `configrender/savers/` set `table`) -> document control, revision history, gaps (`generation/gaps.gaps_of_bindings`, shared with Phase 4) and needs list (`NeedsWriter`, `fallback_needs`) all reused unchanged, saved as `.DocumentControl`, `.RevisionHistory`, `.MissingInfo` -> `output/configured/<App>/<DocType>.md` and `.missing.md`.
+- **Same bytes:** the renderer shares `render.field_lines` with Phase 4; a test (`tests/test_configrender.py`) generates both options from the same facts (all, two, none) and asserts byte-identical `.md` and `.missing.md` files for Overview, SMTD, SRS and SOP.
+- **Completeness** of a configured body = answered bound fields / all bound fields (only `ConfiguredField.value` is scored).
+- A wrongly wired template (unknown entity or field, duplicate id or binding, bad `render_as`) raises `TemplateError`. A new document type is a new YAML file.
+- **Entry point:** `python -m docfactory.generate_configured <App> <DocType|all> [--no-llm]`.
 
 ### Phase 5: Human in the loop
 - The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).

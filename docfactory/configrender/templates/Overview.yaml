@@ -1,0 +1,20 @@
+doc_type: Overview
+name: Application Overview
+sections:
+- id: application_summary
+  title: Application Summary
+  fields:
+  - binding: ApplicationOverview.application_name
+  - binding: ApplicationOverview.purpose
+  - binding: ApplicationOverview.business_overview
+  - binding: ApplicationOverview.target_users
+  - binding: ApplicationOverview.key_capabilities
+  - binding: ApplicationOverview.business_criticality
+  - binding: ApplicationOverview.out_of_scope
+  - binding: ApplicationOverview.technology_summary
+- id: kpi_summary
+  title: KPI Summary
+  fields:
+  - binding: Kpis.kpis
+    render_as: table
+  - binding: Kpis.notes

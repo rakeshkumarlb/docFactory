@@ -52,19 +52,19 @@ def _shown(path: Path) -> str:
         return path.as_posix()
 
 
-def _stored(model, key: str):
-    record = get_document(key)
-    return model.model_validate(json.loads(record.value)) if record else None
+def stored_object(model, key: str, table: str = "DocumentOutputs"):
+    row = db.get_row(table, key)
+    return model.model_validate(json.loads(row["Value"])) if row else None
 
 
-def _save(saver, key: str, value, errors: list[str]):
+def save_object(saver, key: str, value, errors: list[str]):
     result = saver.save(key, value.model_dump(mode="json"))
     if not result.ok:
         errors.append(f"{key}: {result.action.value}: " + "; ".join(f"{e.path}: {e.message}" for e in result.errors))
     return result
 
 
-def _needs(app_id: str, doc_name: str, gaps: list[DocumentGap], stored: MissingInfo | None, writer: NeedsWriter | None):
+def choose_needs(app_id: str, doc_name: str, gaps: list[DocumentGap], stored: MissingInfo | None, writer: NeedsWriter | None):
     """(needs, origin, skipped, note) for these gaps."""
     target = NeedsOrigin.LLM if writer is not None and gaps else NeedsOrigin.NO_LLM
     if stored is not None and stored.gaps_hash == gaps_hash(gaps) and stored.needs_origin in (NeedsOrigin.LLM, target):
@@ -77,7 +77,7 @@ def _needs(app_id: str, doc_name: str, gaps: list[DocumentGap], stored: MissingI
     return needs, NeedsOrigin.LLM, False, ""
 
 
-def _write(path: Path, text: str | None, written: list[str]) -> None:
+def write_if_changed(path: Path, text: str | None, written: list[str]) -> None:
     if text is None:
         if path.exists():
             path.unlink()
@@ -99,32 +99,32 @@ def generate(app_id: str, doc_type: str, writer: NeedsWriter | None = None) -> G
 
     old_body = get_document(prefix)
     body, _ = build_document(model, app_id)
-    body_result = _save(spec["saver"](), prefix, body, errors)
+    body_result = save_object(spec["saver"](), prefix, body, errors)
     report = GenerationReport(doc_type=doc_type, body_key=prefix, body_action=body_result.action,
                               body_version=body_result.version, body_completeness=body_result.completeness)
     if not body_result.ok:
         return report.model_copy(update={"errors": errors})
 
-    stored_control = _stored(DocumentControl, f"{prefix}.DocumentControl")
-    stored_history = _stored(RevisionHistory, f"{prefix}.RevisionHistory")
+    stored_control = stored_object(DocumentControl, f"{prefix}.DocumentControl")
+    stored_history = stored_object(RevisionHistory, f"{prefix}.RevisionHistory")
     body_changed = body_result.action in (SaveAction.CREATED, SaveAction.UPDATED)
     first = old_body is None or stored_history is None
     version = document_version(body_result.version)
     summary = revision_summary(first, changed_sections(None if first else old_body.value, body), section_sources(model, app_id))
     history, entry = next_history(stored_history, body_changed, version, summary, today)
     control = next_control(app_id, doc_type, spec["name"], stored_control, body_result.action, body_result.version, today)
-    _save(DocumentControlSaver(), f"{prefix}.DocumentControl", control, errors)
-    _save(RevisionHistorySaver(), f"{prefix}.RevisionHistory", history, errors)
+    save_object(DocumentControlSaver(), f"{prefix}.DocumentControl", control, errors)
+    save_object(RevisionHistorySaver(), f"{prefix}.RevisionHistory", history, errors)
 
     gaps = document_gaps(model, app_id)
-    needs, origin, skipped, note = _needs(app_id, spec["name"], gaps, _stored(MissingInfo, f"{prefix}.MissingInfo"), writer)
-    _save(MissingInfoSaver(), f"{prefix}.MissingInfo", MissingInfo(gaps=gaps, needs=needs, gaps_hash=gaps_hash(gaps), needs_origin=origin), errors)
+    needs, origin, skipped, note = choose_needs(app_id, spec["name"], gaps, stored_object(MissingInfo, f"{prefix}.MissingInfo"), writer)
+    save_object(MissingInfoSaver(), f"{prefix}.MissingInfo", MissingInfo(gaps=gaps, needs=needs, gaps_hash=gaps_hash(gaps), needs_origin=origin), errors)
 
     written: list[str] = []
     if not errors:
         folder = output_dir() / app_id
-        _write(folder / f"{doc_type}.md", render_markdown(app_id, doc_type), written)
-        _write(folder / f"{doc_type}.missing.md", render_needs_markdown(app_id, doc_type), written)
+        write_if_changed(folder / f"{doc_type}.md", render_markdown(app_id, doc_type), written)
+        write_if_changed(folder / f"{doc_type}.missing.md", render_needs_markdown(app_id, doc_type), written)
     return report.model_copy(update={
         "document_version": control.document_version, "revision_added": entry.summary if entry else "",
         "gap_count": len(gaps), "need_count": len(needs), "needs_origin": origin.value, "needs_skipped": skipped,

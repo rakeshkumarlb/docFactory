@@ -1,0 +1,37 @@
+doc_type: SOP
+name: Standard Operating Procedures
+sections:
+- id: application_summary
+  title: Application Summary
+  fields:
+  - binding: ApplicationOverview.application_name
+  - binding: ApplicationOverview.purpose
+  - binding: ApplicationOverview.business_overview
+  - binding: ApplicationOverview.target_users
+  - binding: ApplicationOverview.key_capabilities
+  - binding: ApplicationOverview.business_criticality
+  - binding: ApplicationOverview.out_of_scope
+  - binding: ApplicationOverview.technology_summary
+- id: monitoring
+  title: Monitoring
+  fields:
+  - binding: Monitoring.monitoring_tools
+  - binding: Monitoring.key_metrics
+  - binding: Monitoring.alerts
+    render_as: table
+  - binding: Monitoring.dashboards
+  - binding: Monitoring.log_locations
+- id: support
+  title: Support
+  fields:
+  - binding: Support.support_model
+  - binding: Support.contacts
+    render_as: table
+  - binding: Support.escalation_path
+  - binding: Support.incident_process
+  - binding: Support.runbooks
+- id: standard_operating_procedures
+  title: Standard Operating Procedures
+  fields:
+  - binding: Sop.procedures
+  - binding: Sop.notes

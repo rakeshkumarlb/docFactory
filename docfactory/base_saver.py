@@ -129,12 +129,15 @@ class BaseSaver(Generic[M]):
 
     model: type[M]
     key_patterns: tuple[str, ...] = ()
+    table: str | None = None  # a saver outside documentsaver/ and entitysaver/ names its own table (the configuration-based documents)
 
     def accepts_key(self, key) -> bool:
         """True when `key` matches one of this saver's key patterns."""
         return isinstance(key, str) and any(_pattern_matches(pattern, key) for pattern in self.key_patterns)
 
     def _table(self) -> str:
+        if self.table is not None:
+            return self.table
         return "DocumentOutputs" if "documentsaver" in type(self).__module__ else "KnowledgeFacts"
 
     def _check_key(self, key, app_id) -> tuple[str | None, list[SaveError]]:

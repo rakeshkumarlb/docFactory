@@ -1,0 +1,33 @@
+doc_type: SRS
+name: Software Requirements Specification
+sections:
+- id: application_summary
+  title: Application Summary
+  fields:
+  - binding: ApplicationOverview.application_name
+  - binding: ApplicationOverview.purpose
+  - binding: ApplicationOverview.business_overview
+  - binding: ApplicationOverview.target_users
+  - binding: ApplicationOverview.key_capabilities
+  - binding: ApplicationOverview.business_criticality
+  - binding: ApplicationOverview.out_of_scope
+  - binding: ApplicationOverview.technology_summary
+- id: functional_requirements
+  title: Functional Requirements
+  fields:
+  - binding: FunctionalRequirements.summary
+  - binding: FunctionalRequirements.requirements
+    render_as: table
+  - binding: FunctionalRequirements.out_of_scope
+- id: non_functional_requirements
+  title: Non Functional Requirements
+  fields:
+  - binding: NonFunctionalRequirements.summary
+  - binding: NonFunctionalRequirements.requirements
+    render_as: table
+- id: service_levels
+  title: Service Levels
+  fields:
+  - binding: Slo.objectives
+    render_as: table
+  - binding: Slo.notes

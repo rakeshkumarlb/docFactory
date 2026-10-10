@@ -1,0 +1,92 @@
+doc_type: SMTD
+name: Software Maintenance and Transition Document
+sections:
+- id: application_summary
+  title: Application Summary
+  fields:
+  - binding: ApplicationOverview.application_name
+  - binding: ApplicationOverview.purpose
+  - binding: ApplicationOverview.business_overview
+  - binding: ApplicationOverview.target_users
+  - binding: ApplicationOverview.key_capabilities
+  - binding: ApplicationOverview.business_criticality
+  - binding: ApplicationOverview.out_of_scope
+  - binding: ApplicationOverview.technology_summary
+- id: architecture
+  title: Architecture
+  fields:
+  - binding: Architecture.architecture_style
+  - binding: Architecture.technology_stack
+  - binding: Architecture.components
+    render_as: table
+  - binding: Architecture.data_stores
+    render_as: table
+  - binding: Architecture.integrations
+    render_as: table
+  - binding: Architecture.diagram_reference
+  - binding: Architecture.notes
+- id: environments
+  title: Environments
+  fields:
+  - binding: Environments.environments
+    render_as: table
+  - binding: Environments.notes
+- id: deployment
+  title: Deployment
+  fields:
+  - binding: Deployment.release_process
+  - binding: Deployment.ci_cd_tooling
+  - binding: Deployment.release_frequency
+  - binding: Deployment.rollback_procedure
+  - binding: Deployment.configuration_management
+- id: monitoring
+  title: Monitoring
+  fields:
+  - binding: Monitoring.monitoring_tools
+  - binding: Monitoring.key_metrics
+  - binding: Monitoring.alerts
+    render_as: table
+  - binding: Monitoring.dashboards
+  - binding: Monitoring.log_locations
+- id: backup_recovery
+  title: Backup Recovery
+  fields:
+  - binding: BackupRecovery.backup_schedule
+  - binding: BackupRecovery.backup_retention
+  - binding: BackupRecovery.backup_location
+  - binding: BackupRecovery.restore_procedure
+  - binding: BackupRecovery.rpo
+  - binding: BackupRecovery.rto
+  - binding: BackupRecovery.disaster_recovery_plan
+- id: support
+  title: Support
+  fields:
+  - binding: Support.support_model
+  - binding: Support.contacts
+    render_as: table
+  - binding: Support.escalation_path
+  - binding: Support.incident_process
+  - binding: Support.runbooks
+- id: known_errors
+  title: Known Errors
+  fields:
+  - binding: KnownErrors.known_errors
+    render_as: table
+  - binding: KnownErrors.notes
+- id: standard_operating_procedures
+  title: Standard Operating Procedures
+  fields:
+  - binding: Sop.procedures
+  - binding: Sop.notes
+- id: service_levels
+  title: Service Levels
+  fields:
+  - binding: Slo.objectives
+    render_as: table
+  - binding: Slo.notes
+- id: kpi_summary
+  title: KPI Summary
+  fields:
+  - binding: Kpis.kpis
+    render_as: table
+  - binding: Kpis.notes
