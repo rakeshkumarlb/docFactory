@@ -3,7 +3,7 @@ from docfactory.models.doc_field import doc_field
 
 
 class DocumentRecord(DocFactoryModel):
-    """One stored DocumentOutputs row as returned by the typed read: the validated document part as canonical JSON plus its bookkeeping."""
+    """One stored part of a generated document (a state file under output/<App>/state/) as returned by the typed read: the validated document part as canonical JSON plus its bookkeeping."""
 
     key: str = doc_field(
         description="The document key, e.g. ReadmeForge.Outputs.SMTD.",

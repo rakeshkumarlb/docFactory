@@ -1,6 +1,6 @@
 """The steps every document generation shares (CLAUDE.md, Phase 4: "Flow per <App> <DocType>"), whatever defines the document.
 
-`save_object` saves one row through its saver, `choose_needs` decides where the needs list comes from (the stored list when the gaps did
+`save_part` saves one document part through the state store, `choose_needs` decides where the needs list comes from (the stored list when the gaps did
 not change, else the needs writer's answer, else one need per gap), `write_if_changed` writes a rendered file only when its bytes
 changed, `output_dir` says where files go and `format_reports` prints the run. The flow itself is in generation/generate_document.py.
 """
@@ -8,7 +8,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
-from docfactory import db
+from docfactory.project_root import PROJECT_ROOT
 from docfactory.documentmodels.document_gap import DocumentGap
 from docfactory.documentmodels.document_need import DocumentNeed
 from docfactory.documentmodels.missing_info import MissingInfo
@@ -26,20 +26,21 @@ NeedsWriter = Callable[[str, str, list[DocumentGap]], tuple[list[DocumentNeed] |
 def output_dir() -> Path:
     """Where rendered documents go: env DOCFACTORY_OUTPUT, else output/ in the project."""
     override = os.environ.get(ENV_VAR)
-    return Path(override) if override else db.PROJECT_ROOT / "output"
+    return Path(override) if override else PROJECT_ROOT / "output"
 
 
 def _shown(path: Path) -> str:
     try:
-        return path.resolve().relative_to(db.PROJECT_ROOT).as_posix()
+        return path.resolve().relative_to(PROJECT_ROOT).as_posix()
     except ValueError:
         return path.as_posix()
 
 
-def save_object(saver, key: str, value, errors: list[str]):
-    result = saver.save(key, value.model_dump(mode="json"))
+def save_part(store, app_id: str, doc_type: str, part: str, value, errors: list[str]):
+    """Save one part of a document through `store` (a DocumentStateStore); a rejection is added to `errors`."""
+    result = store.save(app_id, doc_type, part, value)
     if not result.ok:
-        errors.append(f"{key}: {result.action.value}: " + "; ".join(f"{e.path}: {e.message}" for e in result.errors))
+        errors.append(f"{result.key}: {result.action.value}: " + "; ".join(f"{e.path}: {e.message}" for e in result.errors))
     return result
 
 

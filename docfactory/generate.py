@@ -1,15 +1,15 @@
 """Manual trigger for generation: `python -m docfactory.generate <App> <DocType|all> [--no-llm]`.
 
 The document is defined by a YAML template (generation/templates/<DocType>.yaml), stored
-in DocumentOutputs and rendered to output/<App>/<DocType>.md and <DocType>.missing.md. The needs list is phrased by the
+in state files under output/<App>/state/ and rendered to output/<App>/<DocType>.md and <DocType>.missing.md. The needs list is phrased by the
 same small checked LLM call; --no-llm saves one need per gap instead.
 """
 import argparse
 import sys
 
-from docfactory import db
 from docfactory.agents.model_client_factory import default_client
 from docfactory.agents.needs_writer import NeedsWriter
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.generation.generate_document import generate_document
 from docfactory.generation.template_error import TemplateError
 from docfactory.generation.template_loader import list_doc_types
@@ -18,7 +18,7 @@ from docfactory.generation.generation_steps import format_reports
 
 
 def _apps() -> list[str]:
-    return sorted({row["AppID"] for row in db.list_rows("KnowledgeFacts") if row["AppID"]})
+    return sorted({record.app_id for record in BundleStore().list_facts() if record.app_id})
 
 
 def main(argv: list[str]) -> int:

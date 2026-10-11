@@ -1,4 +1,4 @@
-"""Renders a document's stored rows (`DocumentOutputs`) to Markdown: document control, revision history, then the body.
+"""Renders a document's stored parts (the state files) to Markdown: document control, revision history, then the body.
 
 Document control, revision history and the field layout come from render.py; only the body differs: each stored value is validated
 again against the type of the entity field it was copied from, and a missing field is shown as that field's default.
@@ -9,19 +9,17 @@ from typing import get_origin
 from pydantic import TypeAdapter
 from pydantic_core import PydanticUndefined
 
-from docfactory.generation import document_store
+from docfactory.generation.document_parts import BODY, CONTROL, HISTORY, NEEDS, PART_MODELS, part_key
+from docfactory.generation.document_state_store import DocumentStateStore
 from docfactory.generation.bindings import source_field
-from docfactory.documentmodels.document_control import DocumentControl
-from docfactory.documentmodels.missing_info import MissingInfo
-from docfactory.documentmodels.revision_history import RevisionHistory
 from docfactory.documentmodels.document_body import DocumentBody
 from docfactory.render import RenderError, field_lines, needs_markdown, render_document_control, render_revision_history
 
 
-def _load(model, key: str):
-    value = document_store.stored_model(model, key)
+def _load(app_id: str, doc_type: str, part: str):
+    value = DocumentStateStore().model(app_id, doc_type, part)
     if value is None:
-        raise RenderError(f"Cannot render: no DocumentOutputs row for key {key!r} ({model.__name__} is missing)")
+        raise RenderError(f"Cannot render: no stored {part} for {part_key(app_id, doc_type, part)!r} ({PART_MODELS[part].__name__} is missing)")
     return value
 
 
@@ -48,16 +46,15 @@ def _render_body(body: DocumentBody) -> str:
 def render_document_markdown(app_id: str, doc_type: str) -> str:
     """The full Markdown of `app_id`'s `doc_type` document: document control, revision history, then body.
 
-    Reads the three rows under `<app_id>.Outputs.<doc_type>`. Raises RenderError, naming the missing key, when one is not there.
+    Reads the three stored parts of the document. Raises RenderError, naming the missing key, when one is not there.
     """
-    prefix = document_store.prefix(app_id, doc_type)
-    control = _load(DocumentControl, f"{prefix}.DocumentControl")
-    history = _load(RevisionHistory, f"{prefix}.RevisionHistory")
-    body = _load(DocumentBody, prefix)
+    control = _load(app_id, doc_type, CONTROL)
+    history = _load(app_id, doc_type, HISTORY)
+    body = _load(app_id, doc_type, BODY)
     return "\n\n".join([render_document_control(control), render_revision_history(history), _render_body(body)]) + "\n"
 
 
 def render_document_needs(app_id: str, doc_type: str) -> str | None:
-    """The needs list of the document as Markdown, from its `.MissingInfo` row; None when there is no row or no gap."""
-    info = document_store.stored_model(MissingInfo, f"{document_store.prefix(app_id, doc_type)}.MissingInfo")
+    """The needs list of the document as Markdown, from its stored needs list; None when there is none or no gap."""
+    info = DocumentStateStore().model(app_id, doc_type, NEEDS)
     return None if info is None else needs_markdown(app_id, doc_type, info)
