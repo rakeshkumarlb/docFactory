@@ -92,6 +92,6 @@ class FactRecord(DocFactoryModel):
 
     sources: list[FactSource] = doc_field(
         default_factory=list,
-        description="The DocStore files the fact was derived from, one entry per file, e.g. one FactSource for 'ReadmeForge/ReadmeForge SRS v0.3.pdf'. Empty for seed data.",
+        description="The ingested originals the fact was derived from, one entry per file, e.g. one FactSource for 'ReadmeForge/references/ReadmeForge SRS v0.3.pdf'. Empty for seed data.",
         question="Which files did this fact come from?",
     )

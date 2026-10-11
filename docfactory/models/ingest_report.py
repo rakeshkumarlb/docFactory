@@ -17,13 +17,13 @@ class IngestReport(DocFactoryModel):
     )
     target_path: str | None = doc_field(
         default=None,
-        description="DocStore path '<scope>/<file name>' when the file was stored, e.g. 'AI-Driven-Job-Matching-Platform/Annex-A SRS.pdf'. None when the file stayed in staging.",
-        question="Under which DocStore path was the file stored?",
+        description="Bundle path '<scope>/references/<file name>' when the file was stored, e.g. 'AI-Driven-Job-Matching-Platform/references/Annex-A SRS.pdf'. None when the file stayed in staging.",
+        question="Under which bundle path was the file stored?",
     )
     version: int | None = doc_field(
         default=None,
-        description="DocStore version of the file after ingestion, e.g. 1. None when the file was not stored.",
-        question="What DocStore version does the file have after ingestion?",
+        description="Version of the file after ingestion (1 for the first, +1 for every changed revision), e.g. 1. None when the file was not stored.",
+        question="What version does the file have after ingestion?",
     )
     chunk_count: int = doc_field(
         default=0,

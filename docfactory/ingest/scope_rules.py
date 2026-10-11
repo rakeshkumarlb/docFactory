@@ -1,4 +1,4 @@
-"""Deterministic scope decision for a NEW file: which DocStore folder (application name, `shared` or `general`) it belongs to.
+"""Deterministic scope decision for a NEW file: which bundle folder (application name, `shared` or `general`) it belongs to.
 
 1. Tags decide `shared`: a document whose tags name only shared entities (keys `Shared.<Name>`, e.g. Slo, Kpis) is a common standard.
 2. Otherwise the application name is looked for in the front matter, most reliable first:
@@ -16,7 +16,7 @@ import re
 
 from docfactory.models.chunk_tag import ChunkTag
 from docfactory.models.doc_chunk import DocChunk
-from docfactory.saver_resolution import entity_saver_classes
+from docfactory.bundle.fact_registry import shared_entities as registry_shared_entities
 
 SHARED, GENERAL = "shared", "general"
 FRONT_LINES = 4  # first lines of the document looked at for a title
@@ -35,7 +35,7 @@ _EDGE_WORDS = re.compile(r"^(?:(?:for|of|the|and|to|-|:|–)\s+)+|(?:\s+(?:for|o
 
 def shared_entities() -> set[str]:
     """Entities stored only under `Shared.` keys (common to all applications)."""
-    return {cls.model.__name__ for cls in entity_saver_classes() if all(p.startswith("Shared.") for p in cls.key_patterns)}
+    return registry_shared_entities()
 
 
 def _key(text: str) -> str:
@@ -81,7 +81,7 @@ def _candidates(chunks: list[DocChunk]) -> list[tuple[str, bool, str]]:
 
 
 def decide_scope(chunks: list[DocChunk], tags: list[ChunkTag], existing: list[str]) -> tuple[str | None, bool, str]:
-    """(scope folder or None, confident, reason). `existing` are the scope folders already in the DocStore."""
+    """(scope folder or None, confident, reason). `existing` are the scope folders already in the bundle."""
     tagged = {tag.entity for tag in tags}
     if tagged and tagged <= shared_entities():
         match = next((folder for folder in existing if folder.lower() == SHARED), SHARED)

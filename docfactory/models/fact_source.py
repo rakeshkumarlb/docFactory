@@ -6,7 +6,7 @@ class FactSource(DocFactoryModel):
     """One material a knowledge fact was derived from (an OKF sources[] entry), so a reader can trace the fact back to its original file."""
 
     resource: str = doc_field(
-        description="Where the original is: the DocStore path with forward slashes, or an external URI, e.g. ReadmeForge/ReadmeForge SRS v0.3.pdf. Must not be empty.",
+        description="Where the original is: its bundle path '<scope>/references/<file name>' with forward slashes, or an external URI, e.g. ReadmeForge/references/ReadmeForge SRS v0.3.pdf. Must not be empty.",
         question="Which file or URI did this fact come from?",
         min_length=1,
     )
@@ -22,7 +22,7 @@ class FactSource(DocFactoryModel):
     )
     last_modified: str | None = doc_field(
         default=None,
-        description="When the source was last modified, ISO 8601 datetime with explicit UTC offset, e.g. 2026-06-30T14:00:00Z (the DocStore Timestamp of the file). None when unknown.",
+        description="When the source was last modified, ISO 8601 datetime with explicit UTC offset, e.g. 2026-06-30T14:00:00Z (the ingestion time of the file, from its Source). None when unknown.",
         question="When was this source last modified?",
         pattern="^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
     )

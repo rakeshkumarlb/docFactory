@@ -13,6 +13,6 @@ class ModelResponse(DocFactoryModel):
     )
     tool_calls: list[ToolCall] = doc_field(
         default_factory=list,
-        description="Tool calls the model wants run next, e.g. one call to 'compare_with_docstore'. Empty means the model is done.",
+        description="Tool calls the model wants run next, e.g. one call to 'submit_extraction'. Empty means the model is done.",
         question="Which tool calls does the model want run, if any?",
     )

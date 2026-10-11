@@ -1,14 +1,13 @@
 """Re-chunk and re-tag every stored original: `python -m docfactory.ingest.chunk_rebuild`.
 
-Use it after the chunkers or the ontology signals change. Chunks and rule tags are rewritten from the files in DocStore/; the DocStore
-row (hash, version) is unchanged. LLM-fallback tags are not reproduced (rerun ingestion of the file for those). A row whose file is
-missing on disk is reported and left alone.
+Use it after the chunkers or the ontology signals change. The chunk outline and the rule tags of every Source concept are rewritten from
+the originals in `<scope>/references/`; the hash and version are unchanged. LLM-fallback tags are not reproduced (ingest the file again
+for those). A Source whose original is missing on disk is reported and left alone.
 """
 import sys
 
-from docfactory import db
+from docfactory.bundle.source_store import SourceStore
 from docfactory.ingest.chunking import chunk_file
-from docfactory.ingest.paths import docstore_dir
 from docfactory.ingest.tagging import tag_chunks
 from docfactory.ontology.signals import load_signals
 
@@ -16,22 +15,21 @@ from docfactory.ontology.signals import load_signals
 def rebuild_chunks() -> dict[str, str]:
     """Path -> outcome ('N chunks, M tags', 'missing on disk' or the error)."""
     signals = load_signals()
+    store = SourceStore()
     outcomes = {}
-    for row in db.list_docstore_rows():
-        path = docstore_dir() / row["FullPath"]
+    for record in store.list():
+        path = store.original(record.path)
         if not path.is_file():
-            outcomes[row["FullPath"]] = "missing on disk"
+            outcomes[record.path] = "missing on disk"
             continue
         try:
             chunks = chunk_file(path)
         except Exception as error:
-            outcomes[row["FullPath"]] = f"could not chunk: {error}"
+            outcomes[record.path] = f"could not chunk: {error}"
             continue
         tags, _ = tag_chunks(chunks, signals)
-        db.commit_ingested(row["FullPath"], row["Hashcode"], row["Timestamp"],
-                           [(c.chunk_no, c.heading, c.page_from, c.page_to, c.text, c.text_hash) for c in chunks],
-                           [(t.chunk_no, t.entity, t.origin, t.score, t.evidence) for t in tags])
-        outcomes[row["FullPath"]] = f"{len(chunks)} chunks, {len(tags)} tags"
+        store.write(record.path, record.hashcode, record.timestamp, chunks, tags)
+        outcomes[record.path] = f"{len(chunks)} chunks, {len(tags)} tags"
     return outcomes
 
 
@@ -40,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     for path, outcome in outcomes.items():
         print(f"{path}: {outcome}")
     if not outcomes:
-        print("DocStore is empty")
+        print("the bundle has no ingested originals")
     return 0
 
 

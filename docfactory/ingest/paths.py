@@ -1,21 +1,15 @@
 import os
 from pathlib import Path
 
-from docfactory.db import PROJECT_ROOT
+from docfactory.project_root import PROJECT_ROOT
 
 INCOMING_ENV = "DOCFACTORY_INCOMING"
-DOCSTORE_ENV = "DOCFACTORY_DOCSTORE"
 STAGING_ENV = "DOCFACTORY_STAGING"
 
 
 def incoming_dir() -> Path:
     """The drop zone for new originals: env DOCFACTORY_INCOMING, else incoming/ under the project root."""
     return Path(os.environ.get(INCOMING_ENV) or PROJECT_ROOT / "incoming")
-
-
-def docstore_dir() -> Path:
-    """The store of classified originals: env DOCFACTORY_DOCSTORE, else DocStore/ under the project root."""
-    return Path(os.environ.get(DOCSTORE_ENV) or PROJECT_ROOT / "DocStore")
 
 
 def staging_dir() -> Path:

@@ -28,7 +28,7 @@ class FactMeta(DocFactoryModel):
     )
     sources: list[FactSource] = doc_field(
         default_factory=list,
-        description="The DocStore files this fact was derived from, one entry per file. Empty only for seed data, e.g. one FactSource for 'ReadmeForge/ReadmeForge SRS v0.3.pdf'.",
+        description="The ingested originals this fact was derived from, one entry per file. Empty only for seed data, e.g. one FactSource for 'ReadmeForge/references/ReadmeForge SRS v0.3.pdf'.",
         question="Which files did this fact come from?",
     )
     stale_after: str | None = doc_field(

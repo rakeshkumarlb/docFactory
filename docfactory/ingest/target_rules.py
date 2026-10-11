@@ -4,7 +4,7 @@ SCOPE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def check_target(incoming_path: str, target_path: str) -> str | None:
-    """Why `target_path` is not a valid DocStore target for `incoming_path`, or None when it is.
+    """Why `target_path` is not a valid scope/name target for `incoming_path`, or None when it is.
 
     A target is '<scope folder>/<file name>': exactly one folder made of letters, digits, '.', '_' or '-', and the file name is the
     original's name unchanged (identity = folder + file name, so renaming would break replace-in-place).

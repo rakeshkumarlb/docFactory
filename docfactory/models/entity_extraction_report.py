@@ -6,7 +6,7 @@ from docfactory.models.save_error import SaveError
 
 
 class EntityExtractionReport(DocFactoryModel):
-    """The report of extracting one entity from one DocStore file: what happened, how many chunks and LLM calls it took, what was saved, and what a human should review (missing answers, ungrounded values, conflicts, failed batches, save errors)."""
+    """The report of extracting one entity from one ingested original: what happened, how many chunks and LLM calls it took, what was saved, and what a human should review (missing answers, ungrounded values, conflicts, failed batches, save errors)."""
 
     entity: str = doc_field(
         description="The entity that was extracted, as its model name, e.g. FunctionalRequirements.",

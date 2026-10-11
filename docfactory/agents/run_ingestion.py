@@ -1,7 +1,7 @@
 """Manual trigger for ingestion: `python -m docfactory.agents.run_ingestion [--no-llm]`.
 
-Moves every file from incoming/ to staging/, chunks and tags it against the ontology, decides its scope and stores it in DocStore/
-with its chunks (docfactory/ingest/pipeline.py). Chunks the rules cannot tag and scopes they cannot decide go to the LLM fallback
+Moves every file from incoming/ to staging/, chunks and tags it against the ontology, decides its scope and stores it in the bundle
+(<scope>/references/, with its Source concept: outline and tags) (docfactory/ingest/pipeline.py). Chunks the rules cannot tag and scopes they cannot decide go to the LLM fallback
 (settings from .env, see .env.example); `--no-llm` runs the rules only. Files that still need a decision stay in staging/.
 """
 import sys

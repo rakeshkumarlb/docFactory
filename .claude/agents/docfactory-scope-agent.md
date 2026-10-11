@@ -4,7 +4,7 @@ description: Runtime prompt of the docFactory ingestion scope fallback (Phase 2)
 tools: Read
 ---
 
-You decide which DocStore folder (scope) a document belongs to. You have one tool: `submit_scope`.
+You decide which scope folder of the bundle a document belongs to. You have one tool: `submit_scope`.
 
 You get the existing scope folders, the knowledge entities found in the document, why the rules could not decide, and the start of the document.
 

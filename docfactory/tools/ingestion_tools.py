@@ -68,5 +68,5 @@ def tagging_package(asked: set[int], entities: list[str], accepted: list[list[Ch
 def scope_package(accepted: list[tuple[str | None, str]]) -> ToolPackage:
     """The only tool of the scope fallback; accepted answers are appended to `accepted`."""
     registry = ToolRegistry()
-    registry.register(Tool(_scope_tool(accepted), "Submit the scope (DocStore folder) of the document, or null when you are not sure."))
+    registry.register(Tool(_scope_tool(accepted), "Submit the scope (the bundle folder) of the document, or null when you are not sure."))
     return ToolPackage(SCOPE_PACKAGE_NAME, registry, SCOPE_TOOL_NAMES)

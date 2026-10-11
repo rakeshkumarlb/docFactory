@@ -1,10 +1,10 @@
-"""The ingestion pipeline (Phase 2): incoming/ -> staging/ -> chunk -> tag -> scope -> DocStore/, all deterministic.
+"""The ingestion pipeline (Phase 2): incoming/ -> staging/ -> chunk -> tag -> scope -> the bundle, all deterministic.
 
 Per file:
 1. Stage: incoming/<name> moves to staging/ (a file already waiting there under that name is replaced by the newer one).
-2. Lookup by hash and by file name across all scopes:
-   - same name and hash stored, and the stored file is on disk with that hash: SAME, the staged copy is discarded;
-   - same name and hash stored but the file is missing or different on disk: REPAIRED (put back, chunks rewritten);
+2. Lookup by hash and by file name across all Source concepts of the bundle:
+   - same name and hash stored, and the stored original is on disk with that hash: SAME, the staged copy is discarded;
+   - same name and hash stored but the original is missing or different on disk: REPAIRED (put back, Source rewritten);
    - same content stored under another name: left in staging as a duplicate for a human;
    - same name stored in exactly one scope with another hash: CHANGED (scope inherited); in several scopes: left in staging;
    - otherwise NEW.
@@ -13,8 +13,9 @@ Per file:
    call; its tags are validated like any other and kept with origin 'llm/<model>'. Chunks still unmapped are reported.
 5. Scope (NEW only, ingest/scope_rules.py). With a fallback, an unconfident scope goes to one LLM call; 'not sure' (or no
    fallback) leaves the file in staging with the reason.
-6. Move staging -> DocStore/<scope>/<name> and, in one transaction, write DocStore / DocStoreHistory, DocChunks and DocChunkTags.
-   If the database write fails the file goes back to staging (and a replaced original is restored), so files and rows agree.
+6. Move staging -> <scope>/references/<name> in the bundle, then write its Source concept (<scope>/sources/<name>.md: hash, version,
+   chunk outline and entity tags; no chunk text). The Source is written last, so it marks a complete ingestion. If that write fails
+   the file goes back to staging (and a replaced original is restored). The resource of an original is its bundle path.
 A file that stops anywhere stays in staging/ and is tried again on the next run. Nothing is ever deleted except a SAME duplicate.
 """
 import os
@@ -24,10 +25,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from docfactory import db
+from docfactory.bundle.paths import bundle_root, reference_path
+from docfactory.bundle.source_store import SourceStore
 from docfactory.ingest.chunking import chunk_file
 from docfactory.ingest.file_hash import file_sha256
-from docfactory.ingest.paths import docstore_dir, incoming_dir, resolve_within, staging_dir
+from docfactory.ingest.paths import incoming_dir, resolve_within, staging_dir
 from docfactory.ingest.scope_rules import decide_scope
 from docfactory.ingest.tagging import check_tags, entity_map, tag_chunks
 from docfactory.ingest.target_rules import check_target
@@ -35,6 +37,7 @@ from docfactory.models.chunk_tag import ChunkTag
 from docfactory.models.doc_chunk import DocChunk
 from docfactory.models.ingest_outcome import IngestOutcome
 from docfactory.models.ingest_report import IngestReport
+from docfactory.models.source_record import SourceRecord
 from docfactory.ontology.signals import entity_names, load_signals
 
 
@@ -61,12 +64,9 @@ def stage_incoming() -> list[str]:
 
 
 def existing_scopes() -> list[str]:
-    """The scope folders already in use: from the DocStore table and the DocStore folder."""
-    scopes = {row["FullPath"].split("/", 1)[0] for row in db.list_docstore_rows() if "/" in row["FullPath"]}
-    root = docstore_dir()
-    if root.is_dir():
-        scopes |= {p.name for p in root.iterdir() if p.is_dir()}
-    return sorted(scopes)
+    """The scope folders already in use: the folders of the bundle (applications, Shared, general)."""
+    root = bundle_root()
+    return sorted(p.name for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")) if root.is_dir() else []
 
 
 def _staged(name: str, reason: str, chunks: list[DocChunk] | None = None, tags: list[ChunkTag] | None = None,
@@ -96,51 +96,50 @@ def _matching_folder(scope: str, existing: list[str]) -> str:
 
 def _lookup(name: str, hashcode: str) -> tuple[IngestOutcome | None, str | None, str]:
     """(outcome so far, target path, reason). Outcome SAME / STAGED end the file here; None means NEW."""
-    same_hash = db.find_docstore_rows(hashcode=hashcode)
-    named = [row for row in same_hash if row["FullPath"].rsplit("/", 1)[-1] == name]
+    sources = SourceStore()
+    same_hash = sources.find(hashcode=hashcode)
+    named = [record for record in same_hash if record.path.rsplit("/", 1)[-1] == name]
     if named:
-        row = named[0]
-        stored = docstore_dir() / row["FullPath"]
+        record = named[0]
+        stored = sources.original(record.path)
         if stored.is_file() and file_sha256(stored) == hashcode:
-            return IngestOutcome.SAME, row["FullPath"], "identical file already stored"
-        return IngestOutcome.REPAIRED, row["FullPath"], "stored row found but the file was missing or altered on disk"
+            return IngestOutcome.SAME, record.path, "identical file already stored"
+        return IngestOutcome.REPAIRED, record.path, "stored Source found but the original was missing or altered on disk"
     if same_hash:
-        paths = ", ".join(row["FullPath"] for row in same_hash)
+        paths = ", ".join(record.path for record in same_hash)
         return IngestOutcome.STAGED, None, f"same content already stored as {paths}: a duplicate under another name"
-    same_name = db.find_docstore_rows(file_name=name)
+    same_name = sources.find(file_name=name)
     if len(same_name) > 1:
-        paths = ", ".join(row["FullPath"] for row in same_name)
+        paths = ", ".join(record.path for record in same_name)
         return IngestOutcome.STAGED, None, f"a file with this name is stored in several scopes ({paths}): decide which one this replaces"
     if same_name:
-        return IngestOutcome.CHANGED, same_name[0]["FullPath"], f"new revision of {same_name[0]['FullPath']}"
+        return IngestOutcome.CHANGED, same_name[0].path, f"new revision of {same_name[0].path}"
     return None, None, ""
 
 
-def _changed_entities(before_chunks: list[dict], before_tags: list[dict], chunks: list[DocChunk], tags: list[ChunkTag]) -> list[str]:
+def _changed_entities(before: SourceRecord | None, chunks: list[DocChunk], tags: list[ChunkTag]) -> list[str]:
     """Entities to re-extract after a CHANGED file: tagged on a chunk whose text is new, or were tagged on a chunk that is gone."""
-    old_hashes = {row["TextHash"] for row in before_chunks}
+    if before is None:
+        return []
+    old_hashes = {chunk.text_hash for chunk in before.chunks}
     new_hashes = {chunk.text_hash for chunk in chunks}
     new_chunks = {chunk.chunk_no for chunk in chunks if chunk.text_hash not in old_hashes}
-    gone_chunks = {row["ChunkNo"] for row in before_chunks if row["TextHash"] not in new_hashes}
+    gone_chunks = {chunk.chunk_no for chunk in before.chunks if chunk.text_hash not in new_hashes}
     entities = {tag.entity for tag in tags if tag.chunk_no in new_chunks}
-    entities |= {row["Entity"] for row in before_tags if row["ChunkNo"] in gone_chunks}
+    entities |= {tag.entity for tag in before.tags if tag.chunk_no in gone_chunks}
     return sorted(entities)
 
 
-def _store(staged: Path, target: str, hashcode: str, timestamp: str, chunks: list[DocChunk], tags: list[ChunkTag]) -> tuple[str, int, list[dict]]:
-    """Move the staged file into place and commit its rows; undo the move if the database write fails."""
-    destination = resolve_within(docstore_dir(), target)
+def _store(staged: Path, target: str, hashcode: str, timestamp: str, chunks: list[DocChunk], tags: list[ChunkTag]) -> tuple[int, SourceRecord | None]:
+    """Move the staged file into place and write its Source; undo the move if the Source write fails."""
+    destination = resolve_within(bundle_root(), target)
     destination.parent.mkdir(parents=True, exist_ok=True)
     backup = destination.with_name(destination.name + ".replacing") if destination.exists() else None
     if backup is not None:
         os.replace(destination, backup)
     shutil.move(str(staged), str(destination))
     try:
-        result = db.commit_ingested(
-            target, hashcode, timestamp,
-            [(c.chunk_no, c.heading, c.page_from, c.page_to, c.text, c.text_hash) for c in chunks],
-            [(t.chunk_no, t.entity, t.origin, t.score, t.evidence) for t in tags],
-        )
+        result = SourceStore().write(target, hashcode, timestamp, chunks, tags)
     except Exception:
         shutil.move(str(destination), str(staged))
         if backup is not None:
@@ -160,9 +159,9 @@ def ingest_staged(name: str, clock: Callable[[], str] = _now, fallback=None) -> 
         return _staged(name, reason)
     if outcome == IngestOutcome.SAME:
         staged.unlink()
-        row = db.get_docstore_row(target)
-        return IngestReport(file_name=name, outcome=outcome, target_path=target, version=row["Version"], reason=reason,
-                            chunk_count=len(db.list_doc_chunks(target)))
+        record = SourceStore().read(target)
+        return IngestReport(file_name=name, outcome=outcome, target_path=target, version=record.version, reason=reason,
+                            chunk_count=len(record.chunks))
     try:
         chunks = chunk_file(staged)
     except Exception as error:  # unsupported type or a file the reader cannot parse: a human looks at it
@@ -195,14 +194,13 @@ def ingest_staged(name: str, clock: Callable[[], str] = _now, fallback=None) -> 
                 reason = f"{reason}; {fallback.origin}: {llm_reason}"
         if scope is None or not confident:
             return _staged(name, "; ".join([f"scope unsure ({reason})", *notes]), chunks, tags, unmapped)
-        target = f"{scope}/{name}"
-        problem = check_target(name, target)
+        problem = check_target(name, f"{scope}/{name}")
         if problem:
             return _staged(name, problem, chunks, tags, unmapped)
+        target = reference_path(scope, name)
         outcome = IngestOutcome.NEW
-    before_tags = db.list_doc_chunk_tags(target)
-    _, version, before_chunks = _store(staged, target, hashcode, clock(), chunks, tags)
-    changed = _changed_entities(before_chunks, before_tags, chunks, tags) if outcome == IngestOutcome.CHANGED else []
+    version, before = _store(staged, target, hashcode, clock(), chunks, tags)
+    changed = _changed_entities(before, chunks, tags) if outcome == IngestOutcome.CHANGED else []
     return IngestReport(file_name=name, outcome=outcome, target_path=target, version=version, chunk_count=len(chunks),
                         entity_summary=_summary(tags), unmapped_chunks=unmapped, changed_entities=changed,
                         reason="; ".join(part for part in [reason, *notes] if part))
