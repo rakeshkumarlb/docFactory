@@ -12,9 +12,8 @@ from the stored facts, saves it together with a hard-coded DocumentControl and R
 import json
 from pathlib import Path
 
-from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-from docfactory.entitysaver.kpis_saver import KpisSaver
 from seed.seed_document import store_document
+from docfactory.bundle.bundle_store import BundleStore
 from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,17 +49,17 @@ REVISION_HISTORY = {
 }
 
 
-def _seed(saver, key: str, sample_dir: str, names: tuple[str, ...]) -> None:
+def _seed(key: str, sample_dir: str, names: tuple[str, ...]) -> None:
     for name in names:
         payload = json.loads((ROOT / "samples" / "json" / sample_dir / name).read_text(encoding="utf-8"))
-        result = saver.save(key, payload, meta=SEED_META)
+        result = BundleStore().write_fact(key, payload, SEED_META)
         print(f"{name}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 
 
 def main() -> None:
-    _seed(ApplicationOverviewSaver(), f"{APP}.ApplicationOverview", "application_overview", OVERVIEW_SAMPLES)
-    _seed(KpisSaver(), "Shared.Kpis", "kpis", KPIS_SAMPLES)
+    _seed(f"{APP}.ApplicationOverview", "application_overview", OVERVIEW_SAMPLES)
+    _seed("Shared.Kpis", "kpis", KPIS_SAMPLES)
 
     store_document(APP, "Overview", DOCUMENT_CONTROL, REVISION_HISTORY)
 

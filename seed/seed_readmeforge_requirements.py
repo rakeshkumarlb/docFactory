@@ -11,25 +11,24 @@ no-op (UNCHANGED), so the script can be re-run.
 import json
 from pathlib import Path
 
-from docfactory.entitysaver.functional_requirements_saver import FunctionalRequirementsSaver
-from docfactory.entitysaver.non_functional_requirements_saver import NonFunctionalRequirementsSaver
+from docfactory.bundle.bundle_store import BundleStore
 from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = "ReadmeForge"
 
-# (saver, fact key, sample folder under samples/json/, sample file)
+# (fact key, sample folder under samples/json/, sample file)
 FACTS = (
-    (FunctionalRequirementsSaver, f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_minimal.json"),
-    (FunctionalRequirementsSaver, f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_full.json"),
-    (NonFunctionalRequirementsSaver, f"{APP}.NonFunctionalRequirements", "non_functional_requirements", "readmeforge_full.json"),
+    (f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_minimal.json"),
+    (f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_full.json"),
+    (f"{APP}.NonFunctionalRequirements", "non_functional_requirements", "readmeforge_full.json"),
 )
 
 
 def main() -> None:
-    for saver, key, folder, name in FACTS:
+    for key, folder, name in FACTS:
         payload = json.loads((ROOT / "samples" / "json" / folder / name).read_text(encoding="utf-8"))
-        result = saver().save(key, payload, meta=SEED_META)
+        result = BundleStore().write_fact(key, payload, SEED_META)
         print(f"{name}: {key} {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 

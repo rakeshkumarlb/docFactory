@@ -14,28 +14,22 @@ output/ReadmeForge/<SRS|SOP>.md with the list of DocumentGap items (the gaps) in
 import json
 from pathlib import Path
 
-from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-from docfactory.entitysaver.functional_requirements_saver import FunctionalRequirementsSaver
-from docfactory.entitysaver.monitoring_saver import MonitoringSaver
-from docfactory.entitysaver.non_functional_requirements_saver import NonFunctionalRequirementsSaver
-from docfactory.entitysaver.slo_saver import SloSaver
-from docfactory.entitysaver.sop_saver import SopSaver
-from docfactory.entitysaver.support_saver import SupportSaver
 from seed.seed_document import store_document
+from docfactory.bundle.bundle_store import BundleStore
 from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = "ReadmeForge"
 
-# (saver, fact key, sample folder under samples/json/, sample file)
+# (fact key, sample folder under samples/json/, sample file)
 FACTS = (
-    (ApplicationOverviewSaver, f"{APP}.ApplicationOverview", "application_overview", "readmeforge_full.json"),
-    (FunctionalRequirementsSaver, f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_full.json"),
-    (NonFunctionalRequirementsSaver, f"{APP}.NonFunctionalRequirements", "non_functional_requirements", "readmeforge_full.json"),
-    (SloSaver, "Shared.Slo", "slo", "shared_platform_slo_full.json"),
-    (MonitoringSaver, f"{APP}.Monitoring", "monitoring", "readmeforge_datadog.json"),
-    (SupportSaver, f"{APP}.Support", "support", "readmeforge_full.json"),
-    (SopSaver, f"{APP}.Sop", "sop", "readmeforge_datadog_runbooks.json"),
+    (f"{APP}.ApplicationOverview", "application_overview", "readmeforge_full.json"),
+    (f"{APP}.FunctionalRequirements", "functional_requirements", "readmeforge_full.json"),
+    (f"{APP}.NonFunctionalRequirements", "non_functional_requirements", "readmeforge_full.json"),
+    ("Shared.Slo", "slo", "shared_platform_slo_full.json"),
+    (f"{APP}.Monitoring", "monitoring", "readmeforge_datadog.json"),
+    (f"{APP}.Support", "support", "readmeforge_full.json"),
+    (f"{APP}.Sop", "sop", "readmeforge_datadog_runbooks.json"),
 )
 
 # (doc type, document model, body saver, DocumentControl, RevisionHistory)
@@ -72,9 +66,9 @@ DOCUMENTS = (
 
 
 def main() -> None:
-    for saver, key, folder, name in FACTS:
+    for key, folder, name in FACTS:
         payload = json.loads((ROOT / "samples" / "json" / folder / name).read_text(encoding="utf-8"))
-        result = saver().save(key, payload, meta=SEED_META)
+        result = BundleStore().write_fact(key, payload, SEED_META)
         print(f"{key}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 

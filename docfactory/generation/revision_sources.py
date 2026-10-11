@@ -1,8 +1,8 @@
 """What the revision history of a document needs: the sections that changed and the facts each one comes from."""
 import json
 
-from docfactory import db
 from docfactory.build import fact_key
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.documentmodels.document_body import DocumentBody
 from docfactory.models.document_template import DocumentTemplate
 
@@ -19,11 +19,12 @@ def changed_section_ids(old_body_json: str | None, new_body: DocumentBody) -> li
 def template_sources(template: DocumentTemplate, app_id: str) -> dict[str, list[str]]:
     """Per section id, the facts it is built from as '<key> v<version>', or '<key> (not available)', in template order."""
     sources: dict[str, list[str]] = {}
+    store = BundleStore()
     for section in template.sections:
         for field in section.fields:
             key = fact_key(app_id, field.binding.partition(".")[0])
-            row = db.get_row("KnowledgeFacts", key)
-            text = f"{key} v{row['Version']}" if row else f"{key} (not available)"
+            record = store.read_fact(key)
+            text = f"{key} v{record.version}" if record else f"{key} (not available)"
             if text not in sources.setdefault(section.id, []):
                 sources[section.id].append(text)
     return sources

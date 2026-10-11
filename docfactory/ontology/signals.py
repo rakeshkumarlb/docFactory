@@ -4,15 +4,15 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from docfactory.bundle.fact_registry import entity_names as registry_entity_names
 from docfactory.models.entity_signals import EntitySignals
-from docfactory.saver_resolution import entity_saver_classes
 
 SIGNALS_FILE = Path(__file__).with_name("signals.json")
 
 
 def entity_names() -> list[str]:
-    """The closed list of entities a chunk can be tagged with: the models of the entity savers, in saver order."""
-    return [cls.model.__name__ for cls in entity_saver_classes()]
+    """The closed list of entities a chunk can be tagged with: the facts of the fact registry, ordered by name."""
+    return registry_entity_names()
 
 
 def load_signals(path: Path = SIGNALS_FILE) -> list[EntitySignals]:

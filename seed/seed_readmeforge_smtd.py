@@ -14,36 +14,26 @@ three rows to output/ReadmeForge/SMTD.md, with the list of DocumentGap items (th
 import json
 from pathlib import Path
 
-from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-from docfactory.entitysaver.architecture_saver import ArchitectureSaver
-from docfactory.entitysaver.backup_recovery_saver import BackupRecoverySaver
-from docfactory.entitysaver.deployment_saver import DeploymentSaver
-from docfactory.entitysaver.environments_saver import EnvironmentsSaver
-from docfactory.entitysaver.known_errors_saver import KnownErrorsSaver
-from docfactory.entitysaver.kpis_saver import KpisSaver
-from docfactory.entitysaver.monitoring_saver import MonitoringSaver
-from docfactory.entitysaver.slo_saver import SloSaver
-from docfactory.entitysaver.sop_saver import SopSaver
-from docfactory.entitysaver.support_saver import SupportSaver
 from seed.seed_document import store_document
+from docfactory.bundle.bundle_store import BundleStore
 from seed.seed_meta import SEED_META
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = "ReadmeForge"
 
-# (saver, fact key, sample folder under samples/json/, sample file)
+# (fact key, sample folder under samples/json/, sample file)
 FACTS = (
-    (ApplicationOverviewSaver, f"{APP}.ApplicationOverview", "application_overview", "readmeforge_full.json"),
-    (ArchitectureSaver, f"{APP}.Architecture", "architecture", "readmeforge_full.json"),
-    (EnvironmentsSaver, f"{APP}.Environments", "environments", "readmeforge_full.json"),
-    (DeploymentSaver, f"{APP}.Deployment", "deployment", "readmeforge_full.json"),
-    (MonitoringSaver, f"{APP}.Monitoring", "monitoring", "readmeforge_datadog.json"),
-    (BackupRecoverySaver, f"{APP}.BackupRecovery", "backup_recovery", "readmeforge_full.json"),
-    (SupportSaver, f"{APP}.Support", "support", "readmeforge_full.json"),
-    (KnownErrorsSaver, f"{APP}.KnownErrors", "known_errors", "readmeforge_full.json"),
-    (SopSaver, f"{APP}.Sop", "sop", "readmeforge_datadog_runbooks.json"),
-    (KpisSaver, "Shared.Kpis", "kpis", "shared_devex_kpis_full.json"),
-    (SloSaver, "Shared.Slo", "slo", "shared_platform_slo_full.json"),
+    (f"{APP}.ApplicationOverview", "application_overview", "readmeforge_full.json"),
+    (f"{APP}.Architecture", "architecture", "readmeforge_full.json"),
+    (f"{APP}.Environments", "environments", "readmeforge_full.json"),
+    (f"{APP}.Deployment", "deployment", "readmeforge_full.json"),
+    (f"{APP}.Monitoring", "monitoring", "readmeforge_datadog.json"),
+    (f"{APP}.BackupRecovery", "backup_recovery", "readmeforge_full.json"),
+    (f"{APP}.Support", "support", "readmeforge_full.json"),
+    (f"{APP}.KnownErrors", "known_errors", "readmeforge_full.json"),
+    (f"{APP}.Sop", "sop", "readmeforge_datadog_runbooks.json"),
+    ("Shared.Kpis", "kpis", "shared_devex_kpis_full.json"),
+    ("Shared.Slo", "slo", "shared_platform_slo_full.json"),
 )
 
 DOCUMENT_CONTROL = {
@@ -69,9 +59,9 @@ REVISION_HISTORY = {
 
 
 def main() -> None:
-    for saver, key, folder, name in FACTS:
+    for key, folder, name in FACTS:
         payload = json.loads((ROOT / "samples" / "json" / folder / name).read_text(encoding="utf-8"))
-        result = saver().save(key, payload, meta=SEED_META)
+        result = BundleStore().write_fact(key, payload, SEED_META)
         print(f"{key}: {result.action} version={result.version} completeness={result.completeness}")
         assert result.ok, result.errors
 
