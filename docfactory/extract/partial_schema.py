@@ -10,7 +10,7 @@ from functools import cache
 
 from pydantic import BaseModel, ValidationError, create_model
 
-from docfactory.base_saver import validation_errors
+from docfactory.validation_errors import validation_errors
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.models.save_error import SaveError
 
