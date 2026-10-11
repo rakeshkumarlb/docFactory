@@ -1,13 +1,13 @@
-"""Extract the knowledge in one DocStore file into facts (Phase 3). Code orchestrates; the LLM only fills partial objects per batch.
+"""Extract the knowledge in one ingested original into facts (Phase 3). Code orchestrates; the LLM only fills partial objects per batch.
 
-Per entity tagged in the file (`DocChunkTags`):
+Per entity tagged in the file (the tags of its Source concept; the chunks are re-derived from the original):
 1. fact key from the file's scope (`fact_keys`); none = SKIPPED_SCOPE;
 2. the entity's chunks unchanged since this file's stored contribution = SKIPPED_UNCHANGED_CHUNKS, no LLM call;
 3. the chunks in batches, one fresh single-tool call per batch (`EntityExtractor`), the batch answers merged in chunk order; a failed
    batch of several chunks is split in half and retried (an answer too long for one reply is the usual cause);
-4. the result stored as this file's contribution (`FactContributions`), replacing its earlier one;
-5. all contributions of the fact merged (newest DocStore file first, '(existing)' last) and saved through the entity saver,
-   which writes KnowledgeFacts (JSON value and OKF metadata columns) and its history.
+4. the result stored as this file's contribution (a contribution concept beside its Source), replacing its earlier one;
+5. all contributions of the fact merged (newest ingested file first, '(existing)' last) and saved through BundleStore,
+   which writes the fact's OKF concept file (frontmatter, JSON value, open questions) and the bundle's log and index.
 Before merging, an empty requirement priority is filled from the requirement's own keyword (SHALL -> MUST, ...; `priority_keywords`).
 An entity no longer tagged in the file loses this file's contribution and its fact is re-merged (REMOVED). A batch that fails is
 reported; when any batch failed the contribution keeps no chunks hash, so the next run tries again.
@@ -15,15 +15,20 @@ reported; when any batch failed the contribution keeps no chunks hash, so the ne
 import json
 import re
 
-from docfactory import clock, contributions, db, facts
+from docfactory import clock
 from docfactory.agents.entity_extractor import EntityExtractor
-from docfactory.base_saver import BaseSaver
+from docfactory.bundle.bundle_store import BundleStore
+from docfactory.bundle.contribution_store import ContributionStore
+from docfactory.bundle.fact_registry import FACT_SPECS
+from docfactory.bundle.paths import EXISTING_RESOURCE
+from docfactory.bundle.source_store import SourceStore
 from docfactory.extract.batching import batch_chunks, batch_text, chunks_hash
 from docfactory.extract.fact_keys import fact_key
 from docfactory.extract.grounding import ungrounded_values
 from docfactory.extract.merge import merge_partials
 from docfactory.extract.missing_questions import missing_questions
 from docfactory.extract.priority_keywords import fill_priorities
+from docfactory.ingest.source_reads import read_chunks
 from docfactory.extract.model_shapes import item_model
 from docfactory.models.doc_chunk import DocChunk
 from docfactory.models.entity_extraction_report import EntityExtractionReport
@@ -32,18 +37,17 @@ from docfactory.models.fact_meta import FactMeta
 from docfactory.models.fact_source import FactSource
 from docfactory.models.save_action import SaveAction
 from docfactory.okf_frontmatter import type_name
-from docfactory.saver_resolution import entity_saver_for
 
 UNSPECIFIED_ACTOR = "docfactory/unspecified"
 
 
 def _chunks_by_entity(path: str) -> dict[str, list[DocChunk]]:
-    rows = {row["ChunkNo"]: row for row in db.list_doc_chunks(path)}
+    """The chunks of the stored original `path` (re-derived from the file) grouped by the entity they are tagged with, entities by name."""
+    record, chunks = read_chunks(path)
+    by_number = {chunk.chunk_no: chunk for chunk in chunks}
     by_entity: dict[str, list[DocChunk]] = {}
-    for tag in db.list_doc_chunk_tags(path):
-        row = rows[tag["ChunkNo"]]
-        by_entity.setdefault(tag["Entity"], []).append(DocChunk(chunk_no=row["ChunkNo"], heading=row["Heading"], page_from=row["PageFrom"],
-                                                                page_to=row["PageTo"], text=row["Text"], text_hash=row["TextHash"]))
+    for tag in record.tags:
+        by_entity.setdefault(tag.entity, []).append(by_number[tag.chunk_no])
     return dict(sorted(by_entity.items()))
 
 
@@ -53,34 +57,34 @@ def _kebab(name: str) -> str:
 
 def _keep_existing(key: str) -> None:
     """A fact stored before any extraction (e.g. seed data) becomes the lowest-precedence contribution, so merging never drops it."""
-    fact = facts.get_fact(key)
-    if fact is None or contributions.list_contributions(key):
+    fact = BundleStore().read_fact(key)
+    store = ContributionStore()
+    if fact is None or store.list(key):
         return
-    contributions.save_contribution(key, contributions.EXISTING, json.loads(fact.value), None, None,
-                                    fact.generated_by or UNSPECIFIED_ACTOR, fact.generated_at or clock.now_iso())
+    store.save(key, EXISTING_RESOURCE, json.loads(fact.value), None, None, fact.generated_by or UNSPECIFIED_ACTOR, fact.generated_at or clock.now_iso())
 
 
 def _ordered(key: str) -> list[tuple[str, dict, str | None, str | None]]:
-    """(resource, value, description, DocStore timestamp) of every contribution of `key`, newest DocStore file first, '(existing)' last."""
+    """(resource, value, description, Source timestamp) of every contribution of `key`, newest ingested file first, '(existing)' last."""
     rows = []
-    for contribution in contributions.list_contributions(key):
-        stored = None if contribution.resource == contributions.EXISTING else db.get_docstore_row(contribution.resource)
+    sources = SourceStore()
+    for contribution in ContributionStore().list(key):
+        stored = None if contribution.resource == EXISTING_RESOURCE else sources.read(contribution.resource)
         rows.append((contribution.resource, json.loads(contribution.value_json), contribution.description,
-                     stored["Timestamp"] if stored else None, contribution.timestamp))
+                     stored.timestamp if stored else None, contribution.timestamp))
     rows.sort(key=lambda r: r[0])  # stable sorts: the last one is the primary order
-    rows.sort(key=lambda r: r[3] or r[4], reverse=True)  # newest DocStore file first (contribution time when the file is gone)
-    rows.sort(key=lambda r: r[0] == contributions.EXISTING)
+    rows.sort(key=lambda r: r[3] or r[4], reverse=True)  # newest ingested file first (contribution time when the Source is gone)
+    rows.sort(key=lambda r: r[0] == EXISTING_RESOURCE)
     return [(resource, value, description, stamp) for resource, value, description, stamp, _ in rows]
 
 
-def _merge_and_save(key: str, saver_class: type[BaseSaver], actor: str, report: dict) -> None:
+def _merge_and_save(key: str, model: type, actor: str, report: dict) -> None:
     """Merge every contribution of `key`, save the result and record what happened in `report` (fields of the report)."""
     ordered = _ordered(key)
     report["contributions"] = len(ordered)
     if not ordered:
         report["reason"] = "no file contributes to this fact any more; the stored fact is left as it was"
         return
-    model = saver_class.model
     merged, conflicts = merge_partials(model, [(resource, value) for resource, value, _, _ in ordered])
     scope = key.split(".")[0]
     meta = FactMeta(
@@ -90,7 +94,7 @@ def _merge_and_save(key: str, saver_class: type[BaseSaver], actor: str, report: 
         tags=[_kebab(model.__name__), "extracted"],
         sources=[FactSource(resource=resource, last_modified=stamp) for resource, _, _, stamp in ordered if stamp],
     )
-    result = saver_class().save(key, merged, meta=meta)
+    result = BundleStore().write_fact(key, merged, meta)
     report["conflicts"] += conflicts
     report["missing_questions"] = missing_questions(model, merged)
     report["items"] = sum(len(v) for n, v in merged.items() if isinstance(v, list) and item_model(model.model_fields[n].annotation))
@@ -107,12 +111,11 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
     if key is None:
         return EntityExtractionReport(outcome=ExtractionOutcome.SKIPPED_SCOPE, reason=why, **report)
     report["key"] = key
-    saver_class = entity_saver_for(entity)
-    model = saver_class.model
+    model = FACT_SPECS[entity]["model"]
     current_hash = chunks_hash(chunks)
-    stored = contributions.get_contribution(key, path)
+    stored = ContributionStore().get(key, path)
     if stored is not None and stored.chunks_hash == current_hash and not force:
-        return EntityExtractionReport(outcome=ExtractionOutcome.SKIPPED_UNCHANGED_CHUNKS, contributions=len(contributions.list_contributions(key)),
+        return EntityExtractionReport(outcome=ExtractionOutcome.SKIPPED_UNCHANGED_CHUNKS, contributions=len(ContributionStore().list(key)),
                                       reason="the entity's chunks are unchanged since the last extraction", **report)
     pending = batch_chunks(chunks)
     answers, summaries, calls, failed = [], [], 0, 0
@@ -142,10 +145,10 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
     report["conflicts"] += batch_conflicts
     _keep_existing(key)
     complete = not report["failed_batches"]  # a partial result is stored but retried next run
-    contributions.save_contribution(key, path, file_value, current_hash if complete else None, next((s for s in summaries if s), None),
-                                    extractor.actor, clock.now_iso())
+    ContributionStore().save(key, path, file_value, current_hash if complete else None, next((s for s in summaries if s), None),
+                             extractor.actor, clock.now_iso())
     report["outcome"] = ExtractionOutcome.SAVED
-    _merge_and_save(key, saver_class, extractor.actor, report)
+    _merge_and_save(key, model, extractor.actor, report)
     if report["outcome"] == ExtractionOutcome.SAVED and report.get("action") == SaveAction.UNCHANGED:
         report["outcome"] = ExtractionOutcome.UNCHANGED
     return EntityExtractionReport(**report)
@@ -153,29 +156,29 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
 
 def _remove_entity(path: str, key: str, actor: str) -> EntityExtractionReport:
     entity = key.rsplit(".", 1)[-1]
-    contributions.remove_contribution(key, path)
+    ContributionStore().remove(key, path)
     report = {"entity": entity, "key": key, "outcome": ExtractionOutcome.REMOVED, "conflicts": [],
               "reason": "the entity is no longer tagged in this file; its contribution was removed and the fact re-merged"}
-    _merge_and_save(key, entity_saver_for(entity), actor, report)
+    _merge_and_save(key, FACT_SPECS[entity]["model"], actor, report)
     return EntityExtractionReport(**report)
 
 
 def extract_file(path: str, extractor: EntityExtractor, entities: list[str] | None = None, force: bool = False) -> list[EntityExtractionReport]:
-    """Extract the entities tagged in the DocStore file `path` (all, or only `entities`) and return one report per entity.
+    """Extract the entities tagged in the ingested original `path` (its bundle path) (all, or only `entities`) and return one report per entity.
 
-    `force` re-extracts entities whose chunks are unchanged. Raises FileNotFoundError for a file not in DocStore, ValueError for an
+    `force` re-extracts entities whose chunks are unchanged. Raises FileNotFoundError for an original with no Source, ValueError for an
     unknown entity name.
     """
     path = path.replace("\\", "/").strip("/")
-    if db.get_docstore_row(path) is None:
-        raise FileNotFoundError(f"no such file in DocStore: {path}")
+    if SourceStore().read(path) is None:
+        raise FileNotFoundError(f"no such file in the bundle: {path}")
     for name in entities or []:
-        if entity_saver_for(name) is None:
+        if name not in FACT_SPECS:
             raise ValueError(f"unknown entity {name!r}")
     tagged = _chunks_by_entity(path)
     wanted = set(entities) if entities else None
     reports = [_extract_entity(path, entity, chunks, extractor, force) for entity, chunks in tagged.items() if wanted is None or entity in wanted]
-    for contribution in contributions.list_contributions(resource=path):
+    for contribution in ContributionStore().list(resource=path):
         entity = contribution.fact_key.rsplit(".", 1)[-1]
         if entity not in tagged and (wanted is None or entity in wanted):
             reports.append(_remove_entity(path, contribution.fact_key, extractor.actor))

@@ -16,7 +16,7 @@ from docfactory.extract.partial_schema import is_empty
 
 SHOWN_CHARS = 80
 
-Source = tuple[str, dict]  # (label of the source, e.g. a DocStore path or 'chunk 17', its partial value)
+Source = tuple[str, dict]  # (label of the source, e.g. a bundle path or 'chunk 17', its partial value)
 
 
 def _shown(value) -> str:

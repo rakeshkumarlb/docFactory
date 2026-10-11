@@ -3,7 +3,7 @@ from docfactory.models.doc_field import doc_field
 
 
 class FactContribution(DocFactoryModel):
-    """One row of the FactContributions table: what one DocStore file contributed to one knowledge fact. A fact is the deterministic merge of all its contributions, so re-extracting a changed file replaces only that file's contribution. Infrastructure; holds no application knowledge itself."""
+    """What one ingested original contributed to one knowledge fact (a contribution concept file in the bundle). A fact is the deterministic merge of all its contributions, so re-extracting a changed file replaces only that file's contribution. Infrastructure; holds no application knowledge itself."""
 
     fact_key: str = doc_field(
         description="The fact key this contribution belongs to, e.g. AI-Driven-Job-Matching-Platform.FunctionalRequirements.",
@@ -11,8 +11,8 @@ class FactContribution(DocFactoryModel):
         min_length=1,
     )
     resource: str = doc_field(
-        description="DocStore path of the file that contributed, e.g. AI-Driven-Job-Matching-Platform/Annex-A SRS.pdf, or (existing) for a fact value stored before any extraction (e.g. seed data), kept as the lowest-precedence contribution.",
-        question="Which DocStore file made this contribution?",
+        description="Bundle path of the original that contributed, e.g. AI-Driven-Job-Matching-Platform/references/Annex-A SRS.pdf, or (existing) for a fact value stored before any extraction (e.g. seed data), kept as the lowest-precedence contribution.",
+        question="Which ingested original made this contribution?",
         min_length=1,
     )
     value_json: str = doc_field(
