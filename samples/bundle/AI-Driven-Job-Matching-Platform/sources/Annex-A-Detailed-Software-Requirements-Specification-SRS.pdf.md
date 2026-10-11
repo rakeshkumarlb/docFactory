@@ -1,0 +1,170 @@
+---
+type: "Source"
+title: "Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf"
+resource: "AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf"
+generated: { by: "docfactory/ingestion", at: "2026-10-10T12:10:17+00:00" }
+hashcode: "ff010beb2acd119c18ca5b9a1f7eaa9bf2e5c2f3cec4d14fc418963bae048ebe"
+version: 1
+chunks:
+  - { chunk: 1, hash: "80b21ce57e918757568bbf04936440b7a196fc294082e61663913239e0e4a468", heading: "Front matter" }
+  - { chunk: 2, hash: "b229dc2fc9c962952c4308d0867258ca7dbb4ad865d98c854a67334318f735d0", heading: "1. Introduction > 1.1. Purpose" }
+  - { chunk: 3, hash: "1c42c3755166e9be931d5975d672f3bb8c736602ade3426234a4652aef9b76b7", heading: "1. Introduction > 1.2. Document Conventions" }
+  - { chunk: 4, hash: "4c656d0333e34d66ca16c9d100b0da7056095301b0b4769931420fc0655b930a", heading: "1. Introduction > 1.3. Intended Audience" }
+  - { chunk: 5, hash: "4458c78295800b65ed359ee468ceb6ba26ad96b27a87cd8d2b76f2fd6902898e", heading: "1. Introduction > 1.4. Project Scope" }
+  - { chunk: 6, hash: "782ba9902607700b3365a857ebff943f15abe183195efe50c1ff07c59c714b55", heading: "1. Introduction > 1.5. References" }
+  - { chunk: 7, hash: "6c9e2f3b3be579ecf703ec36bc5a945cc8b8f5172fddf4085538c7119730a959", heading: "2. Overall Description > 2.1. Product Perspective" }
+  - { chunk: 8, hash: "2f286c0320c63ece0b2effc923515c83480b2e7d44942a3d9163577f9e941494", heading: "2. Overall Description > 2.2. Product Functions" }
+  - { chunk: 9, hash: "47400707b4668e323e82909b4e68356f3e4152f295cfc6dc6ab6a791dedcd007", heading: "2. Overall Description > 2.3. User Classes, Characteristics, and Nees" }
+  - { chunk: 10, hash: "b5a9472d394d2df53470e04220a2788151c781bcd0eb318e4c1078daa9af516f", heading: "2. Overall Description > 2.4. Operating Environment" }
+  - { chunk: 11, hash: "8cb3d5d5cf11142ae332442e2b9a5113ce1dcaa0b9b9123c2d48fc197951f511", heading: "2. Overall Description > 2.5. Design and Implementation Constraints" }
+  - { chunk: 12, hash: "5bf0071786aae5e71f14ac8d96e271fa2fb41276a5c8691af03e0d8847d75b7c", heading: "2. Overall Description > 2.6. User Documentation" }
+  - { chunk: 13, hash: "f6999227b60c90e0c36265ab9ee87b2cf19174783d5f9433b771a8a51a74e4ad", heading: "2. Overall Description > 2.7. Assumptions and Dependencies" }
+  - { chunk: 14, hash: "33564c3ff5c50e5a1b861b7cc37e9239a70772480fe00406d73bac6f8bbec820", heading: "3. System Features and Functional Requirements" }
+  - { chunk: 15, hash: "d2c64ba4c955e647a0c1bfa7ab83b7615af5f7e3d55bb25b65e0da148a75d9ec", heading: "3. System Features and Functional Requirements > 3.1. User Management and Authentication > 3.1.1. Job Seeker Registration and Profile Management" }
+  - { chunk: 16, hash: "93e100d229159ba46cf5d3ab7795afcdd4b859d2f95f64baf42a01954516df98", heading: "3. System Features and Functional Requirements > 3.1. User Management and Authentication > 3.1.2. Employer Registration and Profile Management" }
+  - { chunk: 17, hash: "c30eb1537ad6ba03c7011d0390a5be07129ce9188103e5d38243de82cdca6a0b", heading: "3. System Features and Functional Requirements > 3.1. User Management and Authentication > 3.1.3. Third-Party Job Portals Registration and Integration (i.e. jobs.ps)" }
+  - { chunk: 18, hash: "002282622395b65294a920cfc194b3cf399d030c61d164d25e607c1725ecfce6", heading: "3. System Features and Functional Requirements > 3.1. User Management and Authentication > 3.1.4. Administrator User Management" }
+  - { chunk: 19, hash: "f192ab031a993a1813b246ecf8a8ba3622afea843a120a0cb01884334f79815b", heading: "3. System Features and Functional Requirements > 3.1. User Management and Authentication > 3.1.5. Authentication and Authorization" }
+  - { chunk: 20, hash: "315aa5fa874a7a02cbc762e202df9aa3539ecd51bfe0ea0bea9122dce3ebb687", heading: "3. System Features and Functional Requirements > 3.2. Job Posting and Management > 3.2.1. Job Creation and Publishing" }
+  - { chunk: 21, hash: "6017394c47d394f493f40f85af9998535cfbb623f48db900b9dd9b007fb85569", heading: "3. System Features and Functional Requirements > 3.2. Job Posting and Management > 3.2.2. Job Search and Filtering" }
+  - { chunk: 22, hash: "b1ed28d49bbf97f91eefaf585805e16f079a4d6bd0156057a7f1396ed3117720", heading: "3. System Features and Functional Requirements > 3.2. Job Posting and Management > 3.2.3. Job Interaction Process" }
+  - { chunk: 23, hash: "62929759d1f2384d971545d9682fa324b36879f9d259a60b64e1f97d0a5ca77e", heading: "3. System Features and Functional Requirements > 3.2. Job Posting and Management > 3.2.4. Job Status Tracking" }
+  - { chunk: 24, hash: "044207f5fe49af554f47d7f8a1bd2e7bee0a998a8fecec36337345968d75ec39", heading: "3. System Features and Functional Requirements > 3.3. AI-Driven Matching System > 3.3.1. A Vector-Based (Skills-Based and Behavior) Matching Algorithms" }
+  - { chunk: 25, hash: "8e276986442474e456d01c5ef052124ad2e1c59f8d88c3ae11c5a28c485e895d", heading: "3. System Features and Functional Requirements > 3.3. AI-Driven Matching System > 3.3.2. Job Recommendation Engine" }
+  - { chunk: 26, hash: "dad22f416b3d147ef1d0448e5318585fa8fb62ca212ccacd4ea86f956079dc24", heading: "3. System Features and Functional Requirements > 3.3. AI-Driven Matching System > 3.3.3. Candidate Recommendation for Employers" }
+  - { chunk: 27, hash: "eb8619551d55e01c4be315951d8858d8765470d707d1b0668478702d3ad4f299", heading: "3. System Features and Functional Requirements > 3.4. Integration with External Systems > 3.4.1. External Job Site Integration" }
+  - { chunk: 28, hash: "c2c348bd1c37e71eba4ef1746962de14b67ce347c7c13e84e7315d38a99247cd", heading: "3. System Features and Functional Requirements > 3.4. Integration with External Systems > 3.4.2. Government Database Integration" }
+  - { chunk: 29, hash: "53628fbc476dccc010f5378e7470f99f562eaefbb16dc8e1aacf7c30c87cbd2f", heading: "3. System Features and Functional Requirements > 3.4. Integration with External Systems > 3.4.3. API Framework" }
+  - { chunk: 30, hash: "779278e3ef54fa49a3807ca0dc9d1e578aae36c04489c2de4b1b09f12336143e", heading: "3. System Features and Functional Requirements > 3.5. Reporting and Analytics > 3.5.1. User Activity Monitoring" }
+  - { chunk: 31, hash: "0f66af562b355d9bceded7846595cc7ca23f6e7be0d28911b03fff35e3af61e0", heading: "3. System Features and Functional Requirements > 3.5. Reporting and Analytics > 3.5.2. Employment Statistics" }
+  - { chunk: 32, hash: "0e9de50db6dce5aedccfbd04f6d9b83825ad516fab6fdd9017023d3806aa4b4a", heading: "3. System Features and Functional Requirements > 3.5. Reporting and Analytics > 3.5.3. System Performance Metrics" }
+  - { chunk: 33, hash: "5c7074149f9446c5786b3343ec421956feffc2c4a926d8bb8d12ab0e124671e4", heading: "3. System Features and Functional Requirements > 3.5. Reporting and Analytics > 3.5.4. Custom Report Generation" }
+  - { chunk: 34, hash: "a24e9c8a8eefc59c1ba29a14a99cabe04f006a310d1bee9c2e56c0ae7df10ca3", heading: "3. System Features and Functional Requirements > 3.6. Notification System > 3.6.1. Email Notifications" }
+  - { chunk: 35, hash: "996d9d8a2ff3df621ea31d944f0c5dbcb406d757e4500ca062ca19cd6b89c032", heading: "3. System Features and Functional Requirements > 3.6. Notification System > 3.6.2. In-App Notifications" }
+  - { chunk: 36, hash: "22afd0262cffaad4331832b95c4b870fb11dac050a35fccb0868fef9906d96bd", heading: "3. System Features and Functional Requirements > 3.6. Notification System > 3.6.3. SMS Notifications" }
+  - { chunk: 37, hash: "491a40a95248e187bd9b31e16729bd19cad4083d20f8fa88c5ab1732870d5e6b", heading: "3. System Features and Functional Requirements > 3.7. Content Management > 3.7.1. News and Updates" }
+  - { chunk: 38, hash: "2fcf546882151e60b1403eb4291c038aa3495cc8e8305d2656755a8e2734bbcd", heading: "3. System Features and Functional Requirements > 3.7. Content Management > 3.7.2. FAQ and Help Center" }
+  - { chunk: 39, hash: "c67cb3a41405aeb8d2c50410af9cd96b9edc516a86af46e865a2399cb92b3895", heading: "4. External Interface Requirements > 4.1. User Interfaces" }
+  - { chunk: 40, hash: "4859b7c9e0c0ef5609daadf5444dd64a127767f66b65154d92529c837f4b0f43", heading: "4. External Interface Requirements > 4.2. Hardware Interfaces" }
+  - { chunk: 41, hash: "b6983a904123b42bd69b862eb005a2e4dcc63b09d6aead73fe47d051ba555d5e", heading: "4. External Interface Requirements > 4.3. Software Interfaces" }
+  - { chunk: 42, hash: "fa007817198f3a1d703ee44fd5ac3cff507d64e61c7e4c0ef269589d8bb450c4", heading: "4. External Interface Requirements > 4.4. Communications Interfaces" }
+  - { chunk: 43, hash: "058d69c2c5c7bccabc518af68d095e3d688bfe71cac912ddec09a957a569ff07", heading: "5. Non-Functional Requirements" }
+  - { chunk: 44, hash: "0fb60dabec43746a6e7f1353f9516473a7ca76b2e4d64f026bd111d575a84a38", heading: "5. Non-Functional Requirements > 5.1. Performance Requirements > 5.1.1. Response Time" }
+  - { chunk: 45, hash: "84234440ca48b19ac6f69e53bc05394d13e3ca5ce21e7117ffabdb1fd5e1e874", heading: "5. Non-Functional Requirements > 5.1. Performance Requirements > 5.1.2. Throughput" }
+  - { chunk: 46, hash: "75e3d2b9c1e802809831bccfcfc3e4bd8cf269893dafb93cd9e3081aec3cf269", heading: "5. Non-Functional Requirements > 5.1. Performance Requirements > 5.1.3. Resource Utilization" }
+  - { chunk: 47, hash: "be187d5fd36b2f2a8c9fb7fb48daec96831438b774d1640c59dc426653acaf49", heading: "5. Non-Functional Requirements > 5.1. Performance Requirements > 5.1.4. Scalability" }
+  - { chunk: 48, hash: "7a73074a553fe1b837568e75704335b2a348ab1156fb5ecac9880373dfd5849a", heading: "5. Non-Functional Requirements > 5.2. Security Requirements > 5.2.1. Authentication and Authorization" }
+  - { chunk: 49, hash: "4141e2aef59aff55c783ee3b31f1e99bbbef1a6e952c4a303edbf5c01c9a00d6", heading: "5. Non-Functional Requirements > 5.2. Security Requirements > 5.2.2. Data Protection" }
+  - { chunk: 50, hash: "da9647cb2f7adb974f88977a79d5abeb0ae9408bb7e6bbc185062b6466cdbc2b", heading: "5. Non-Functional Requirements > 5.2. Security Requirements > 5.2.3. Privacy and Compliance" }
+  - { chunk: 51, hash: "c928d010546bb54e052cb77a5595a36702e891f8024e4f0125eaa4ebc96562b7", heading: "5. Non-Functional Requirements > 5.2. Security Requirements > 5.2.4. Security Monitoring and Incident Response" }
+  - { chunk: 52, hash: "5e2d747ef9975d7b29d12775525e106b0e61160473d5a8bb4d23051ca9bb34ce", heading: "5. Non-Functional Requirements > 5.3. Reliability and Availability > 5.3.1. Availability" }
+  - { chunk: 53, hash: "8d9ff1544053c5f428d513c415c3813acfb8653cfdeea0f82956f18709a5c674", heading: "5. Non-Functional Requirements > 5.3. Reliability and Availability > 5.3.2. Fault Tolerance" }
+  - { chunk: 54, hash: "f90229373f99e003dc92731d3e7296243098db4ea871f7b1d5e2079d28f26788", heading: "5. Non-Functional Requirements > 5.3. Reliability and Availability > 5.3.3. Disaster Recovery" }
+  - { chunk: 55, hash: "0d9805055f0625a04af0b34ceb002f419ba963faac9595922a6f718b4215da61", heading: "5. Non-Functional Requirements > 5.3. Reliability and Availability > 5.3.4. Error Handling" }
+  - { chunk: 56, hash: "841e389a70784f0fa8ce348a9ac2067942d112adbc6be121f4fe3ebdbfebc473", heading: "5. Non-Functional Requirements > 5.4. Usability and Accessibility > 5.4.1. User Interface" }
+  - { chunk: 57, hash: "910d0a36c1fff42d38a369b9919aa526c83fbb03f1f171fbd7af7a04ebbaf839", heading: "5. Non-Functional Requirements > 5.4. Usability and Accessibility > 5.4.2. Accessibility" }
+  - { chunk: 58, hash: "46603aa688db0bdc5dc0791fe18788a35d711b3de9f1eed98cead5954bd256df", heading: "5. Non-Functional Requirements > 5.4. Usability and Accessibility > 5.4.3. Multilingual Support" }
+  - { chunk: 59, hash: "626cde685275c17f056664afa1b39eb91d2c702615c38572578ede933ffedbbe", heading: "5. Non-Functional Requirements > 5.4. Usability and Accessibility > 5.4.4. User Experience" }
+  - { chunk: 60, hash: "71400173d35ec010a75bd24bbbe7b62809f8fb6ed35f2a86685c24bb579e5e18", heading: "5. Non-Functional Requirements > 5.5. Maintainability and Portability > 5.5.1. Maintainability" }
+  - { chunk: 61, hash: "efdcaa7a97b2723197423bdb15c0095f41a78b16f7e42b72681c2a9f1f29327a", heading: "5. Non-Functional Requirements > 5.5. Maintainability and Portability > 5.5.2. Portability" }
+  - { chunk: 62, hash: "9939b0974b620b4f4d62c6a7d367a02430ae3a3658e50fd7d305b9151028d76b", heading: "5. Non-Functional Requirements > 5.5. Maintainability and Portability > 5.5.3. Compatibility" }
+  - { chunk: 63, hash: "6c6b39ba83637371284dc88c68ac82d622a13c697f89a9afcd1fcce4ff4ae25c", heading: "5. Non-Functional Requirements > 5.6. Legal and Compliance Requirements > 5.6.1. Regulatory Compliance" }
+  - { chunk: 64, hash: "b0f83a449884100a8e46b9ce560ea9ee4367f31f70231bce079b94605551e364", heading: "5. Non-Functional Requirements > 5.6. Legal and Compliance Requirements > 5.6.2. Intellectual Property" }
+  - { chunk: 65, hash: "4b0b5edeab624dce6209fab6e7391f2c323320ab04f51a9cb72cb1ef95ae4c87", heading: "5. Non-Functional Requirements > 5.6. Legal and Compliance Requirements > 5.6.3. Service Level Agreements" }
+  - { chunk: 66, hash: "998930b11d8f9dfb160e029998571fd43798d80441b5991337f5d71ab1dba24c", heading: "5. Non-Functional Requirements > 5.7. Operational Requirements > 5.7.1. Monitoring and Logging" }
+  - { chunk: 67, hash: "9c336dd1c0516a413eb109b2a77c028703bfb3b1ce9d4a808f1f5c61401011a2", heading: "5. Non-Functional Requirements > 5.7. Operational Requirements > 5.7.2. Backup and Recovery" }
+  - { chunk: 68, hash: "5d75e919fcce0aff2eb3f1bb330fd25b7ec38c5dbbb7b87af264dce5dca14dfb", heading: "5. Non-Functional Requirements > 5.7. Operational Requirements > 5.7.3. System Administration" }
+  - { chunk: 69, hash: "2e7ff47f16a6865c723a52998b00d7bfe2b69a121ec2bf112654a896f6c76155", heading: "5. Non-Functional Requirements > 5.7. Operational Requirements > 5.7.4. Documentation" }
+  - { chunk: 70, hash: "850dd4de78fcdd92496beac13227c267c14bbd9d3ffb9cd272d37ca02a54cafc", heading: "5. Non-Functional Requirements > 5.8. Cultural and Political Requirements > 5.8.1. Cultural Considerations" }
+  - { chunk: 71, hash: "0e8eff6ce1389dd21576e02f11970b197a3ac2df3058ea6250da5518803f5921", heading: "5. Non-Functional Requirements > 5.8. Cultural and Political Requirements > 5.8.2. Political Considerations" }
+  - { chunk: 72, hash: "d772e4cab4d77ac53b7dfd85631a2a1f7d9f8240a51c7ed917661b42ac900b48", heading: "6. Other Requirements > 6.1. Data Migration" }
+  - { chunk: 73, hash: "2cd07941875fdf2104959662dcc158e2e8f74e06f51b89939125f48b838f6911", heading: "6. Other Requirements > 6.2. Internationalization Requirements" }
+  - { chunk: 74, hash: "ca9fd14067ebbcfe14a98d0c3d42239cf1b70456b7736babf97c116ae3cd30b4", heading: "6. Other Requirements > 6.3. Training Requirements" }
+  - { chunk: 75, hash: "3b7ef01cfbd9bd74173ac5266908a5c7e2e95b78da137474288f3fb89f7223b0", heading: "6. Other Requirements > 6.4. Appendix A: Analysis Models" }
+  - { chunk: 76, hash: "ed058ab7a26a4db18d4a9c4bf2e0b9231b2ba4ccbc4bf1895506ab2003256c37", heading: "6. Other Requirements > 6.5. Appendix B: Issues List" }
+chunk_tags:
+  - { chunk: 2, entity: "ApplicationOverview", origin: "rule", score: 4, evidence: "heading '1.1. Purpose'" }
+  - { chunk: 3, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 4, entity: "ApplicationOverview", origin: "rule", score: 5, evidence: "heading '1.3. Intended Audience'; keywords stakeholder" }
+  - { chunk: 5, entity: "ApplicationOverview", origin: "rule", score: 6, evidence: "heading '1.4. Project Scope'; keywords in scope, out of scope" }
+  - { chunk: 6, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 7, entity: "ApplicationOverview", origin: "rule", score: 4, evidence: "heading '2.1. Product Perspective'" }
+  - { chunk: 8, entity: "ApplicationOverview", origin: "rule", score: 4, evidence: "heading '2.2. Product Functions'" }
+  - { chunk: 9, entity: "ApplicationOverview", origin: "rule", score: 4, evidence: "heading '2.3. User Classes, Characteristics, and Nees'" }
+  - { chunk: 10, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 10, entity: "Environments", origin: "rule", score: 6, evidence: "heading '2.4. Operating Environment'; keywords server, browser" }
+  - { chunk: 11, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 12, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 13, entity: "ApplicationOverview", origin: "rule", score: 3, evidence: "parent heading" }
+  - { chunk: 14, entity: "FunctionalRequirements", origin: "rule", score: 4, evidence: "heading '3. System Features and Functional Requirements'" }
+  - { chunk: 15, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-01..FR-12 (12); keywords shall, the system shall" }
+  - { chunk: 16, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-13..FR-21 (9); keywords shall, the system shall" }
+  - { chunk: 17, entity: "Architecture", origin: "rule", score: 6, evidence: "heading '3.1.3. Third-Party Job Portals Registration and Integration (i.e. jobs.ps)'; keywords api, integration" }
+  - { chunk: 17, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-22..FR-36 (15); keywords shall, the system shall" }
+  - { chunk: 18, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-37..FR-48 (12); keywords shall, the system shall" }
+  - { chunk: 19, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-49..FR-53 (5); keywords shall, the system shall" }
+  - { chunk: 20, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-54..FR-58 (5); keywords shall, the system shall" }
+  - { chunk: 21, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-59..FR-65 (7); keywords shall, the system shall" }
+  - { chunk: 22, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-66; keywords shall, the system shall" }
+  - { chunk: 23, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-67..FR-69 (3); keywords shall, the system shall" }
+  - { chunk: 24, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-70..FR-84 (15); keywords shall, the system shall" }
+  - { chunk: 25, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-85..FR-89 (5); keywords shall, the system shall" }
+  - { chunk: 26, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-90..FR-96 (7); keywords shall, the system shall" }
+  - { chunk: 27, entity: "Architecture", origin: "rule", score: 5, evidence: "heading '3.4.1. External Job Site Integration'; keywords integration" }
+  - { chunk: 27, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-97..FR-103 (7); keywords shall, the system shall" }
+  - { chunk: 28, entity: "Architecture", origin: "rule", score: 5, evidence: "heading '3.4.2. Government Database Integration'; keywords integration" }
+  - { chunk: 28, entity: "FunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids FR-104..FR-109 (6)" }
+  - { chunk: 29, entity: "Architecture", origin: "rule", score: 6, evidence: "parent heading; keywords api, framework, integration" }
+  - { chunk: 29, entity: "FunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids FR-110..FR-114 (5)" }
+  - { chunk: 30, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-115..FR-119 (5); keywords shall, the system shall" }
+  - { chunk: 30, entity: "Monitoring", origin: "rule", score: 5, evidence: "heading '3.5.1. User Activity Monitoring'; keywords dashboard" }
+  - { chunk: 31, entity: "FunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids FR-120..FR-127 (8)" }
+  - { chunk: 32, entity: "FunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids FR-128..FR-134 (7)" }
+  - { chunk: 33, entity: "FunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids FR-135..FR-142 (8)" }
+  - { chunk: 34, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-143..FR-148 (6); keywords shall, the system shall" }
+  - { chunk: 35, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-149..FR-155 (7); keywords shall, the system shall" }
+  - { chunk: 36, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-156..FR-160 (5); keywords shall, the system shall" }
+  - { chunk: 37, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-161..FR-166 (6); keywords shall, the system shall" }
+  - { chunk: 38, entity: "FunctionalRequirements", origin: "rule", score: 9, evidence: "parent heading; ids FR-167..FR-174 (8); keywords shall, the system shall" }
+  - { chunk: 39, entity: "FunctionalRequirements", origin: "llm/gemma4:31b", score: 0, evidence: "Describes what the system shall provide for users: \"The system shall provide user interfaces for the following user types\"." }
+  - { chunk: 40, entity: "Architecture", origin: "llm/gemma4:31b", score: 0, evidence: "Describes hardware interfaces and infrastructure components: \"Server Infrastructure\", \"Network Infrastructure\"." }
+  - { chunk: 41, entity: "Architecture", origin: "rule", score: 6, evidence: "heading '4.3. Software Interfaces'; keywords api, integration" }
+  - { chunk: 42, entity: "Architecture", origin: "llm/gemma4:31b", score: 0, evidence: "Describes communication interfaces and protocols: \"Network Protocols\", \"API Communications\"." }
+  - { chunk: 43, entity: "NonFunctionalRequirements", origin: "rule", score: 4, evidence: "heading '5. Non-Functional Requirements'" }
+  - { chunk: 44, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-01..NFR-05 (5); keywords response time" }
+  - { chunk: 45, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-06..NFR-10 (5); keywords concurrent users" }
+  - { chunk: 46, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-11..NFR-15 (5)" }
+  - { chunk: 47, entity: "NonFunctionalRequirements", origin: "rule", score: 9, evidence: "heading '5.1.4. Scalability'; ids NFR-16..NFR-21 (6); keywords performance" }
+  - { chunk: 48, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-22..NFR-28 (7)" }
+  - { chunk: 49, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-29..NFR-35 (7); keywords encryption" }
+  - { chunk: 50, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-36..NFR-42 (7)" }
+  - { chunk: 51, entity: "Monitoring", origin: "rule", score: 4, evidence: "heading '5.2.4. Security Monitoring and Incident Response'" }
+  - { chunk: 51, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-43..NFR-49 (7)" }
+  - { chunk: 52, entity: "NonFunctionalRequirements", origin: "rule", score: 9, evidence: "heading '5.3.1. Availability'; ids NFR-50..NFR-54 (5); keywords availability" }
+  - { chunk: 53, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-55..NFR-59 (5); keywords performance" }
+  - { chunk: 54, entity: "BackupRecovery", origin: "rule", score: 6, evidence: "heading '5.3.3. Disaster Recovery'; keywords rpo, rto" }
+  - { chunk: 54, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-60..NFR-65 (6)" }
+  - { chunk: 55, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-66..NFR-70 (5)" }
+  - { chunk: 56, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-71..NFR-77 (7)" }
+  - { chunk: 57, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-78..NFR-84 (7)" }
+  - { chunk: 58, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-85..NFR-91 (7)" }
+  - { chunk: 59, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-92..NFR-98 (7)" }
+  - { chunk: 60, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-99..NFR-105 (7)" }
+  - { chunk: 61, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-106..NFR-111 (6)" }
+  - { chunk: 62, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-112..NFR-117 (6)" }
+  - { chunk: 63, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-118..NFR-122 (5)" }
+  - { chunk: 64, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-123..NFR-126 (4)" }
+  - { chunk: 65, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-127..NFR-131 (5); keywords availability" }
+  - { chunk: 65, entity: "Slo", origin: "rule", score: 5, evidence: "heading '5.6.3. Service Level Agreements'; keywords service level" }
+  - { chunk: 66, entity: "Monitoring", origin: "rule", score: 5, evidence: "heading '5.7.1. Monitoring and Logging'; keywords log" }
+  - { chunk: 66, entity: "NonFunctionalRequirements", origin: "rule", score: 8, evidence: "parent heading; ids NFR-132..NFR-137 (6); keywords performance" }
+  - { chunk: 67, entity: "BackupRecovery", origin: "rule", score: 5, evidence: "heading '5.7.2. Backup and Recovery'; keywords backup" }
+  - { chunk: 67, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-138..NFR-142 (5)" }
+  - { chunk: 68, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-143..NFR-148 (6)" }
+  - { chunk: 69, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-149..NFR-154 (6)" }
+  - { chunk: 70, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-155..NFR-158 (4)" }
+  - { chunk: 71, entity: "NonFunctionalRequirements", origin: "rule", score: 7, evidence: "parent heading; ids NFR-159..NFR-162 (4)" }
+  - { chunk: 72, entity: "FunctionalRequirements", origin: "llm/gemma4:31b", score: 0, evidence: "Specifies a system capability: \"The system shall support the migration of existing data\"." }
+  - { chunk: 73, entity: "NonFunctionalRequirements", origin: "llm/gemma4:31b", score: 0, evidence: "Describes internationalization and localization requirements, which are quality attributes." }
+  - { chunk: 74, entity: "FunctionalRequirements", origin: "llm/gemma4:31b", score: 0, evidence: "Specifies requirements for training provisions: \"The system shall include provisions for training\"." }
+---

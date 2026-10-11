@@ -4,21 +4,21 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import clock, db
+from docfactory import clock
 from docfactory.build import FACT_SPECS
-from docfactory.generation import document_store
+from docfactory.generation.document_parts import BODY, CONTROL, HISTORY, NEEDS
+from docfactory.generation.document_state_store import DocumentStateStore
 from docfactory.generation.generate_document import generate_document
 from docfactory.generation.render_document import render_document_markdown
 from docfactory.generation.template_error import TemplateError
 from docfactory.generation.template_loader import list_doc_types, load_template
 from docfactory.documentmodels.document_need import DocumentNeed
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.generate import main
 from docfactory.documentmodels.document_control import DocumentControl
 from docfactory.documentmodels.missing_info import MissingInfo
-from docfactory.documentsaver.document_control_saver import DocumentControlSaver
 from docfactory.open_questions import open_questions
 from docfactory.render import RenderError
-from docfactory.saver_resolution import entity_saver_for
 
 APP = "ReadmeForge"
 SAMPLES = Path(__file__).resolve().parents[1] / "samples" / "json"
@@ -49,7 +49,7 @@ class CountingWriter:
 
 
 @pytest.fixture
-def env(tmp_db, tmp_path, monkeypatch):
+def env(tmp_bundle, tmp_path, monkeypatch):
     monkeypatch.setenv("DOCFACTORY_OUTPUT", str(tmp_path / "output"))
     monkeypatch.setattr(clock, "now_iso", lambda: "2026-10-07T10:00:00Z")
     return tmp_path / "output"
@@ -60,7 +60,7 @@ def _seed(*names):
         folder, file = FULL[name]
         payload = json.loads((SAMPLES / folder / file).read_text(encoding="utf-8"))
         key = f"Shared.{name}" if FACT_SPECS[name]["shared"] else f"{APP}.{name}"
-        result = entity_saver_for(name)().save(key, payload)
+        result = BundleStore().write_fact(key, payload)
         assert result.ok, result.errors
 
 
@@ -96,13 +96,13 @@ def test_a_first_run_writes_the_four_rows_and_both_files_with_the_documents_cont
     prefix = f"{APP}.Outputs.SRS"
 
     assert report.errors == [] and report.body_action.value == "CREATED"
-    keys = {row["DocumentKey"] for row in db.list_rows("DocumentOutputs")}
+    keys = {record.key for record in DocumentStateStore().list()}
     assert keys == {f"{prefix}{part}" for part in ("", ".DocumentControl", ".RevisionHistory", ".MissingInfo")}
-    control = document_store.stored_model(DocumentControl, f"{prefix}.DocumentControl")
+    control = DocumentStateStore().model(APP, "SRS", CONTROL)
     assert control.model_dump() == {
         "document_id": "ReadmeForge-SRS", "title": "ReadmeForge Software Requirements Specification", "document_version": "0.1",
         "status": "Draft", "owner": "docFactory", "approvers": [], "created_date": "2026-10-07", "last_updated_date": "2026-10-07"}
-    history = json.loads(document_store.stored_row(f"{prefix}.RevisionHistory")["Value"])["revisions"]
+    history = json.loads(DocumentStateStore().read(APP, "SRS", HISTORY).value)["revisions"]
     assert len(history) == 1 and history[0]["author"] == "docFactory"
     assert f"{APP}.FunctionalRequirements v1" in history[0]["summary"] and "Shared.Slo (not available)" in history[0]["summary"]
     assert (env / APP / "SRS.missing.md").exists()
@@ -111,10 +111,10 @@ def test_a_first_run_writes_the_four_rows_and_both_files_with_the_documents_cont
 def test_the_gaps_are_exactly_the_unanswered_part_of_the_bound_fields(env):
     _seed("ApplicationOverview", "FunctionalRequirements")
     generate_document(APP, "SRS", None)
-    gaps = document_store.stored_model(MissingInfo, f"{APP}.Outputs.SRS.MissingInfo").gaps
+    gaps = DocumentStateStore().model(APP, "SRS", NEEDS).gaps
 
     assert [gap.number for gap in gaps] == list(range(1, len(gaps) + 1))
-    fact = entity_saver_for("FunctionalRequirements").model.model_validate(json.loads(db.get_row("KnowledgeFacts", f"{APP}.FunctionalRequirements")["Value"]))
+    fact = FACT_SPECS["FunctionalRequirements"]["model"].model_validate_json(BundleStore().read_fact(f"{APP}.FunctionalRequirements").value)
     prefix = "functional_requirements."
     assert {gap.field.removeprefix(prefix) for gap in gaps if gap.field.startswith(prefix)} == {q.path for q in open_questions(fact)}
     assert not [gap for gap in gaps if gap.field.startswith("application_summary.")]
@@ -123,13 +123,12 @@ def test_the_gaps_are_exactly_the_unanswered_part_of_the_bound_fields(env):
 def test_status_and_approvers_of_the_stored_control_are_kept(env):
     _seed("ApplicationOverview")
     generate_document(APP, "SRS", None)
-    key = f"{APP}.Outputs.SRS.DocumentControl"
-    stored = document_store.stored_model(DocumentControl, key).model_dump() | {"status": "Approved", "approvers": ["QA Lead"]}
-    assert DocumentControlSaver().save(key, stored).ok
+    stored = DocumentStateStore().model(APP, "SRS", CONTROL).model_dump() | {"status": "Approved", "approvers": ["QA Lead"]}
+    assert DocumentStateStore().save(APP, "SRS", CONTROL, stored).ok
 
     generate_document(APP, "SRS", None)
 
-    control = document_store.stored_model(DocumentControl, key)
+    control = DocumentStateStore().model(APP, "SRS", CONTROL)
     assert (control.status, control.approvers, control.owner) == ("Approved", ["QA Lead"], "docFactory")
 
 
@@ -137,7 +136,7 @@ def test_a_failed_writer_falls_back_to_one_need_per_gap_and_is_retried_next_run(
     _seed("ApplicationOverview")
     failing = lambda app_id, doc_name, gaps: (None, "the model ended without an accepted submit_needs call")  # noqa: E731
     report = generate_document(APP, "SRS", failing)
-    info = document_store.stored_model(MissingInfo, f"{APP}.Outputs.SRS.MissingInfo")
+    info = DocumentStateStore().model(APP, "SRS", NEEDS)
     assert report.needs_origin == "fallback" and "submit_needs" in report.needs_note and len(info.needs) == len(info.gaps)
 
     writer = CountingWriter()
@@ -160,7 +159,7 @@ def test_missing_fact_is_a_gap_and_completeness_counts_answered_fields(env):
     _seed("ApplicationOverview")
     report = generate_document(APP, "SRS", None)
     assert report.gap_count > 0
-    body = json.loads(db.get_row("DocumentOutputs", f"{APP}.Outputs.SRS")["Value"])
+    body = json.loads(DocumentStateStore().read(APP, "SRS", BODY).value)
     fields = [f for s in body["sections"] for f in s["fields"]]
     answered = sum(f["status"] == "answered" for f in fields)
     assert 0 < answered < len(fields)
@@ -173,9 +172,11 @@ def test_second_run_changes_nothing_and_makes_no_llm_call(env):
     writer = CountingWriter()
     generate_document(APP, "SMTD", writer)
     first_calls = writer.calls
-    rows = {r["DocumentKey"]: (r["Hashcode"], r["Version"]) for r in db.list_rows("DocumentOutputs")}
+    rows = {r.key: (r.hashcode, r.version) for r in DocumentStateStore().list()}
+    files = {p: p.read_bytes() for p in env.rglob("*") if p.is_file()}
     again = generate_document(APP, "SMTD", writer)
-    assert {r["DocumentKey"]: (r["Hashcode"], r["Version"]) for r in db.list_rows("DocumentOutputs")} == rows
+    assert {r.key: (r.hashcode, r.version) for r in DocumentStateStore().list()} == rows
+    assert {p: p.read_bytes() for p in env.rglob("*") if p.is_file()} == files
     assert again.output_files == [] and writer.calls == first_calls
 
 
@@ -184,11 +185,11 @@ def test_changed_fact_adds_one_revision_naming_the_section(env):
     generate_document(APP, "SRS", None)
     payload = json.loads((SAMPLES / "functional_requirements" / "readmeforge_full.json").read_text(encoding="utf-8"))
     payload["summary"] = "A changed summary."
-    assert entity_saver_for("FunctionalRequirements")().save(f"{APP}.FunctionalRequirements", payload).ok
+    assert BundleStore().write_fact(f"{APP}.FunctionalRequirements", payload).ok
     report = generate_document(APP, "SRS", None)
     assert report.revision_added.startswith("Changed sections: functional_requirements (from ")
-    history = document_store.stored_row(f"{APP}.Outputs.SRS.RevisionHistory")
-    assert len(json.loads(history["Value"])["revisions"]) == 2
+    history = DocumentStateStore().read(APP, "SRS", HISTORY)
+    assert len(json.loads(history.value)["revisions"]) == 2
 
 
 def test_needs_writer_is_used_and_kept_for_unchanged_gaps(env):
@@ -202,8 +203,7 @@ def test_needs_writer_is_used_and_kept_for_unchanged_gaps(env):
 def test_rendering_without_document_control_fails_clearly(env):
     _seed("ApplicationOverview")
     generate_document(APP, "SRS", None)
-    with db.connect() as con:
-        con.execute("DELETE FROM DocumentOutputs WHERE DocumentKey LIKE '%.DocumentControl'")
+    DocumentStateStore().path(APP, "SRS", CONTROL).unlink()
     with pytest.raises(RenderError, match="DocumentControl"):
         render_document_markdown(APP, "SRS")
 
@@ -247,26 +247,28 @@ def test_a_history_left_behind_by_an_interrupted_run_catches_up_on_the_next_run(
     monkeypatch.setattr(clock, "now_iso", lambda: "2026-10-09T10:00:00Z")
     payload = json.loads((SAMPLES / "functional_requirements" / "readmeforge_full.json").read_text(encoding="utf-8"))
     payload["summary"] = "A changed summary."
-    assert entity_saver_for("FunctionalRequirements")().save(f"{APP}.FunctionalRequirements", payload).ok
+    assert BundleStore().write_fact(f"{APP}.FunctionalRequirements", payload).ok
 
-    class Interrupted:
-        def save(self, *args, **kwargs):
+    real_save = DocumentStateStore.save
+
+    def interrupted(self, app_id, doc_type, part, payload):
+        if part == HISTORY:
             raise RuntimeError("the process stopped")
+        return real_save(self, app_id, doc_type, part, payload)
 
     with monkeypatch.context() as m:
-        m.setattr(flow, "RevisionHistorySaver", Interrupted)
+        m.setattr(DocumentStateStore, "save", interrupted)
         with pytest.raises(RuntimeError):
             generate_document(APP, "SRS", None)
-    key = f"{APP}.Outputs.SRS"
-    assert [r["version"] for r in json.loads(document_store.stored_row(f"{key}.RevisionHistory")["Value"])["revisions"]] == ["0.1"]
-    assert document_store.stored_row(key)["Version"] == 2  # the body is ahead of its history
+    assert [r["version"] for r in json.loads(DocumentStateStore().read(APP, "SRS", HISTORY).value)["revisions"]] == ["0.1"]
+    assert DocumentStateStore().read(APP, "SRS", BODY).version == 2  # the body is ahead of its history
 
     report = generate_document(APP, "SRS", None)  # the body is UNCHANGED, yet the history catches up
 
     assert report.body_action.value == "UNCHANGED" and report.revision_added.startswith("Revision recorded late")
-    revisions = json.loads(document_store.stored_row(f"{key}.RevisionHistory")["Value"])["revisions"]
+    revisions = json.loads(DocumentStateStore().read(APP, "SRS", HISTORY).value)["revisions"]
     assert [r["version"] for r in revisions] == ["0.1", "0.2"] and revisions[1]["date"] == "2026-10-09"
-    control = document_store.stored_model(DocumentControl, f"{key}.DocumentControl")
+    control = DocumentStateStore().model(APP, "SRS", CONTROL)
     assert (control.document_version, control.last_updated_date) == ("0.2", "2026-10-09")
     again = generate_document(APP, "SRS", None)  # nothing is behind any more
     assert again.revision_added == "" and again.output_files == []

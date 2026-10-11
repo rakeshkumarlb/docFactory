@@ -3,6 +3,7 @@ import ast
 import re
 
 import conventions as C
+import registry_edit
 
 
 def to_snake(name: str) -> str:
@@ -63,7 +64,7 @@ def find_class(class_name: str, folders=C.ALL_FOLDERS) -> list:
 def resolve(kind: str, class_name: str, fact: bool = False) -> dict:
     """Where the files for a model class go: folder, module, file and test file, plus any errors.
 
-    An entity model goes to entitymodels/facts/ when it gets a saver (`fact=True`), else entitymodels/items/.
+    An entity model goes to entitymodels/facts/ when it is a fact, registered in the fact registry (`fact=True`), else entitymodels/items/.
     """
     if kind not in C.KINDS:
         return {"errors": [f"unknown kind {kind!r}; expected one of {sorted(C.KINDS)}"]}
@@ -75,8 +76,6 @@ def resolve(kind: str, class_name: str, fact: bool = False) -> dict:
     if kind == "entity-model":
         folder += f"/{C.ENTITY_FACTS if fact else C.ENTITY_ITEMS}"
     path = C.ROOT / C.PACKAGE / folder / f"{stem}.py"
-    if class_name.endswith("Saver"):
-        errors.append("a model class name must not end with 'Saver'")
     if class_name in C.BOOTSTRAP_CLASSES:
         errors.append(f"{class_name} is a bootstrap class: write it by hand (see the docfactory-create-shared-model skill)")
     others = [rel(p) for p in find_class(class_name) if p != path]
@@ -95,53 +94,38 @@ def resolve(kind: str, class_name: str, fact: bool = False) -> dict:
     }
 
 
-def saver_target(kind: str, model_class: str, model_module: str) -> dict:
-    """Where the saver for a model goes. `kind` is the MODEL kind (entity-model)."""
-    stem = to_snake(model_class)
-    folder = C.SAVERS[kind]["folder"]
-    path = C.ROOT / C.PACKAGE / folder / f"{stem}_saver.py"
+def registry_path():
+    return C.ROOT / C.FACT_REGISTRY_FILE
+
+
+def registered_facts() -> set:
+    """The entity names registered in the fact registry (empty when the registry file does not exist)."""
+    path = registry_path()
+    return registry_edit.registered(path.read_text(encoding="utf-8")) if path.exists() else set()
+
+
+def fact_target(kind: str, model_class: str, model_module: str) -> dict:
+    """What registering a model as a fact involves: its generated test file and the registry. `kind` is the MODEL kind (entity-model)."""
     return {
         "kind": kind,
         "model_class": model_class,
         "model_module": model_module,
-        "saver_class": f"{model_class}Saver",
-        "saver_module": f"{C.PACKAGE}.{folder.replace('/', '.')}.{stem}_saver",
-        "folder": f"{C.PACKAGE}/{folder}",
-        "file": rel(path),
-        "test_file": f"tests/test_{stem}_saver.py",
-        "exists": path.exists(),
+        "registry_file": C.FACT_REGISTRY_FILE,
+        "registered": model_class in registered_facts(),
+        "test_file": f"tests/test_{to_snake(model_class)}{C.FACT_TEST_SUFFIX}.py",
     }
 
 
-SEGMENT = re.compile(r"[A-Za-z][A-Za-z0-9]*|\{(app|component)\}")
-
-
-def pattern_problems(kind: str, pattern: str) -> list:
-    """Rules for a key pattern. `kind` is the MODEL kind."""
-    segments = pattern.split(".")
-    problems = [f"pattern {pattern!r}: bad segment {s!r}" for s in segments if not SEGMENT.fullmatch(s)]
-    if len(segments) < 2:
-        problems.append(f"pattern {pattern!r}: needs at least <scope>.<name>")
-    elif kind == "entity-model" and segments[0] not in ("{app}", "Shared"):
-        problems.append(f"pattern {pattern!r}: entity keys start with {{app}} or Shared")
-    return problems
+def fact_pattern(model_class: str, scope: str) -> list:
+    """The key patterns of a fact: `{app}.<Class>` and its component form for an application fact, `Shared.<Class>` for a shared one."""
+    if scope == "shared":
+        return [f"Shared.{model_class}"]
+    return [f"{{app}}.{model_class}", f"{{app}}.Components.{{component}}.{model_class}"]
 
 
 def sample_key(pattern: str) -> str:
     """A concrete key for a pattern, used by generated tests: {app} -> TestApp, ..."""
     return ".".join(C.SAMPLE_SEGMENTS.get(segment, segment) for segment in pattern.split("."))
-
-
-def pattern_regex(pattern: str) -> re.Pattern:
-    """Key pattern such as `{app}.Components.{component}.Architecture` -> compiled regex."""
-    parts = []
-    for segment in pattern.split("."):
-        parts.append(r"[^.]+" if re.fullmatch(r"\{[a-z]+\}", segment) else re.escape(segment))
-    return re.compile(r"\.".join(parts))
-
-
-def key_matches(pattern: str, key: str) -> bool:
-    return pattern_regex(pattern).fullmatch(key) is not None
 
 
 def app_id_of(key: str):

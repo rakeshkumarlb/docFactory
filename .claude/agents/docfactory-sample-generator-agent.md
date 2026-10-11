@@ -47,7 +47,7 @@ Every batch goes under its own dedicated top-level folder: `samples/json/<ModelN
 
 ## Rules
 
-- You never call a saver and never touch `db/docfactory.sqlite`. You only produce and validate JSON files.
+- You never write to the bundle (`BundleStore`) or to `output/`. You only produce and validate JSON files.
 - You never edit a model, saver or test file. If the model seems to need a change to be usable, stop and report that instead of changing it.
 - Content is invented for illustration; do not present it as real facts about any real company or person.
 - One file per sample. Do not bundle multiple samples into one JSON array file.

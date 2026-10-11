@@ -14,7 +14,7 @@ A task is **not done** until this prints `GATE PASSED`.
    ```
    python .claude/scripts/run_gate.py
    ```
-   It runs `check_structure.py` (one class per file, names, folders, base model, `doc_field` descriptions, forbidden types, saver bodies, layering, stray models, a test per class) and then `pytest -q`.
+   It runs `check_structure.py` (one class per file, names, folders, base model, `doc_field` descriptions, forbidden types, fact registration, layering, stray models, a test per class) and then `pytest -q`.
 2. `GATE FAILED: structure` -> each line is `path:line: RULE message`. Fix the code (not the rule, not the checker), rerun.
 3. `GATE FAILED: tests` -> read the failure, fix the cause. **Never** delete, skip, loosen or `xfail` a test to get green. If a test is genuinely wrong, say so in the report and say why.
 4. `pytest exit 5 = no tests collected` means the tests you were supposed to write are missing. Write them.

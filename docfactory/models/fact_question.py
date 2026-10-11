@@ -3,7 +3,7 @@ from docfactory.models.doc_field import doc_field
 
 
 class FactQuestion(DocFactoryModel):
-    """One open question of a stored knowledge fact: a scored field still at its default, with the question and the default from the field's model definition. Written to knowledgefacts/<scope>/<Entity>.missing.md."""
+    """One open question of a stored knowledge fact: a scored field still at its default, with the question and the default from the field's model definition. Written under `# Open questions` in the fact's concept file."""
 
     path: str = doc_field(
         description="Where the unanswered field is in the fact: field names joined by dots, with [] for the fields of list items, e.g. requirements[].acceptance_criteria.",

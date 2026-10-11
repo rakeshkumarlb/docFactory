@@ -6,13 +6,13 @@ when the chosen server is not reachable.
 """
 import pytest
 
-from docfactory.generation import document_store
+from docfactory.generation.document_parts import NEEDS
+from docfactory.generation.document_state_store import DocumentStateStore
 from docfactory.generation.generate_document import generate_document
 from docfactory.agents.model_client_factory import default_client
 from docfactory.agents.needs_writer import NeedsWriter
 from docfactory.documentmodels.missing_info import MissingInfo
-from docfactory.entitysaver.application_overview_saver import ApplicationOverviewSaver
-from docfactory.entitysaver.functional_requirements_saver import FunctionalRequirementsSaver
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.generation.generation_steps import format_reports
 from tests.live_support import llm_available as _llm_available  # also loads .env
 
@@ -21,12 +21,12 @@ pytestmark = [pytest.mark.live, pytest.mark.skipif(not _llm_available(), reason=
 APP = "ShiftPlanner"
 
 
-def test_the_needs_list_of_an_srs_covers_every_gap(tmp_db, tmp_path, monkeypatch):
+def test_the_needs_list_of_an_srs_covers_every_gap(tmp_bundle, tmp_path, monkeypatch):
     monkeypatch.setenv("DOCFACTORY_OUTPUT", str(tmp_path / "output"))
-    assert ApplicationOverviewSaver().save(f"{APP}.ApplicationOverview", {
+    assert BundleStore().write_fact(f"{APP}.ApplicationOverview", {
         "application_name": "ShiftPlanner", "purpose": "Lets hospital wards plan nurse shifts and swap them fairly.",
         "target_users": ["Ward managers", "Nurses"]}).ok
-    assert FunctionalRequirementsSaver().save(f"{APP}.FunctionalRequirements", {"requirements": [
+    assert BundleStore().write_fact(f"{APP}.FunctionalRequirements", {"requirements": [
         {"id": "FR-01", "title": "Plan shifts", "description": "The system SHALL let ward managers plan shifts four weeks ahead.", "priority": "MUST"},
         {"id": "FR-02", "title": "Swap shifts", "description": "The system SHALL let nurses request a shift swap.", "priority": "MUST"},
         {"id": "FR-03", "title": "Notify", "description": "The system SHOULD notify nurses of changes to their shifts."},
@@ -36,7 +36,7 @@ def test_the_needs_list_of_an_srs_covers_every_gap(tmp_db, tmp_path, monkeypatch
     print(format_reports(APP, [report]))
     print((tmp_path / "output" / APP / "SRS.missing.md").read_text(encoding="utf-8"))
 
-    info = document_store.stored_model(MissingInfo, f"{APP}.Outputs.SRS.MissingInfo")
+    info = DocumentStateStore().model(APP, "SRS", NEEDS)
     assert report.needs_origin == "llm", report.needs_note
     assert {n for need in info.needs for n in need.gaps} == {gap.number for gap in info.gaps}
     assert all(need.audience.strip() for need in info.needs)

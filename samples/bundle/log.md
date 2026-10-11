@@ -1,0 +1,18 @@
+# Directory Update Log
+
+## 2026-10-10
+* **Creation**: [AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf.md) v1 by docfactory/ingestion
+* **Creation**: [AI-Driven-Job-Matching-Platform.ApplicationOverview](/AI-Driven-Job-Matching-Platform/ApplicationOverview.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Architecture](/AI-Driven-Job-Matching-Platform/Architecture.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.BackupRecovery](/AI-Driven-Job-Matching-Platform/BackupRecovery.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Environments](/AI-Driven-Job-Matching-Platform/Environments.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.FunctionalRequirements](/AI-Driven-Job-Matching-Platform/FunctionalRequirements.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Monitoring](/AI-Driven-Job-Matching-Platform/Monitoring.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.NonFunctionalRequirements](/AI-Driven-Job-Matching-Platform/NonFunctionalRequirements.md) v1 by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.ApplicationOverview from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/ApplicationOverview.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Architecture from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/Architecture.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.BackupRecovery from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/BackupRecovery.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Environments from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/Environments.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.FunctionalRequirements from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/FunctionalRequirements.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.Monitoring from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/Monitoring.md) by okf-extraction-agent/gemma4:31b
+* **Creation**: [AI-Driven-Job-Matching-Platform.NonFunctionalRequirements from AI-Driven-Job-Matching-Platform/references/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf](/AI-Driven-Job-Matching-Platform/sources/Annex-A-Detailed-Software-Requirements-Specification-SRS.pdf/NonFunctionalRequirements.md) by okf-extraction-agent/gemma4:31b

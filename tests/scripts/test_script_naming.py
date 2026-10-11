@@ -22,12 +22,7 @@ def test_is_pascal(name, ok):
     assert naming.is_pascal(name) is ok
 
 
-def test_key_matching_and_app_id():
-    assert naming.key_matches("{app}.Architecture", "KitchenHQ.Architecture")
-    assert naming.key_matches("{app}.Components.{component}.Architecture", "KitchenHQ.Components.dbmcp.Architecture")
-    assert not naming.key_matches("{app}.Architecture", "KitchenHQ.Components.dbmcp.Architecture")
-    assert naming.key_matches("Shared.Kpis", "Shared.Kpis")
-    assert not naming.key_matches("Shared.Kpis", "Other.Kpis")
+def test_app_id_of_a_key():
     assert naming.app_id_of("Shared.Kpis") is None
     assert naming.app_id_of("KitchenHQ.Components.dbmcp.Architecture") == "KitchenHQ"
 
@@ -57,7 +52,6 @@ def test_path_helpers_read_the_folder(project):
 def test_resolve_rejects_bad_names_and_bootstrap_classes(project):
     assert naming.resolve("entity-model", "application_overview")["errors"]
     assert naming.resolve("shared-model", "DocFactoryModel")["errors"]
-    assert naming.resolve("entity-model", "FooSaver")["errors"]
     assert naming.resolve("nonsense", "Foo")["errors"]
 
 
@@ -68,17 +62,13 @@ def test_resolve_detects_class_defined_elsewhere(project):
     assert naming.resolve("entity-model", "Environment")["errors"]
 
 
-def test_saver_target_and_sample_keys(project):
-    info = naming.saver_target("entity-model", "Environment", "docfactory.entitymodels.items.environment")
-    assert info["saver_class"] == "EnvironmentSaver"
-    assert info["file"] == "docfactory/entitysaver/environment_saver.py"
-    assert info["test_file"] == "tests/test_environment_saver.py"
+def test_fact_target_and_sample_keys(project):
+    info = naming.fact_target("entity-model", "Environment", "docfactory.entitymodels.facts.environment")
+    assert info["test_file"] == "tests/test_environment_fact.py" and info["registry_file"] == "docfactory/bundle/fact_registry.py"
+    assert info["registered"] is False
+    (project / "docfactory/bundle/fact_registry.py").write_text('FACT_SPECS = {\n    "Environment": {"model": Environment, "shared": False},\n}\n', encoding="utf-8")
+    assert naming.fact_target("entity-model", "Environment", "x")["registered"] is True
+    assert naming.fact_pattern("Environment", "app") == ["{app}.Environment", "{app}.Components.{component}.Environment"]
+    assert naming.fact_pattern("Environment", "shared") == ["Shared.Environment"]
     assert naming.sample_key("{app}.Components.{component}.Architecture") == "TestApp.Components.testcomponent.Architecture"
     assert naming.sample_key("Shared.Kpis") == "Shared.Kpis"
-
-
-def test_pattern_rules():
-    assert naming.pattern_problems("entity-model", "{app}.Widget") == []
-    assert naming.pattern_problems("entity-model", "Shared.Kpis") == []
-    assert naming.pattern_problems("entity-model", "Widget.{app}")
-    assert naming.pattern_problems("entity-model", "Bad Pattern")

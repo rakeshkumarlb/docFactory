@@ -3,15 +3,16 @@ import json
 
 import pytest
 
-from docfactory import clock, db
+from docfactory import clock
 from docfactory.agents.fake_model_client import FakeModelClient
 from docfactory.agents.needs_writer import PROMPT_FILE, NeedsWriter
 from docfactory.agents.prompt_file import load_prompt
-from docfactory.generation import document_store
+from docfactory.generation.document_parts import NEEDS
+from docfactory.generation.document_state_store import DocumentStateStore
 from docfactory.generation.generate_document import generate_document
 from docfactory.documentmodels.document_gap import DocumentGap
 from docfactory.documentmodels.missing_info import MissingInfo
-from docfactory.entitysaver.functional_requirements_saver import FunctionalRequirementsSaver
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.models.model_response import ModelResponse
 from docfactory.models.tool_call import ToolCall
 
@@ -71,11 +72,11 @@ def test_an_accepted_answer_survives_a_failed_closing_reply():
 
 
 @pytest.fixture
-def app(tmp_db, tmp_path, monkeypatch):
+def app(tmp_bundle, tmp_path, monkeypatch):
     monkeypatch.setenv("DOCFACTORY_OUTPUT", str(tmp_path / "output"))
     monkeypatch.setattr(clock, "now_iso", lambda: "2026-10-07T10:00:00Z")
     fr = {"requirements": [{"id": "FR-01", "title": "Login", "description": "The system SHALL let users log in.", "priority": "MUST"}]}
-    assert FunctionalRequirementsSaver().save("Acme.FunctionalRequirements", fr).ok
+    assert BundleStore().write_fact("Acme.FunctionalRequirements", fr).ok
     return "Acme"
 
 
@@ -100,7 +101,7 @@ def test_generate_with_the_writer_saves_the_llm_list_and_skips_the_call_when_the
     first = generate_document(app, "SRS", writer)
     second = generate_document(app, "SRS", writer)
 
-    info = document_store.stored_model(MissingInfo, "Acme.Outputs.SRS.MissingInfo")
+    info = DocumentStateStore().model("Acme", "SRS", NEEDS)
     assert first.needs_origin == "llm" and first.need_count == 1 and info.needs[0].gaps == [g.number for g in info.gaps]
     assert second.needs_skipped and client.calls == 2  # the call and its closing reply, both in the first run
 

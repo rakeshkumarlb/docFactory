@@ -1,6 +1,6 @@
 """Opt-in live run of extraction against the corpus SRS and its revision: `pytest -m live`.
 
-DocStore is filled by the ingestion pipeline with its LLM fallback (this informal SRS gets its entity tags from it); the extraction calls (one per batch of an entity's
+The bundle is filled by the ingestion pipeline with its LLM fallback (this informal SRS gets its entity tags from it); the extraction calls (one per batch of an entity's
 chunks) are live. Uses default_client() (Ollama Cloud, local Ollama, or DOCFACTORY_PROVIDER=anthropic). Skipped when the chosen
 server is not reachable.
 """
@@ -10,20 +10,20 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import db, facts
 from docfactory.agents.entity_extractor import EntityExtractor
 from docfactory.agents.ingestion_fallback import IngestionFallback
 from docfactory.agents.model_client_factory import default_client
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.extract.extraction_pipeline import extract_file, format_reports
-from docfactory.ingest import docstore_reads as ops
+from docfactory.ingest import source_reads as ops
 from docfactory.models.extraction_outcome import ExtractionOutcome
 from docfactory.ingest import pipeline
-from docfactory.ingest.paths import DOCSTORE_ENV, INCOMING_ENV, STAGING_ENV
+from docfactory.ingest.paths import INCOMING_ENV, STAGING_ENV
 from tests.live_support import llm_available as _llm_available  # also loads .env
 
 CORPUS = Path(__file__).parent / "corpus"
 SRS = "ReadmeForge SRS v0.3.pdf"
-PATH = f"ReadmeForge/{SRS}"
+PATH = f"ReadmeForge/references/{SRS}"
 EXPECTED_KEYS = {"ReadmeForge.ApplicationOverview", "ReadmeForge.FunctionalRequirements", "ReadmeForge.NonFunctionalRequirements"}
 
 pytestmark = [pytest.mark.live, pytest.mark.skipif(not _llm_available(), reason="LLM server not reachable")]
@@ -36,20 +36,19 @@ def _store(source: Path, incoming: Path):
     return report
 
 
-def test_extraction_of_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypatch):
+def test_extraction_of_the_srs_and_then_its_revision(tmp_bundle, tmp_path, monkeypatch):
     incoming = tmp_path / "incoming"
     incoming.mkdir()
     monkeypatch.setenv(INCOMING_ENV, str(incoming))
-    monkeypatch.setenv(DOCSTORE_ENV, str(tmp_path / "DocStore"))
     monkeypatch.setenv(STAGING_ENV, str(tmp_path / "staging"))
     assert _store(CORPUS / "incoming" / SRS, incoming).outcome.value == "NEW"
-    text = ops.read_docstore_text(PATH)
+    text = ops.read_source_text(PATH)
 
     extractor = EntityExtractor(default_client())
     reports = extract_file(PATH, extractor)
     print(format_reports(PATH, reports))
 
-    stored = {fact.key: fact for fact in facts.list_facts()}
+    stored = {fact.key: fact for fact in BundleStore().list_facts()}
     assert stored, "extraction saved no fact"
     assert set(stored) <= EXPECTED_KEYS | {k for k in stored if k.startswith("ReadmeForge.")}, list(stored)  # only this application's facts
     assert {"ReadmeForge.FunctionalRequirements", "ReadmeForge.NonFunctionalRequirements"} <= set(stored), list(stored)
@@ -72,7 +71,6 @@ def test_extraction_of_the_srs_and_then_its_revision(tmp_db, tmp_path, monkeypat
     assert _store(CORPUS / "revisions" / SRS, incoming).outcome.value == "CHANGED"
     revised_reports = extract_file(PATH, extractor)
     print(format_reports(PATH, revised_reports))
-    revised = facts.get_fact("ReadmeForge.FunctionalRequirements")
+    revised = BundleStore().read_fact("ReadmeForge.FunctionalRequirements")
     assert revised.version == 2 and "30 days" in revised.value, revised.value
     assert len(json.loads(revised.value)["requirements"]) == 4
-    assert [h["Version"] for h in db.list_fact_history("ReadmeForge.FunctionalRequirements")] == [2]

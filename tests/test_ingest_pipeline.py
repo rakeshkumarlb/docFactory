@@ -4,10 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import db
 from docfactory.agents import run_ingestion
+from docfactory.bundle.paths import bundle_root
+from docfactory.bundle.source_store import SourceStore
+from docfactory.canonical import sha256_hex
 from docfactory.ingest import chunk_rebuild, pipeline
-from docfactory.ingest.paths import DOCSTORE_ENV, INCOMING_ENV, STAGING_ENV
+from docfactory.ingest.paths import INCOMING_ENV, STAGING_ENV
 from docfactory.models.ingest_outcome import IngestOutcome
 
 CORPUS = Path(__file__).parent / "corpus" / "incoming"
@@ -31,13 +33,13 @@ Acme lets people book rooms.
 
 
 @pytest.fixture
-def dirs(tmp_db, tmp_path, monkeypatch):
-    paths = {name: tmp_path / name for name in ("incoming", "staging", "DocStore")}
+def dirs(tmp_bundle, tmp_path, monkeypatch):
+    paths = {name: tmp_path / name for name in ("incoming", "staging")}
     for path in paths.values():
         path.mkdir()
     monkeypatch.setenv(INCOMING_ENV, str(paths["incoming"]))
     monkeypatch.setenv(STAGING_ENV, str(paths["staging"]))
-    monkeypatch.setenv(DOCSTORE_ENV, str(paths["DocStore"]))
+    paths["bundle"] = bundle_root()  # tmp_bundle selects a temporary bundle
     return paths
 
 
@@ -58,15 +60,16 @@ def only(reports):
 def test_a_new_file_is_staged_chunked_tagged_scoped_and_stored(dirs):
     drop(dirs, "acme-srs.md", SRS_V1)
     report = only(pipeline.run_ingest(CLOCK))
-    assert (report.outcome, report.target_path, report.version) == (IngestOutcome.NEW, "Acme/acme-srs.md", 1)
-    assert (dirs["DocStore"] / "Acme" / "acme-srs.md").is_file()
+    assert (report.outcome, report.target_path, report.version) == (IngestOutcome.NEW, "Acme/references/acme-srs.md", 1)
+    assert (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").is_file()
+    assert (dirs["bundle"] / "Acme" / "sources" / "acme-srs.md.md").is_file()
     assert not any(dirs["incoming"].iterdir()) and not any(dirs["staging"].iterdir())
-    assert db.get_docstore_row("Acme/acme-srs.md")["Version"] == 1
-    chunks = db.list_doc_chunks("Acme/acme-srs.md")
-    assert [c["Heading"] for c in chunks] == ["Acme Software Requirements Specification > 1. Introduction",
+    record = SourceStore().read("Acme/references/acme-srs.md")
+    assert record.version == 1
+    assert [c.heading for c in record.chunks] == ["Acme Software Requirements Specification > 1. Introduction",
                                               "Acme Software Requirements Specification > 3. Functional Requirements",
                                               "Acme Software Requirements Specification > 5. Non-Functional Requirements"]
-    tags = {(t["ChunkNo"], t["Entity"]) for t in db.list_doc_chunk_tags("Acme/acme-srs.md")}
+    tags = {(t.chunk_no, t.entity) for t in record.tags}
     assert tags == {(1, "ApplicationOverview"), (2, "FunctionalRequirements"), (3, "NonFunctionalRequirements")}
     assert report.entity_summary == ["ApplicationOverview: 1 chunks", "FunctionalRequirements: 1 chunks", "NonFunctionalRequirements: 1 chunks"]
     assert "Acme" in report.reason
@@ -79,17 +82,17 @@ def test_the_same_file_again_is_same_and_the_copy_is_discarded(dirs):
     report = only(pipeline.run_ingest(CLOCK))
     assert (report.outcome, report.version, report.chunk_count) == (IngestOutcome.SAME, 1, 3)
     assert not any(dirs["staging"].iterdir())
-    assert db.list_docstore_history("Acme/acme-srs.md") == []
+    assert SourceStore().read("Acme/references/acme-srs.md").version == 1
 
 
-def test_a_stored_row_whose_file_is_gone_is_repaired_not_discarded(dirs):
+def test_a_stored_source_whose_original_is_gone_is_repaired_not_discarded(dirs):
     drop(dirs, "acme-srs.md", SRS_V1)
     pipeline.run_ingest(CLOCK)
-    (dirs["DocStore"] / "Acme" / "acme-srs.md").unlink()  # the data-loss case: a row without its file
+    (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").unlink()  # the data-loss case: a Source without its original
     drop(dirs, "acme-srs.md", SRS_V1)
     report = only(pipeline.run_ingest(CLOCK))
     assert (report.outcome, report.version) == (IngestOutcome.REPAIRED, 1)
-    assert (dirs["DocStore"] / "Acme" / "acme-srs.md").read_text(encoding="utf-8") == SRS_V1
+    assert (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").read_text(encoding="utf-8") == SRS_V1
 
 
 def test_a_new_revision_is_changed_in_its_scope_and_names_the_entities_to_re_extract(dirs):
@@ -97,10 +100,11 @@ def test_a_new_revision_is_changed_in_its_scope_and_names_the_entities_to_re_ext
     pipeline.run_ingest(CLOCK)
     drop(dirs, "acme-srs.md", SRS_V1.replace("book a room.", "book and cancel a room."))
     report = only(pipeline.run_ingest(CLOCK))
-    assert (report.outcome, report.target_path, report.version) == (IngestOutcome.CHANGED, "Acme/acme-srs.md", 2)
+    assert (report.outcome, report.target_path, report.version) == (IngestOutcome.CHANGED, "Acme/references/acme-srs.md", 2)
     assert report.changed_entities == ["FunctionalRequirements"]
-    assert [h["Version"] for h in db.list_docstore_history("Acme/acme-srs.md")] == [2]
-    assert "cancel" in db.list_doc_chunks("Acme/acme-srs.md")[1]["Text"]
+    assert SourceStore().read("Acme/references/acme-srs.md").version == 2
+    assert "cancel" in (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").read_text(encoding="utf-8")
+    assert "* **Update**: [Acme/references/acme-srs.md](/Acme/sources/acme-srs.md.md) v2 by docfactory/ingestion" in (dirs["bundle"] / "log.md").read_text(encoding="utf-8")
 
 
 def test_same_content_under_another_name_stays_in_staging(dirs):
@@ -108,13 +112,13 @@ def test_same_content_under_another_name_stays_in_staging(dirs):
     pipeline.run_ingest(CLOCK)
     drop(dirs, "copy of acme.md", SRS_V1)
     report = only(pipeline.run_ingest(CLOCK))
-    assert report.outcome == IngestOutcome.STAGED and "Acme/acme-srs.md" in report.reason
+    assert report.outcome == IngestOutcome.STAGED and "Acme/references/acme-srs.md" in report.reason
     assert (dirs["staging"] / "copy of acme.md").is_file()
 
 
 def test_a_name_stored_in_two_scopes_is_ambiguous(dirs):
-    db.write_docstore_row("A/x.md", "h1", "t")
-    db.write_docstore_row("B/x.md", "h2", "t")
+    SourceStore().write("A/references/x.md", sha256_hex("one"), "t", [], [])
+    SourceStore().write("B/references/x.md", sha256_hex("two"), "t", [], [])
     drop(dirs, "x.md", SRS_V1)
     report = only(pipeline.run_ingest(CLOCK))
     assert report.outcome == IngestOutcome.STAGED and "several scopes" in report.reason
@@ -128,7 +132,7 @@ def test_an_unsure_scope_and_an_empty_file_stay_in_staging_and_are_retried(dirs)
     assert reports["notes.txt"].unmapped_chunks == [1]
     assert reports["empty.txt"].outcome == IngestOutcome.STAGED and "no extractable text" in reports["empty.txt"].reason
     assert {r.file_name for r in pipeline.run_ingest(CLOCK)} == {"notes.txt", "empty.txt"}  # still waiting, tried again
-    assert db.list_docstore_rows() == []
+    assert SourceStore().list() == []
 
 
 def test_an_unsupported_file_type_stays_in_staging(dirs):
@@ -141,43 +145,61 @@ def test_an_existing_scope_folder_is_reused(dirs):
     drop(dirs, "ReadmeForge_SystemMgmt.docx", source=CORPUS / "ReadmeForge_SystemMgmt.docx")
     drop(dirs, "readmeforge-runbooks.html", source=CORPUS / "readmeforge-runbooks.html")
     reports = pipeline.run_ingest(CLOCK)
-    assert {r.target_path for r in reports} == {"ReadmeForge/ReadmeForge_SystemMgmt.docx", "ReadmeForge/readmeforge-runbooks.html"}
+    assert {r.target_path for r in reports} == {"ReadmeForge/references/ReadmeForge_SystemMgmt.docx", "ReadmeForge/references/readmeforge-runbooks.html"}
 
 
-def test_a_failed_database_write_puts_the_file_back_in_staging(dirs, monkeypatch):
+def test_a_failed_source_write_puts_the_file_back_in_staging(dirs, monkeypatch):
     drop(dirs, "acme-srs.md", SRS_V1)
 
     def fail(*args, **kwargs):
         raise RuntimeError("disk full")
 
-    monkeypatch.setattr(db, "commit_ingested", fail)
+    monkeypatch.setattr(SourceStore, "write", fail)
     with pytest.raises(RuntimeError):
         pipeline.run_ingest(CLOCK)
     assert (dirs["staging"] / "acme-srs.md").is_file()
-    assert not (dirs["DocStore"] / "Acme" / "acme-srs.md").exists()
+    assert not (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").exists()
 
 
 def test_a_failed_write_of_a_revision_restores_the_stored_original(dirs, monkeypatch):
     drop(dirs, "acme-srs.md", SRS_V1)
     pipeline.run_ingest(CLOCK)
     drop(dirs, "acme-srs.md", SRS_V1 + "\nMore.\n")
-    monkeypatch.setattr(db, "commit_ingested", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("locked")))
+    monkeypatch.setattr(SourceStore, "write", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("locked")))
     with pytest.raises(RuntimeError):
         pipeline.run_ingest(CLOCK)
-    assert (dirs["DocStore"] / "Acme" / "acme-srs.md").read_text(encoding="utf-8") == SRS_V1
+    assert (dirs["bundle"] / "Acme" / "references" / "acme-srs.md").read_text(encoding="utf-8") == SRS_V1
     assert (dirs["staging"] / "acme-srs.md").read_text(encoding="utf-8").endswith("More.\n")
 
 
-def test_chunk_rebuild_rewrites_chunks_and_reports_missing_files(dirs):
+def test_chunk_rebuild_rewrites_the_outline_and_tags_and_reports_missing_files(dirs):
     drop(dirs, "acme-srs.md", SRS_V1)
     pipeline.run_ingest(CLOCK)
-    db.write_docstore_row("Gone/lost.md", "h", "t")
-    with db.connect() as con:
-        con.execute("DELETE FROM DocChunkTags")
+    SourceStore().write("Gone/references/lost.md", sha256_hex("lost"), "t", [], [])
+    source_file = dirs["bundle"] / "Acme" / "sources" / "acme-srs.md.md"
+    stripped = source_file.read_text(encoding="utf-8")
+    source_file.write_text(stripped[:stripped.index("chunks:")] + "chunks: []\nchunk_tags: []\n---\n", encoding="utf-8")
+    assert SourceStore().read("Acme/references/acme-srs.md").tags == []
     outcomes = chunk_rebuild.rebuild_chunks()
-    assert outcomes == {"Acme/acme-srs.md": "3 chunks, 3 tags", "Gone/lost.md": "missing on disk"}
-    assert len(db.list_doc_chunk_tags("Acme/acme-srs.md")) == 3
-    assert db.get_docstore_row("Acme/acme-srs.md")["Version"] == 1
+    assert outcomes == {"Acme/references/acme-srs.md": "3 chunks, 3 tags", "Gone/references/lost.md": "missing on disk"}
+    record = SourceStore().read("Acme/references/acme-srs.md")
+    assert len(record.tags) == 3 and len(record.chunks) == 3 and record.version == 1
+
+
+def test_a_source_concept_is_an_okf_file_with_the_outline_and_tags_but_no_chunk_text(dirs):
+    drop(dirs, "acme-srs.md", SRS_V1)
+    pipeline.run_ingest(CLOCK)
+    text = (dirs["bundle"] / "Acme" / "sources" / "acme-srs.md.md").read_text(encoding="utf-8")
+    assert text.startswith('---\ntype: "Source"\ntitle: "acme-srs.md"\nresource: "Acme/references/acme-srs.md"\n')
+    assert 'generated: { by: "docfactory/ingestion", at: "2026-10-03T12:00:00+00:00" }' in text
+    assert "chunk_tags:" in text and '{ chunk: 2, entity: "FunctionalRequirements", origin: "rule"' in text
+    assert "The system SHALL let users book a room" not in text
+
+
+def test_shared_originals_go_to_the_folder_of_the_shared_facts(dirs):
+    assert pipeline.existing_scopes() == []
+    (dirs["bundle"] / "Shared").mkdir(parents=True)
+    assert pipeline.existing_scopes() == ["Shared"]
 
 
 def test_the_entry_point_prints_the_report(dirs, capsys, monkeypatch):
@@ -187,4 +209,4 @@ def test_the_entry_point_prints_the_report(dirs, capsys, monkeypatch):
     drop(dirs, "acme-srs.md", SRS_V1)
     run_ingestion.main(["--no-llm"])
     out = capsys.readouterr().out
-    assert "acme-srs.md: NEW -> Acme/acme-srs.md (v1)" in out and "FunctionalRequirements: 1 chunks" in out
+    assert "acme-srs.md: NEW -> Acme/references/acme-srs.md (v1)" in out and "FunctionalRequirements: 1 chunks" in out

@@ -49,18 +49,10 @@ def test_layering_and_stray_models(project):
     assert "stray-model" in rules(project, {"docfactory/loose.py": stray})
 
 
-def test_saver_must_only_declare_model_and_patterns(project):
-    saver = (
-        "from docfactory.base_saver import BaseSaver\n\n\n"
-        "class WidgetSaver(BaseSaver[Widget]):\n"
-        '    """Saves widgets."""\n\n'
-        "    model = Widget\n"
-        '    key_patterns = ("{app}.Widget",)\n'
-    )
-    assert rules(project, {"docfactory/entitysaver/widget_saver.py": saver}) == set()
-    logic = saver + "\n    def save(self):\n        pass\n"
-    assert "saver-body" in rules(project, {"docfactory/entitysaver/widget_saver.py": logic})
-    assert "saver-base" in rules(project, {"docfactory/entitysaver/widget_saver.py": saver.replace("BaseSaver[Widget]", "object")})
+def test_a_class_named_saver_is_just_a_class_now(project):
+    """Savers no longer exist: BundleStore is the only writer, so there is no saver rule and no saver folder."""
+    saver = "from docfactory.models.doc_factory_model import DocFactoryModel\n\n\nclass WidgetSaver(DocFactoryModel):\n    \'\'\'x\'\'\'\n"
+    assert "saver-name" not in rules(project, {"docfactory/models/widget_saver.py": saver})
 
 
 def test_only_entitymodels_has_sub_folders_and_they_are_facts_or_items(project):
@@ -71,20 +63,6 @@ def test_only_entitymodels_has_sub_folders_and_they_are_facts_or_items(project):
     assert "folder-layout" not in rules_of(project, {good: GOOD_MODEL}, good)
 
 
-def test_document_saver_mirrors_its_model(project):
-    saver = (
-        "from docfactory.base_saver import BaseSaver\n\n\n"
-        "class WidgetSaver(BaseSaver[Widget]):\n"
-        '    """Saves widgets."""\n\n'
-        "    model = Widget\n"
-        '    key_patterns = ("{app}.Outputs.Widget",)\n'
-    )
-    files = {"docfactory/documentmodels/widget.py": GOOD_MODEL, "docfactory/documentsaver/widget_saver.py": saver}
-    assert rules(project, files) == set()
-    lonely = "docfactory/documentsaver/gadget_saver.py"
-    assert "saver-mirror" in rules_of(project, {lonely: saver.replace("Widget", "Gadget")}, lonely)
-
-
 def test_missing_test_file_is_reported(project):
     (project / "docfactory/entitymodels/items").mkdir(parents=True)
     (project / "docfactory/entitymodels/items/widget.py").write_text(GOOD_MODEL, encoding="utf-8")
@@ -93,23 +71,21 @@ def test_missing_test_file_is_reported(project):
 
 
 
-SAVER = """from docfactory.base_saver import BaseSaver
-
-
-class WidgetSaver(BaseSaver[Widget]):
-    '''Saves widgets.'''
-
-    model = Widget
-    key_patterns = ("{app}.Widget",)
-"""
+def registry(project, *names):
+    """Write a fact registry that lists `names`."""
+    target = project / "docfactory/bundle/fact_registry.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = "".join(f'    "{name}": {{"model": {name}, "shared": False}},\n' for name in names)
+    target.write_text("FACT_SPECS = {\n" + body + "}\n", encoding="utf-8")
 
 
 def test_fact_item_placement(project):
     fact = "docfactory/entitymodels/facts/widget.py"
     item = "docfactory/entitymodels/items/widget.py"
-    saver = "docfactory/entitysaver/widget_saver.py"
-    assert "fact-item-placement" in rules_of(project, {fact: GOOD_MODEL}, fact)  # a fact without a saver
-    assert "fact-item-placement" not in rules_of(project, {saver: SAVER}, fact)  # now it has one
-    assert "fact-item-placement" in rules_of(project, {item: GOOD_MODEL}, item)  # an item whose saver exists
-    (project / saver).unlink()
-    assert "fact-item-placement" not in rules_of(project, {}, item)  # an item without a saver is right
+    registry(project)
+    assert "fact-item-placement" in rules_of(project, {fact: GOOD_MODEL}, fact)  # a fact that is not registered
+    registry(project, "Widget")
+    assert "fact-item-placement" not in rules_of(project, {}, fact)  # now it is
+    assert "fact-item-placement" in rules_of(project, {item: GOOD_MODEL}, item)  # an item that is registered
+    registry(project)
+    assert "fact-item-placement" not in rules_of(project, {}, item)  # an item that is not registered is right

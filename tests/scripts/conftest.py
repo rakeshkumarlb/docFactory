@@ -42,8 +42,12 @@ STUBS = {
     ),
     "docfactory/entitymodels/__init__.py": "",
     "docfactory/documentmodels/__init__.py": "",
-    "docfactory/entitysaver/__init__.py": "",
-    "docfactory/documentsaver/__init__.py": "",
+    "docfactory/bundle/__init__.py": "",
+    "docfactory/bundle/fact_registry.py": (
+        "from docfactory.key_patterns import pattern_matches\n\n"
+        "FACT_SPECS = {\n"
+        "}\n"
+    ),
 }
 
 ENVIRONMENT_SPEC = {

@@ -3,9 +3,9 @@
 Static check of the CLAUDE.md structure rules. No paths = the five package folders plus a scan of the
 rest of the package for stray Pydantic classes. Prints `path:line: RULE message`, exit 1 on any finding.
 
-Rules: syntax, one-class, file-name, folder-layout, saver-name, saver-base, saver-body, saver-mirror,
-base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing,
-fact-item-placement (entitymodels/facts/ has a saver, entitymodels/items/ has none, nothing directly in entitymodels/).
+Rules: syntax, one-class, file-name, folder-layout, base-model, field-helper, forbidden-type, layering, stray-model, class-docstring,
+test-missing, fact-item-placement (a class in entitymodels/facts/ is registered in the fact registry, one in entitymodels/items/ is not,
+nothing sits directly in entitymodels/).
 """
 import ast
 import sys
@@ -57,13 +57,17 @@ def check_layout(path: Path, folder: str) -> list:
 
 
 def check_placement(path: Path) -> list:
-    """`fact-item-placement`: a class in entitymodels/facts/ has a saver, one in entitymodels/items/ has none."""
+    """`fact-item-placement`: a class in entitymodels/facts/ is registered in the fact registry, one in entitymodels/items/ is not."""
     sub = naming.entity_sub_of(path)
-    saver = C.ROOT / C.PACKAGE / "entitysaver" / f"{path.stem}_saver.py"
-    if sub == C.ENTITY_FACTS and not saver.exists():
-        return [f"{path.stem} is in entitymodels/facts/ but has no saver: expected {naming.rel(saver)}, or move it to entitymodels/items/"]
-    if sub == C.ENTITY_ITEMS and saver.exists():
-        return [f"{path.stem} is in entitymodels/items/ but has a saver ({naming.rel(saver)}): move it to entitymodels/facts/"]
+    try:
+        classes = [n.name for n in ast.parse(path.read_text(encoding="utf-8")).body if isinstance(n, ast.ClassDef)]
+    except SyntaxError:
+        return []
+    registered = naming.registered_facts()
+    if sub == C.ENTITY_FACTS and not any(name in registered for name in classes):
+        return [f"{path.stem} is in entitymodels/facts/ but is not registered in {C.FACT_REGISTRY_FILE}: add it to FACT_SPECS, or move it to entitymodels/items/"]
+    if sub == C.ENTITY_ITEMS and any(name in registered for name in classes):
+        return [f"{path.stem} is in entitymodels/items/ but is registered in {C.FACT_REGISTRY_FILE}: move it to entitymodels/facts/"]
     return []
 
 
@@ -89,66 +93,42 @@ def check_file(path: Path, folder: str, want_tests: bool) -> list:
     for extra in classes[1:]:
         add(extra.lineno, "one-class", f"module defines more than one class ({extra.name})")
     cls = classes[0]
-    is_saver_folder = folder in C.SAVER_FOLDERS
     bases = base_names(cls)
 
     if path.stem != naming.to_snake(cls.name):
         add(cls.lineno, "file-name", f"file {path.name} should be {naming.to_snake(cls.name)}.py for class {cls.name}")
-    if is_saver_folder and not cls.name.endswith("Saver"):
-        add(cls.lineno, "saver-name", f"class in {folder}/ must end with 'Saver' ({cls.name})")
-    if not is_saver_folder and cls.name.endswith("Saver"):
-        add(cls.lineno, "saver-name", f"a Saver belongs in entitysaver/ or documentsaver/, not {folder}/")
     if not docstring_of(cls) and not bases & C.ENUM_BASES:
         add(cls.lineno, "class-docstring", f"{cls.name} has no docstring")
 
-    if is_saver_folder:
-        if C.BASE_SAVER not in bases:
-            add(cls.lineno, "saver-base", f"{cls.name} must inherit {C.BASE_SAVER}")
-        assigned = set()
+    if not bases:
+        add(cls.lineno, "base-model", f"{cls.name} has no base class")
+    if "BaseModel" in bases and path.stem != naming.to_snake(C.BASE_MODEL):
+        add(cls.lineno, "base-model", f"derive from {C.BASE_MODEL}, not pydantic BaseModel")
+    if not bases & C.ENUM_BASES:
         for stmt in cls.body:
-            is_doc = isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
-            target = stmt.targets[0] if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 else None
-            if isinstance(target, ast.Name) and target.id in ("model", "key_patterns"):
-                assigned.add(target.id)
-            elif not is_doc:
-                add(stmt.lineno, "saver-body", "a saver declares only `model` and `key_patterns`; no logic")
-        for needed in ("model", "key_patterns"):
-            if needed not in assigned:
-                add(cls.lineno, "saver-body", f"{cls.name} does not declare `{needed}`")
-        if folder == "documentsaver" and path.stem.endswith("_saver"):
-            mirror = C.ROOT / C.PACKAGE / "documentmodels" / f"{path.stem[:-len('_saver')]}.py"
-            if not mirror.exists():
-                add(cls.lineno, "saver-mirror", f"{cls.name} must have its model next to the other document models: expected {naming.rel(mirror)}")
-    else:
-        if not bases:
-            add(cls.lineno, "base-model", f"{cls.name} has no base class")
-        if "BaseModel" in bases and path.stem != naming.to_snake(C.BASE_MODEL):
-            add(cls.lineno, "base-model", f"derive from {C.BASE_MODEL}, not pydantic BaseModel")
-        if not bases & C.ENUM_BASES:
-            for stmt in cls.body:
-                if not (isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)):
-                    continue
-                annotation = ast.unparse(stmt.annotation)
-                if annotation.startswith("ClassVar"):
-                    continue
-                for problem in field_spec.type_problems(annotation):
-                    add(stmt.lineno, "forbidden-type", f"{stmt.target.id}: {problem}")
-                call = stmt.value
-                described = (
-                    isinstance(call, ast.Call)
-                    and getattr(call.func, "id", None) == C.FIELD_HELPER
-                    and any(
-                        k.arg == "description" and isinstance(k.value, ast.Constant) and str(k.value.value).strip()
-                        for k in call.keywords
-                    )
+            if not (isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)):
+                continue
+            annotation = ast.unparse(stmt.annotation)
+            if annotation.startswith("ClassVar"):
+                continue
+            for problem in field_spec.type_problems(annotation):
+                add(stmt.lineno, "forbidden-type", f"{stmt.target.id}: {problem}")
+            call = stmt.value
+            described = (
+                isinstance(call, ast.Call)
+                and getattr(call.func, "id", None) == C.FIELD_HELPER
+                and any(
+                    k.arg == "description" and isinstance(k.value, ast.Constant) and str(k.value.value).strip()
+                    for k in call.keywords
                 )
-                if not described:
-                    add(stmt.lineno, "field-helper", f"{stmt.target.id}: use {C.FIELD_HELPER}(description=...) with a non-empty description")
-        forbidden = forbidden_imports(folder)
-        for node in ast.walk(tree):
-            module = node.module if isinstance(node, ast.ImportFrom) else None
-            if module and any(imports_module(module, prefix) for prefix in forbidden):
-                add(node.lineno, "layering", f"{folder}/ must not import {module}")
+            )
+            if not described:
+                add(stmt.lineno, "field-helper", f"{stmt.target.id}: use {C.FIELD_HELPER}(description=...) with a non-empty description")
+    forbidden = forbidden_imports(folder)
+    for node in ast.walk(tree):
+        module = node.module if isinstance(node, ast.ImportFrom) else None
+        if module and any(imports_module(module, prefix) for prefix in forbidden):
+            add(node.lineno, "layering", f"{folder}/ must not import {module}")
 
     if want_tests and not (C.ROOT / "tests" / f"test_{path.stem}.py").exists():
         add(1, "test-missing", f"no tests/test_{path.stem}.py")

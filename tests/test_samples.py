@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import db
+from docfactory.bundle.bundle_store import BundleStore
 from docfactory.entitymodels.facts.application_overview import ApplicationOverview
 from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.backup_recovery import BackupRecovery
@@ -51,12 +51,12 @@ def test_sample_validates_against_its_model(path):
     model.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
-def test_requirements_seed_stores_both_facts(tmp_db):
+def test_requirements_seed_stores_both_facts(tmp_bundle):
     from seed import seed_readmeforge_requirements
 
     seed_readmeforge_requirements.main()
-    functional = db.get_row("KnowledgeFacts", "ReadmeForge.FunctionalRequirements")
-    non_functional = db.get_row("KnowledgeFacts", "ReadmeForge.NonFunctionalRequirements")
-    assert functional["Version"] == 2  # minimal sample first, then the full one
-    assert non_functional["Version"] == 1
-    assert functional["AppID"] == non_functional["AppID"] == "ReadmeForge"
+    functional = BundleStore().read_fact("ReadmeForge.FunctionalRequirements")
+    non_functional = BundleStore().read_fact("ReadmeForge.NonFunctionalRequirements")
+    assert functional.version == 2  # minimal sample first, then the full one
+    assert non_functional.version == 1
+    assert functional.app_id == non_functional.app_id == "ReadmeForge"

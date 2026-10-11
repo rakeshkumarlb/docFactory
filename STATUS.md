@@ -1,23 +1,24 @@
 ﻿# docFactory: Current Status
 
-Last updated: 2026-10-07
+Last updated: 2026-10-11
 
 Living status file. Update it as work progresses. `CLAUDE.md` remains the authoritative spec; this file summarises where we are.
 
 ## Purpose
 
 - Keeps application documentation (Overview, SMTD, SRS, SOP) up to date from structured knowledge.
-- Knowledge is stored as Pydantic-validated JSON objects in SQLite.
-- Documents are composed Pydantic objects, rendered to Markdown by deterministic code.
+- Knowledge is stored as an OKF bundle: Markdown concept files whose body holds the Pydantic-validated JSON of one fact (no database).
+- Documents are composed Pydantic objects, rendered to Markdown by deterministic code; their state is JSON files in `output/<App>/state/`.
 
 ## Phase status
 
 | Phase | State | Summary |
 |---|---|---|
 | 1 | **Done** (closed 2026-10-03) | Fully deterministic: seed data, then hard-coded saver calls, then validated facts in SQLite, then composed documents, then `.md` files. No LLM. Four document types (Overview, SMTD, SRS, SOP), one sample app (ReadmeForge). |
-| 2 Ingest | **Done, redesigned and verified** (2026-10-03) | `incoming/` -> `staging/` -> lookup (NEW / SAME / CHANGED / REPAIRED) -> deterministic chunking of the raw file (pdfplumber, python-docx, BeautifulSoup) -> entity tags from the ontology (`signals.json`, `docs/ontology.md`), a one-tool LLM fallback for unmapped chunks and unsure scopes -> `DocStore/<scope>/` with `DocChunks` / `DocChunkTags`. No markitdown, no sidecar, no ingestion agent. Verified live on `tests/corpus/` and in a clean end-to-end run on the real SRS (see "Current repo state"). |
-| 3 Extract (OKF) | **Done, redesigned and verified** (2026-10-04) | **3a (deterministic, no LLM):** OKF v0.2 metadata in `KnowledgeFacts` columns only (type, title, description, tags, sources, `YmlFrontmatter`, trust, lifecycle); the content is the entity JSON in `Value`. `KnowledgeFactsHistory`, source index, typed reads. (The `bundles/` markdown files were removed on 2026-10-07.) **3b (redesigned):** per entity tagged in a DocStore file, its chunks in 3500-character batches, one fresh single-tool call per batch (`submit_extraction`, a partial object; invalid values, placeholders, shared or unknown identifiers refused); code merges batches, then every contributing file (`FactContributions`, newest first, conflicts reported), fills empty priorities from SHALL/SHOULD/MAY, and saves through the entity saver. Unchanged chunks are skipped without an LLM call; a failed multi-chunk batch is split and retried. Verified on the real 50-page SRS (all 172 non-empty FR and 162 NFR identifiers) and on the corpus SRS and its revision. The first whole-document agent and its 18-tool package were removed. |
-| 4 Generate | **Done, reworked and verified** (2026-10-07) | No RAG, no agent. `python -m docfactory.generate_configured <App> <DocType or all> [--no-llm]` (the class-based `docfactory.generate` was removed on 2026-10-10): code groups the facts' JSON by the YAML template's bindings into the body, derives the document control (`<App>-<DocType>`, owner `docFactory`, status `Draft` unless the stored row says otherwise, version `0.<body Version>`, approvers kept for Phase 5) and appends a code-written revision entry when the body changed (changed sections and their fact versions). Gaps = unfilled bound fields + the open questions of the bound fact fields (`missing in k of n`, up to 3 examples). One checked single-tool LLM call (`submit_needs`, package `generation-needs`) turns them into needs grouped by who can answer; the tool refuses uncovered gaps, unknown gap numbers and needs without a gap or audience. Saved as the fourth row `<App>.Outputs.<DocType>.MissingInfo` (`DocumentGap`, `DocumentNeed`, `NeedsOrigin`) and rendered to `<DocType>.missing.md`; unchanged gaps = no call, a failed call or `--no-llm` = one need per gap. Section fields are optional, so a missing fact is a gap, never an error. Verified on the real AI-Driven-Job-Matching-Platform SRS (186 FR, 165 NFR, 66%; 11 gaps -> 8 needs) and live on a small SRS. The first build (vector index, `FactIndex`, generator agent, `run_generation`, numpy, embedding settings) was removed. |
+| 2 Ingest | **Done, redesigned and verified** (2026-10-03) | `incoming/` -> `staging/` -> lookup (NEW / SAME / CHANGED / REPAIRED) -> deterministic chunking of the raw file (pdfplumber, python-docx, BeautifulSoup) -> entity tags from the ontology (`signals.json`, `docs/ontology.md`), a one-tool LLM fallback for unmapped chunks and unsure scopes -> the bundle (`<scope>/references/` + a Source concept; since 2026-10-11, formerly `DocStore/` and tables). No markitdown, no sidecar, no ingestion agent. Verified live on `tests/corpus/` and in a clean end-to-end run on the real SRS (see "Current repo state"). |
+| 3 Extract (OKF) | **Done, redesigned and verified** (2026-10-04) | **3a (deterministic, no LLM):** OKF v0.2 metadata in the fact file's frontmatter (type, title, description, tags, sources, trust, lifecycle); the content is the entity JSON under `# Value`. (Formerly `KnowledgeFacts` columns; moved to files on 2026-10-11.) **3b (redesigned):** per entity tagged in a DocStore file, its chunks in 3500-character batches, one fresh single-tool call per batch (`submit_extraction`, a partial object; invalid values, placeholders, shared or unknown identifiers refused); code merges batches, then every contributing file (contribution concepts, newest first, conflicts reported), fills empty priorities from SHALL/SHOULD/MAY, and writes through `BundleStore`. Unchanged chunks are skipped without an LLM call; a failed multi-chunk batch is split and retried. Verified on the real 50-page SRS (all 172 non-empty FR and 162 NFR identifiers) and on the corpus SRS and its revision. The first whole-document agent and its 18-tool package were removed. |
+| 4 Generate | **Done, reworked and verified** (2026-10-07) | No RAG, no agent. `python -m docfactory.generate <App> <DocType or all> [--no-llm]`: code groups the facts' JSON by the YAML template's bindings into the body, derives the document control (`<App>-<DocType>`, owner `docFactory`, status `Draft` unless the stored row says otherwise, version `0.<body Version>`, approvers kept for Phase 5) and appends a code-written revision entry when the body changed (changed sections and their fact versions). Gaps = unfilled bound fields + the open questions of the bound fact fields (`missing in k of n`, up to 3 examples). One checked single-tool LLM call (`submit_needs`, package `generation-needs`) turns them into needs grouped by who can answer; the tool refuses uncovered gaps, unknown gap numbers and needs without a gap or audience. Saved as the fourth part (state file `<DocType>.needs.json`, key `<App>.Outputs.<DocType>.MissingInfo`) (`DocumentGap`, `DocumentNeed`, `NeedsOrigin`) and rendered to `<DocType>.missing.md`; unchanged gaps = no call, a failed call or `--no-llm` = one need per gap. Section fields are optional, so a missing fact is a gap, never an error. Verified on the real AI-Driven-Job-Matching-Platform SRS (186 FR, 165 NFR, 66%; 11 gaps -> 8 needs) and live on a small SRS. The first build (vector index, `FactIndex`, generator agent, `run_generation`, numpy, embedding settings) was removed. |
+| OKF bundle redesign | **Done and verified** (2026-10-11, branch `OkfBundleStore`) | SQLite and the savers are gone. Facts are OKF concept files (`bundle/<Scope>/<Entity>.md`: frontmatter + JSON under `# Value` + `# Open questions`) written by `BundleStore`; ingestion writes the original to `<scope>/references/` and a Source concept (hash, version, chunk outline, tags; no chunk text) to `<scope>/sources/`; extraction keeps each file's share as a contribution concept (`<scope>/sources/<file>/<Entity>.md`); generation reads the bound facts from the bundle (`build.load_fact`) and keeps the documents' state as `output/<App>/state/<DocType>.<part>.json` (`DocumentStateStore`). `index.md` and `log.md` follow OKF sections 8 and 9. Tamper check: a file whose JSON no longer matches its hash is refused. The real run was migrated from the old database with a one-off script: same 76 chunks, extraction skips with no LLM call, the SRS regenerates byte-identical. |
 | 5 Human in the loop | **Pending** | Outline only: approval workflow on LangGraph (agents propose, humans approve, tools apply); promotes `draft` facts to `stable`. |
 | 6 Automate | **Pending** | Outline only: watcher for `incoming/`, automatic triggering, end-to-end workflow. |
 
@@ -27,51 +28,48 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 ## Core principles
 
 - **Single responsibility.** One class per file, named in snake_case after the class, in the right folder. A test enforces this.
-- **Facts are the source of truth.** Generated documents, `knowledgefacts/` files and `.md` files are views and are never hand-edited. OKF is only metadata in the `KnowledgeFacts` row; the content is the validated JSON.
+- **Facts are the source of truth.** A fact is a concept file of the bundle; generated documents and their `.md` files are views and are never hand-edited. OKF is the frontmatter; the content is the validated JSON in the body.
 - **Only valid data is stored.** Every write goes through a Pydantic model. Invalid input returns a structured error.
 - **Models are the contract.** Every model and field has a description written for an LLM.
 - **Deterministic first.** An LLM only does judgment work: tagging and scoping what the rules cannot, extracting from small batches of chunks, phrasing a document's gaps as questions. Always one tool per call, checked by code.
 - **Never invent values.** Defaults are placeholders, not knowledge.
 - **Errors are feedback.** Rejections tell the caller what to fix or what to find out.
-- **Only tools write to the database.**
+- **Only the stores write** (`BundleStore`, `SourceStore`, `ContributionStore`, `DocumentStateStore`); no hand edits, and a tampered file is refused on read.
 
 ## Models (`docfactory/`)
 
 - `models/`: machinery (`DocFactoryModel` base with `extra="forbid"`, `doc_field`, `NotApplicable`, `SaveResult`, `SaveError`, `SaveAction`).
-- `entitymodels/facts/`: facts that have a saver (`ApplicationOverview`, `Architecture`, `Slo`, `Kpis`, ...).
-- `entitymodels/items/`: nested items and enums with no saver (`Environment`, `Alert`, `Requirement`, ...).
-- `documentmodels/`: the parts every document has (`ConfiguredBody`, `DocumentControl`, `RevisionHistory`, `RevisionEntry`, `MissingInfo` with `DocumentGap`, `DocumentNeed`, `NeedsOrigin`). A document body is a YAML template in `configrender/templates/`, not a model.
+- `entitymodels/facts/`: facts, registered in `bundle/fact_registry.py` (`ApplicationOverview`, `Architecture`, `Slo`, `Kpis`, ...).
+- `entitymodels/items/`: nested items and enums that are not registered (`Environment`, `Alert`, `Requirement`, ...).
+- `documentmodels/`: the parts every document has (`DocumentBody`, `DocumentControl`, `RevisionHistory`, `RevisionEntry`, `MissingInfo` with `DocumentGap`, `DocumentNeed`, `NeedsOrigin`). A document body is a YAML template in `generation/templates/`, not a model.
 - Document models may import entity models. The reverse never happens, and `models/` imports neither.
 - No `dict`, `Any` or untyped lists. Mandatory fields are kept to the minimum.
 
-## Database (`db/docfactory.sqlite`, override with `DOCFACTORY_DB`)
+## The bundle (`bundle/`, override with `DOCFACTORY_BUNDLE`)
 
-- Two tables with the same shape: `KnowledgeFacts` and `DocumentOutputs`.
-- Columns: key, canonical JSON `Value`, SHA-256 `Hashcode`, `AppID`, `Completeness`, `Version`.
-- Keys look like `<Scope>.<Name>`, e.g. `ReadmeForge.Architecture`, `Shared.Kpis`. `Shared` means `AppID` is NULL.
-- Component keys look like `<App>.Components.<Component>.<Entity>`.
-- The whole object is saved. Same hash gives `UNCHANGED`. A different hash gives `UPDATED` and `Version + 1`.
+- Facts: `<Scope>/<Entity>.md` (`Shared/Kpis.md`, `ReadmeForge/Architecture.md`, `ReadmeForge/Components/api/Architecture.md`). Frontmatter: OKF fields plus `fact_key`, `version`, `completeness`, `hashcode`; body: `# Value` (the JSON) and `# Open questions`.
+- Keys look like `<Scope>.<Name>`, e.g. `ReadmeForge.Architecture`, `Shared.Kpis`. `Shared` means `AppID` is NULL. Component keys look like `<App>.Components.<Component>.<Entity>`.
+- The whole object is saved. Same hash gives `UNCHANGED`. A different hash gives `UPDATED` and `version + 1`; writes are atomic and skipped when the bytes are the same. A deleted file is a deleted fact.
 - Completeness is answered fields divided by total fields. Defaults are not answered, and `N/A` with a reason is. Scoring is recursive over list items and nested models.
+- Also in the bundle: the originals (`<scope>/references/`), their Source concepts (`<scope>/sources/<file>.md`), contributions (`<scope>/sources/<file>/<Entity>.md`), `index.md` and `log.md`.
 
-## Savers
+## Stores
 
-- `BaseSaver` holds all logic: key check, validation, hash, version, completeness, single transaction.
-- Concrete savers only declare a model and key patterns.
-- Entity savers are in `entitysaver/`. Document savers are in `documentsaver/<role>/`.
-- `save()` always returns a `SaveResult` (CREATED, UPDATED, UNCHANGED or REJECTED) and never raises on bad input.
+- `BundleStore` holds the fact logic: key check against the fact registry, validation, hash, version, completeness, write, log, index. `SourceStore`, `ContributionStore` and `DocumentStateStore` do the same for sources, contributions and document state.
+- A save always returns a `SaveResult` (CREATED, UPDATED, UNCHANGED or REJECTED) and never raises on bad input; a corrupt or tampered file raises `BundleError` when read.
 
 ## Documents
 
-- Each output document is four rows in `DocumentOutputs` (`<App>.Outputs.<DocType>`...): body, `.DocumentControl`, `.RevisionHistory` and `.MissingInfo`, the needs list.
-- The body comes only from facts (`build_body`, driven by the template); document control and revision history never come from facts: `docfactory.generate_configured` maintains them (the seeds supply their own for the golden files), approvers come with the Phase 5 approval.
-- `render_configured_markdown` assembles the final file deterministically. Same rows give the same bytes, checked against golden files. The needs list renders to `<DocType>.missing.md`.
+- Each output document is four state files in `output/<App>/state/` (`<DocType>.body.json`, `.control.json`, `.history.json`, `.needs.json`; keys `<App>.Outputs.<DocType>[.DocumentControl|.RevisionHistory|.MissingInfo]`).
+- The body comes only from facts (`build_body`, driven by the template); document control and revision history never come from facts: `docfactory.generate` maintains them (the seeds supply their own for the golden files), approvers come with the Phase 5 approval.
+- `render_document_markdown` assembles the final file deterministically. Same state gives the same bytes, checked against golden files. The needs list renders to `<DocType>.missing.md`.
 
 ## Tooling
 
-- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and savers go through it), `docfactory-sample-generator-agent`, runtime prompts `docfactory-chunk-tagger-agent` and `docfactory-scope-agent` (Phase 2 fallback), `docfactory-entity-extractor-agent` (Phase 3), `docfactory-needs-list-agent` (Phase 4).
-- `.claude/skills/`: entry skills (`docfactory-create-shared-model`, `docfactory-create-entity-model`, `docfactory-create-document-model`, `docfactory-add-field`, `docfactory-review-models`) and reference skills (`docfactory-field-spec`, `docfactory-quality-gate`).
+- `.claude/agents/`: `docfactory-pydantic-developer-agent` (all models and fact registrations go through it), `docfactory-sample-generator-agent`, runtime prompts `docfactory-chunk-tagger-agent` and `docfactory-scope-agent` (Phase 2 fallback), `docfactory-entity-extractor-agent` (Phase 3), `docfactory-needs-list-agent` (Phase 4).
+- `.claude/skills/`: entry skills (`docfactory-create-shared-model`, `docfactory-create-entity-model`, `docfactory-add-field`, `docfactory-review-models`) and reference skills (`docfactory-field-spec`, `docfactory-quality-gate`).
 - `.claude/scripts/`: deterministic scaffolding and gate scripts, tested in `tests/scripts/`.
-- Other directories: `samples/` (`json/`: example payloads used by seeds and tests; `DocStore/`, `knowledgefacts/`, `output/`: a committed snapshot of the AI-Driven-Job-Matching-Platform end-to-end run), `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `knowledgefacts/<scope>/` (each fact's JSON and open questions, gitignored), `output/<app>/` (gitignored).
+- Other directories: `samples/` (`json/`: example payloads used by seeds and tests; `bundle/`, `output/`: a committed snapshot of the AI-Driven-Job-Matching-Platform end-to-end run), `seed/` (ReadmeForge seed scripts), `tests/` (pytest, golden files), `bundle/` and `output/<app>/` (runtime data, gitignored).
 
 ## Working rules
 
@@ -81,17 +79,18 @@ Living status file. Update it as work progresses. `CLAUDE.md` remains the author
 
 ## Current repo state
 
-- Branch: `PydanticApproach` (main branch: `main`).
-- All work through the Phase 4 rework (2026-10-07) is committed on `PydanticApproach`.
-- **Runtime state (fresh end-to-end run, 2026-10-07):** the database, `DocStore/`, `knowledgefacts/` and `output/` were cleared and the SRS PDF went through all three steps from `incoming/`. Ingest: NEW v1, 76 chunks (6 tagged by the LLM fallback, chunks 1, 75, 76 unmapped). Extract (5m34, no failed batch): `ApplicationOverview` 75%, `Architecture` 30%, `BackupRecovery` 86%, `Environments` 32%, `FunctionalRequirements` 186 items 66%, `Monitoring` 50%, `NonFunctionalRequirements` 165 items 67%, all v1; `Slo` skipped (shared only). Generate with LLM needs lists (34s): Overview 70% (3 gaps -> 2 needs), SMTD 34% (42 -> 14), SRS 66% (11 -> 8), SOP 48% (12 -> 5). A rerun of all three steps changed nothing and made no LLM call. **A snapshot of this run is committed under `samples/`**: `samples/DocStore/` (the stored PDF), `samples/knowledgefacts/` (fact JSON and open questions) and `samples/output/` (the four documents and their `.missing.md`); the ReadmeForge sample outputs were removed from `samples/output/` (the seeds still regenerate them into `output/ReadmeForge/`). Review candidates: the ingestion fallback's tags on 4.1 User Interfaces, 6.1 Data Migration and 6.3 Training Requirements (FunctionalRequirements) give unnumbered FR items; near-duplicate list entries in `ApplicationOverview`; `Environments` items named after requirement headings (Technical, Hardware, Software) and `Monitoring` alerts named NFR-44 and NFR-134.
+- Branch: `OkfBundleStore` (off `ConfigurationBasedExtraction`; main branch: `main`). The six steps of the redesign are built and tested; nothing is committed yet.
+- Tests: about 1800 offline tests pass; the structure check passes. The live LLM tests were updated for the new paths but not run since the redesign.
+- **Runtime data:** the real run (AI-Driven-Job-Matching-Platform: 7 facts, their contributions, the PDF and its Source, the SRS state files) was migrated from the old `db/docfactory.sqlite` and `DocStore/` into `bundle/` and `output/AI-Driven-Job-Matching-Platform/state/` by a one-off script (not kept in the repo). The old `db/` and `DocStore/` folders are untouched, no longer read by any code, and can be deleted. A snapshot is committed as `samples/bundle/` and `samples/output/`. Review candidates from the extraction (unchanged by the redesign): the ingestion fallback's tags on 4.1 User Interfaces, 6.1 Data Migration and 6.3 Training Requirements (FunctionalRequirements) give unnumbered FR items; near-duplicate list entries in `ApplicationOverview`; `Environments` items named after requirement headings and `Monitoring` alerts named NFR-44 and NFR-134.
 
 ## Next up
 
-Next session (continue from here):
-
-1. **Store `Shared.Slo`**: ingest a standards document into `DocStore/shared/` and extract it, so the SRS service levels fill. (All four document types of AI-Driven-Job-Matching-Platform are generated; see `samples/output/`.)
-2. **Review the needs lists** of the four generated documents and the **extraction open points**: the doubtful fallback tags (4.1, 6.1, 6.3), near-duplicate list entries, `Environments` items named after requirement headings, `Monitoring` alerts named after NFR identifiers, conflicts between documents once a second document contributes.
-3. **Phase 5 and 6:** pending; outlines only.
+1. **Review the redesign and commit it** (the branch is uncommitted).
+2. **Optimize the generation flow** (next activity, noted in `CLAUDE.md`): generation reads each bound fact's concept file, extracts the JSON, checks the hash, parses it and aligns the bindings. Measure on a large bundle, then optimize (in-memory index, parse-once caching across documents, hash-based skips).
+3. **Run the live tests** (`pytest -m live`) against the new storage, and re-run extraction on a changed file to see the contributions and `log.md` in practice.
+4. **Store `Shared.Slo`**: ingest a standards document, so the SRS service levels fill.
+5. **Review the needs lists** of the generated documents and the extraction open points listed above.
+6. **Phase 5 and 6:** pending; outlines only.
 
 Notes for the live tests: the key goes in `.env` (copy `.env.example`); `gemma4:31b` on Ollama Cloud is the model in use.
 
@@ -113,3 +112,4 @@ Notes for the live tests: the key goes in `.env` (copy `.env.example`); `gemma4:
 - 2026-10-10: Added Configuration-based rendering as a parallel option (branch ConfigurationBasedExtraction): YAML templates, generic models and renderer, `ConfiguredDocuments` table, `python -m docfactory.generate_configured`; output byte-identical to Phase 4 for the same facts. `pyyaml` is now a runtime dependency.
 - 2026-10-10: Class-based document generation removed (user decision, after a real-data comparison on the AI-Driven-Job-Matching-Platform SRS: identical `.md` files apart from stored dates, identical gap lists). Deleted `documentmodels/documents/` and `entitybound/`, `documentsaver/documents/`, `generation/doc_types.py`, `docfactory.generate`, `build_document` and `render_markdown`, and their tests; `generation/generate_document.py` became `generation_steps.py` (the steps both flows shared). The golden files are now rendered from the templates (`tests/test_golden_documents.py`); the seeds store their documents through the templates. Same day, second step (user decision): one document table. The parallel `ConfiguredDocuments` table, the `<App>.Configured.*` keys, `configrender/savers/` and `output/configured/` were folded into `DocumentOutputs`, `<App>.Outputs.*`, `documentsaver/` and `output/<App>/`; `documentmodels/` and `documentsaver/` are flat (no role folders); `doc_field` lost `binding`; the dev scripts and skills lost the document-model kind (`docfactory-create-document-model` removed). Then the real database was emptied and its migration code removed (`db.py` only creates the current schema; a database from an older build is not upgraded: delete it); `samples/output/` refreshed.
 - 2026-10-10: Renamed the only generation approach (user decision): `configrender/` folded into `generation/` (template_loader, build_body, generate_document, render_document, document_store, template_gaps, revision_sources, `templates/`), `generate_configured` is `python -m docfactory.generate` again, `ConfiguredBody/Section/Field/BodySaver` are `DocumentBody/Section/Field/BodySaver`. Fixed the revision-history gap: a run that stopped between saving the body and its history now catches up on the next run (`history_is_behind`). The original SRS PDF was moved back to `incoming/` and `staging/`, `DocStore/`, `knowledgefacts/` and `output/` emptied; the database is empty.
+- 2026-10-11: OKF bundle redesign (user decision: knowledge as plain OKF `.md` files, no SQLite, no savers; no hand edits, all input via `incoming/`; generated documents stay in `output/`; generation flow kept straightforward, optimization is the next activity). Built in six reviewed steps on branch `OkfBundleStore`: (1) `docfactory/bundle/` (fact registry, `BundleStore`, concept-file readers and writers, `index.md`, `log.md`); (2) facts and generation on the bundle (`build.load_fact`), seeds through `BundleStore`; (3) ingestion writes `<scope>/references/` and a Source concept (`SourceStore`, `SourceRecord`, `SourceChunk`), chunks re-derived on read (`source_reads`, `ChunksOutOfDateError`), `docstore_reads` replaced; (4) contributions as concepts (`ContributionStore`); (5) document state as JSON files (`DocumentStateStore`, `document_parts`), `DocumentOutputs` and the document savers removed; (6) `db.py`, `base_saver.py`, the 13 entity savers, `saver_resolution`, `fact_writer`, `fact_files` and `facts` removed; dev scripts and skills now register facts in `fact_registry.py` and generate `BundleStore` tests; tests, `CLAUDE.md`, `README.md` and this file rewritten; the real run migrated; `samples/` re-snapshotted as a bundle. Env `DOCFACTORY_DB`, `DOCFACTORY_DOCSTORE` and `DOCFACTORY_KNOWLEDGEFACTS` are gone, `DOCFACTORY_BUNDLE` is new; `pyyaml` is a runtime dependency; `run_extraction` takes the bundle path of the original (`<scope>/references/<file>`).

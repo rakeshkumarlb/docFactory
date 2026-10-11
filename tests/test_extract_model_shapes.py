@@ -2,7 +2,7 @@
 from docfactory.entitymodels.facts.architecture import Architecture
 from docfactory.entitymodels.facts.functional_requirements import FunctionalRequirements
 from docfactory.extract.model_shapes import identity_field, is_enum, item_model
-from docfactory.saver_resolution import entity_saver_classes
+from docfactory.bundle.fact_registry import FACT_SPECS
 
 
 def test_item_model_and_enum_detection():
@@ -15,8 +15,8 @@ def test_item_model_and_enum_detection():
 
 def test_every_list_item_of_every_fact_has_a_text_identity_field():
     """Merging unions list items by identity: the first mandatory field of every item model must be a str."""
-    for saver_class in entity_saver_classes():
-        for field in saver_class.model.model_fields.values():
+    for spec in FACT_SPECS.values():
+        for field in spec["model"].model_fields.values():
             items = item_model(field.annotation)
             if items is not None:
                 assert items.model_fields[identity_field(items)].annotation is str, items.__name__

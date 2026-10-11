@@ -73,12 +73,12 @@ def main(argv) -> int:
         "test_file": f"tests/test_{naming.to_snake(class_name)}.py",
         "add_to_FULL": entry,
         "add_to_MINIMAL": entry if field_spec.default_of(field)[0] else None,
-        "saver_test": (
-            f"tests/test_{naming.to_snake(class_name)}_saver.py"
-            if (C.ROOT / f"tests/test_{naming.to_snake(class_name)}_saver.py").exists()
+        "fact_test": (
+            f"tests/test_{naming.to_snake(class_name)}{C.FACT_TEST_SUFFIX}.py"
+            if (C.ROOT / f"tests/test_{naming.to_snake(class_name)}{C.FACT_TEST_SUFFIX}.py").exists()
             else None
         ),
-        "hand_edit_tests": "extend the parametrized lists and the defaults test; add the entry to _FULL in the saver test too",
+        "hand_edit_tests": "extend the parametrized lists and the defaults test; add the entry to _FULL in the fact test too",
     }
     if dry_run:
         print(new_source)

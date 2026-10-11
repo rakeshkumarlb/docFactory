@@ -1,10 +1,12 @@
 __pycache__/
 *.pyc
-db/
+# runtime data
 incoming/
-/DocStore/
-.env
-/bundles/
-/knowledgefacts/
-/output/
 staging/
+/bundle/
+/output/
+.env
+# folders of the SQLite design: kept on disk until you delete them, no longer read by any code
+db/
+/DocStore/
+/knowledgefacts/

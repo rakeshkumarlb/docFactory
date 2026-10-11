@@ -74,12 +74,12 @@ def test_the_model_packages_contain_models():
 
 def test_every_package_folder_has_an_init_file():
     package = Path(docfactory.__file__).parent
-    for folder in ("models", "entitymodels", "documentmodels", "entitysaver", "documentsaver"):
+    for folder in ("models", "entitymodels", "documentmodels"):
         assert (package / folder / "__init__.py").is_file(), folder
     for sub in ("facts", "items"):
         assert (package / "entitymodels" / sub / "__init__.py").is_file(), f"entitymodels/{sub}"
     assert sorted(p.name for p in (package / "entitymodels").glob("*.py")) == ["__init__.py"]
-    for folder in ("models", "documentmodels", "entitysaver", "documentsaver"):
+    for folder in ("models", "documentmodels"):
         assert sorted(p.name for p in (package / folder).iterdir() if p.is_dir() and p.name != "__pycache__") == [], f"{folder}/ is flat"
 
 

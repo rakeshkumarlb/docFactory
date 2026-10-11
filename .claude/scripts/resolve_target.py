@@ -1,7 +1,7 @@
 """Usage: python .claude/scripts/resolve_target.py <kind> <ClassName> [facts|items]
 
 kind: entity-model | shared-model
-entity-model: facts (has a saver: entitymodels/facts/) | items (no saver: entitymodels/items/, the default)
+entity-model: facts (a fact, registered in docfactory/bundle/fact_registry.py: entitymodels/facts/) | items (not a fact: entitymodels/items/, the default)
 Prints JSON with folder, module, file, test file and any errors (bad name, bootstrap class, class
 already defined elsewhere). Exit 1 when there are errors.
 """

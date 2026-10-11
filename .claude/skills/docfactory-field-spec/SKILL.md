@@ -56,4 +56,4 @@ Unknown keys are errors. Keys: `class`, `doc`, `imports`, `fields`; per field `n
 
 ## Enums
 
-An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/facts/` or `entitymodels/items/`, `documentmodels/` or `models/`; an enum has no saver, so it is an item), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.
+An `Enum`/`StrEnum` is a class, so it gets its own file in the folder of its owner (`entitymodels/facts/` or `entitymodels/items/`, `documentmodels/` or `models/`; an enum is never a fact, so it is an item), named after the class in snake_case, with a one-line docstring, no logic, and its own test file (`tests/test_<snake>.py`, checking members and values). Scripts do not generate enums; write it by hand, then run the quality gate.

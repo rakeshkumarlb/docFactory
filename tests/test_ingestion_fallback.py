@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from docfactory import db
 from docfactory.agents import run_ingestion
 from docfactory.agents.agent_loop import EMPTY_REPLY_NUDGE, AgentLoop
 from docfactory.agents.fake_model_client import FakeModelClient
@@ -13,7 +12,9 @@ from docfactory.agents.ingestion_fallback import SCOPE_PROMPT, TAGGER_PROMPT, In
 from docfactory.agents.prompt_file import load_prompt
 from docfactory.ingest import pipeline
 from docfactory.ingest.chunking import assemble_chunks
-from docfactory.ingest.paths import DOCSTORE_ENV, INCOMING_ENV, STAGING_ENV
+from docfactory.bundle.paths import bundle_root
+from docfactory.bundle.source_store import SourceStore
+from docfactory.ingest.paths import INCOMING_ENV, STAGING_ENV
 from docfactory.models.ingest_outcome import IngestOutcome
 from docfactory.models.model_response import ModelResponse
 from docfactory.models.tool_call import ToolCall
@@ -117,13 +118,13 @@ def test_an_empty_reply_is_nudged_once_then_fails():
 # --- wired into the pipeline -------------------------------------------------------------------------------------------------
 
 @pytest.fixture
-def dirs(tmp_db, tmp_path, monkeypatch):
-    paths = {name: tmp_path / name for name in ("incoming", "staging", "DocStore")}
+def dirs(tmp_bundle, tmp_path, monkeypatch):
+    paths = {name: tmp_path / name for name in ("incoming", "staging")}
     for path in paths.values():
         path.mkdir()
     monkeypatch.setenv(INCOMING_ENV, str(paths["incoming"]))
     monkeypatch.setenv(STAGING_ENV, str(paths["staging"]))
-    monkeypatch.setenv(DOCSTORE_ENV, str(paths["DocStore"]))
+    paths["bundle"] = bundle_root()  # tmp_bundle selects a temporary bundle
     return paths
 
 
@@ -137,10 +138,10 @@ def test_the_fallback_tags_and_places_a_standard_the_rules_could_not(dirs):
         ModelResponse(text="tagged"),
     )
     [report] = pipeline.run_ingest(CLOCK, IngestionFallback(client))
-    assert (report.outcome, report.target_path) == (IngestOutcome.NEW, "shared/standards.pdf")  # shared follows from the Slo-only tags
+    assert (report.outcome, report.target_path) == (IngestOutcome.NEW, "Shared/references/standards.pdf")  # shared follows from the Slo-only tags
     assert report.entity_summary == ["Slo: 1 chunks (1 by llm/fake)"] and report.unmapped_chunks == [1, 2, 4]
-    tags = db.list_doc_chunk_tags("shared/standards.pdf")
-    assert [(t["ChunkNo"], t["Entity"], t["Origin"]) for t in tags] == [(3, "Slo", "llm/fake")]
+    tags = SourceStore().read("Shared/references/standards.pdf").tags
+    assert [(t.chunk_no, t.entity, t.origin) for t in tags] == [(3, "Slo", "llm/fake")]
 
 
 def test_an_unsure_llm_scope_leaves_the_file_in_staging_with_both_reasons(dirs):
@@ -154,12 +155,12 @@ def test_an_unsure_llm_scope_leaves_the_file_in_staging_with_both_reasons(dirs):
 
 
 def test_an_llm_scope_reuses_an_existing_folder_spelled_differently(dirs):
-    (dirs["DocStore"] / "Acme-Platform").mkdir()
+    (dirs["bundle"] / "Acme-Platform").mkdir(parents=True)
     (dirs["incoming"] / "intro.md").write_text("Some notes about the platform.\n", encoding="utf-8")
     client = fake(call("submit_chunk_tags", tags=[{"chunk_no": 1, "entities": [], "reason": "x"}]), ModelResponse(text="ok"),
                   call("submit_scope", scope="ACME platform", reason="named"), ModelResponse(text="ok"))
     [report] = pipeline.run_ingest(CLOCK, IngestionFallback(client))
-    assert report.target_path == "Acme-Platform/intro.md"
+    assert report.target_path == "Acme-Platform/references/intro.md"
 
 
 def test_the_entry_point_runs_rules_only_with_no_llm_and_rejects_unknown_flags(dirs, monkeypatch, capsys):

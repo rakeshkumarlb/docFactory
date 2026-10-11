@@ -1,8 +1,8 @@
-"""Which key an entity extracted from a DocStore file is saved under (Phase 3 redesign, step 1)."""
+"""Which key an entity extracted from an ingested file is saved under (Phase 3 redesign, step 1)."""
 import pytest
 
 from docfactory.extract.fact_keys import fact_key, is_shared_entity
-from docfactory.saver_resolution import entity_saver_classes, entity_saver_for
+from docfactory.bundle.fact_registry import FACT_SPECS, entity_names, entity_of_key
 
 
 def test_an_application_folder_gives_an_application_key():
@@ -30,13 +30,12 @@ def test_unknown_entity_and_unscoped_path_give_no_key():
     assert fact_key("srs.pdf", "Architecture")[0] is None
 
 
-def test_every_derived_key_is_accepted_by_its_saver():
-    for saver_class in entity_saver_classes():
-        entity = saver_class.model.__name__
-        key, _ = fact_key(("shared" if is_shared_entity(entity) else "ReadmeForge") + "/doc.pdf", entity)
-        assert saver_class().accepts_key(key), key
+def test_every_derived_key_is_accepted_by_the_fact_registry():
+    for entity in entity_names():
+        key, _ = fact_key(("shared" if is_shared_entity(entity) else "ReadmeForge") + "/references/doc.pdf", entity)
+        assert entity_of_key(key) == entity, key
 
 
-def test_entity_saver_for_finds_the_saver_by_model_name():
-    assert entity_saver_for("Slo").model.__name__ == "Slo"
-    assert entity_saver_for("Missing") is None
+def test_the_registry_finds_the_model_by_entity_name():
+    assert FACT_SPECS["Slo"]["model"].__name__ == "Slo"
+    assert "Missing" not in FACT_SPECS

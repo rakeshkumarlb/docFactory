@@ -24,7 +24,7 @@ def test_the_published_schema_is_the_partial_entity_with_inlined_items():
     assert "requirements" in tool_schema["properties"]["values"]["properties"]
 
 
-def test_an_accepted_answer_is_appended_and_nothing_is_written(tmp_db):
+def test_an_accepted_answer_is_appended_and_nothing_is_written(tmp_bundle):
     accepted = []
     result = package(accepted).call("submit_extraction", {"values": {"requirements": [REQ]}, "summary": " Registration. "})
     assert result == {"ok": True, "fields": ["requirements"]}

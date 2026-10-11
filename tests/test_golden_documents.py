@@ -4,17 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from docfactory.generation import document_store
+from docfactory.generation.document_parts import BODY, CONTROL, HISTORY, NEEDS
+from docfactory.generation.document_state_store import DocumentStateStore
 from docfactory.generation.build_body import build_body
 from docfactory.generation.render_document import render_document_markdown
 from docfactory.generation.template_loader import load_template
-from docfactory.documentsaver.document_body_saver import DocumentBodySaver
-from docfactory.documentsaver.document_control_saver import DocumentControlSaver
-from docfactory.documentsaver.revision_history_saver import RevisionHistorySaver
 from docfactory.render import RenderError, _item_lines
-from docfactory.saver_resolution import entity_saver_for
+from docfactory.bundle.bundle_store import BundleStore
 
-pytestmark = pytest.mark.usefixtures("tmp_db")
+pytestmark = pytest.mark.usefixtures("tmp_bundle")
 
 APP = "TestApp"
 GOLDEN = Path(__file__).parent / "golden"
@@ -105,24 +103,23 @@ DOCUMENTS = {
 
 def _seed(facts: dict) -> None:
     for name, payload in facts.items():
-        saver = entity_saver_for(name)()
         key = f"Shared.{name}" if name in ("Slo", "Kpis") else f"{APP}.{name}"
-        assert saver.save(key, payload).ok, name
+        assert BundleStore().write_fact(key, payload).ok, name
 
 
 def _store(doc_type: str, with_control: bool = True, with_history: bool = True) -> None:
     facts, document_id, title, summary = DOCUMENTS[doc_type]
     _seed(facts)
-    prefix = document_store.prefix(APP, doc_type)
-    result = DocumentBodySaver().save(prefix, build_body(load_template(doc_type), APP).model_dump(mode="json"))
+    store = DocumentStateStore()
+    result = store.save(APP, doc_type, BODY, build_body(load_template(doc_type), APP))
     assert result.ok, result.errors
     control = {"document_id": document_id, "title": title, "document_version": "1.0", "status": "Draft",
                "owner": "QA Lead", "approvers": ["Engineering Manager"], "created_date": "2024-01-15"}
     history = {"revisions": [{"version": "1.0", "date": "2024-01-15", "summary": summary, "author": "Jane Doe"}]}
     if with_control:
-        assert DocumentControlSaver().save(f"{prefix}.DocumentControl", control).ok
+        assert store.save(APP, doc_type, CONTROL, control).ok
     if with_history:
-        assert RevisionHistorySaver().save(f"{prefix}.RevisionHistory", history).ok
+        assert store.save(APP, doc_type, HISTORY, history).ok
 
 
 @pytest.mark.parametrize("doc_type", list(DOCUMENTS))
@@ -167,11 +164,11 @@ def test_kpis_render_as_a_table_with_one_row_per_kpi_and_other_lists_stay_bullet
 def _store_rows_only(doc_type: str) -> None:
     """Body, control and history of `doc_type` over the facts already stored."""
     _, document_id, title, summary = DOCUMENTS[doc_type]
-    prefix = document_store.prefix(APP, doc_type)
-    assert DocumentBodySaver().save(prefix, build_body(load_template(doc_type), APP).model_dump(mode="json")).ok
-    assert DocumentControlSaver().save(f"{prefix}.DocumentControl", {
+    store = DocumentStateStore()
+    assert store.save(APP, doc_type, BODY, build_body(load_template(doc_type), APP)).ok
+    assert store.save(APP, doc_type, CONTROL, {
         "document_id": document_id, "title": title, "document_version": "1.0", "status": "Draft"}).ok
-    assert RevisionHistorySaver().save(f"{prefix}.RevisionHistory", {
+    assert store.save(APP, doc_type, HISTORY, {
         "revisions": [{"version": "1.0", "date": "2024-01-15", "summary": summary, "author": "Jane Doe"}]}).ok
 
 

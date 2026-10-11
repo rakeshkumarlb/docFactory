@@ -1,13 +1,13 @@
 [project]
 name = "docfactory"
 version = "0.1.0"
-description = "Keeps application documentation up to date from Pydantic-validated knowledge held in SQLite."
+description = "Keeps application documentation up to date from Pydantic-validated knowledge held as an OKF bundle of Markdown files."
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2", "pdfplumber", "python-docx", "beautifulsoup4", "pyyaml"]
 
 [project.optional-dependencies]
 anthropic = ["anthropic"]
-dev = ["pytest", "reportlab", "pyyaml"]
+dev = ["pytest", "reportlab"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

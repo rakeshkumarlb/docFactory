@@ -1,6 +1,6 @@
 ---
 name: docfactory-review-models
-description: Review existing docFactory models and savers against the CLAUDE.md principles (read-only findings list)
+description: Review existing docFactory models and the fact registry against the CLAUDE.md principles (read-only findings list)
 argument-hint: [path, class name, or "all" (default)]
 disable-model-invocation: true
 context: fork
@@ -11,13 +11,13 @@ background: false
 
 You are running as the **docfactory-pydantic-developer-agent**. This is a **read-only review: change no files.** Scripts are run from the project root. Read `CLAUDE.md` first.
 
-Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymodels/facts`, `entitymodels/items`, `documentmodels`, `entitysaver`, `documentsaver`, and `tests/`).
+Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymodels/facts`, `entitymodels/items`, `documentmodels`, `bundle/fact_registry.py`, and `tests/`).
 
 ## Steps
 
 1. **Mechanical findings first (deterministic).**
    `python .claude/scripts/check_structure.py [paths]`
-   Every line (`path:line: RULE message`) is a finding, reported as-is. Rules: syntax, one-class, file-name, saver-name, saver-base, saver-body, base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing.
+   Every line (`path:line: RULE message`) is a finding, reported as-is. Rules: syntax, one-class, file-name, folder-layout, fact-item-placement, base-model, field-helper, forbidden-type, layering, stray-model, class-docstring, test-missing.
 2. **Tests.** `python -m pytest -q`. Report the real result. `no tests collected` is a finding.
 3. **Judgment findings (what scripts cannot see).** For each model in scope, read it and report with `file:line`:
    - a description that does not say what a good value looks like, or reads badly for an LLM;
@@ -29,7 +29,7 @@ Scope: $ARGUMENTS (empty means everything under `docfactory/models`, `entitymode
    - an entity model doing a document's job or the reverse; a shared model used by only one side;
    - a document model that re-declares the shape of an entity fact (documents are YAML templates over facts, not models);
    - a test that is weak: asserts nothing meaningful, hard-codes a number without the arithmetic, or was skipped/loosened;
-   - pipeline or LLM work (LLM calls, agent loops, file moves, approval gate) inside a model or saver.
+   - pipeline or LLM work (LLM calls, agent loops, file moves, approval gate) inside a model.
 4. **Output.** Findings grouped by severity: **violates a principle** / **smell** / **nit**. Each: `file:line`, one-line problem, one-line suggested fix, which principle. End with a two-line summary and the pytest result. If there is nothing to review yet, say so and stop.
 
 Do not fix anything. Fixes are separate tasks (`/docfactory-add-field`, or re-running the relevant create skill).

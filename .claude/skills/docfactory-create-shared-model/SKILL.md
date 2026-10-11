@@ -1,6 +1,6 @@
 ---
 name: docfactory-create-shared-model
-description: Build the base classes and package skeleton (DocFactoryModel, doc_field, NotApplicable, SaveResult, BaseSaver, db) or create one shared model in docfactory/models/
+description: Build the base classes and package skeleton (DocFactoryModel, doc_field, NotApplicable, SaveResult, the bundle package) or create one shared model in docfactory/models/
 argument-hint: skeleton | <ClassName> [what it is for]
 context: fork
 agent: docfactory-pydantic-developer-agent
@@ -8,7 +8,7 @@ model: sonnet
 background: false
 ---
 
-You are running as the **docfactory-pydantic-developer-agent**. Follow these steps exactly, in order. Scripts are run from the project root. Read `CLAUDE.md` first (Models, Database, Completeness, Savers, Tests).
+You are running as the **docfactory-pydantic-developer-agent**. Follow these steps exactly, in order. Scripts are run from the project root. Read `CLAUDE.md` first (Models, The bundle, Completeness, Tests).
 
 Request: $ARGUMENTS
 
@@ -21,10 +21,10 @@ Run the quality gate (`docfactory-quality-gate`) after **each** stage of part 1,
 
 ## Part 1: skeleton
 
-Hand-written stages are the one-time code the scripts derive from. Everything has a test in `tests/test_<file stem>.py`. A module never defines two classes; `doc_field`, `canonical`, `completeness` and `db` are function modules (no class).
+Hand-written stages are the one-time code the scripts derive from. Everything has a test in `tests/test_<file stem>.py`. A module never defines two classes; `doc_field`, `canonical`, `completeness`, `validation_errors` and `key_patterns` are function modules (no class).
 
 ### Stage A: project files and base model
-1. `pyproject.toml`: project `docfactory`, dependency `pydantic>=2`, `[tool.pytest.ini_options]` with `pythonpath = ["."]` and `testpaths = ["tests"]`. Empty `docfactory/__init__.py`, and an `__init__.py` in each of the five folders.
+1. `pyproject.toml`: project `docfactory`, dependency `pydantic>=2`, `[tool.pytest.ini_options]` with `pythonpath = ["."]` and `testpaths = ["tests"]`. Empty `docfactory/__init__.py`, and an `__init__.py` in each of the folders `models`, `entitymodels` (+ `facts`, `items`), `documentmodels` and `bundle`.
 2. `docfactory/models/doc_factory_model.py`: `DocFactoryModel(pydantic.BaseModel)` with `model_config = ConfigDict(extra="forbid")` and a docstring. The only class allowed to derive from `BaseModel` directly. Test: an extra field is rejected.
 3. `docfactory/models/doc_field.py`: a function with exactly this contract (the generators emit calls to it):
    `doc_field(default=..., *, default_factory=None, description, question=None, na_allowed=False, scored=True, min_length=None)`.
@@ -40,14 +40,14 @@ For each, follow part 2 in this order: `NotApplicable`, `SaveAction`, `SaveError
 ### Stage C: infrastructure (hand-written, in this order)
 1. `docfactory/canonical.py`: `canonical_json(value) -> str` (sorted keys, separators `(",", ":")`, `ensure_ascii=False`) and `sha256_hex(text) -> str` (SHA-256 of UTF-8). Tests: key order does not change output; known hash.
 2. `docfactory/completeness.py`: `completeness(obj) -> float` (0-100) and `field_counts(obj) -> tuple[int, int]` (answered, total) implementing `CLAUDE.md` "Completeness" exactly: a field is answered when its value differs from its default (compare with `default` or `default_factory()`), or is a `NotApplicable`; mandatory fields are answered; `scored=False` fields are excluded (read `json_schema_extra`); nested model -> recurse over its fields, absent = one unanswered field; list of models -> fields of every item, empty list = one unanswered field; `NotApplicable` on a list or nested field = one answered field. Tests: every "Item-level scoring" and "Defaults do not count" case listed in `CLAUDE.md`, each with the arithmetic in a comment; use test-only models declared in the test module.
-3. `docfactory/db.py`: `db_path()` (env `DOCFACTORY_DB`, else `db/docfactory.sqlite` under the project root), `connect()` (creates the file/folder and runs `init_schema`), `init_schema(con)` (idempotent `CREATE TABLE IF NOT EXISTS` for `KnowledgeFacts` keyed by `FactKey` and `DocumentOutputs` keyed by `DocumentKey`; columns `Value TEXT NOT NULL`, `Hashcode TEXT NOT NULL`, `AppID TEXT NULL`, `Completeness REAL NOT NULL`, `Version INTEGER NOT NULL`), `get_row(table, key)`, `write_row(table, key, value, hashcode, app_id, completeness, version)` (one transaction, insert or replace), `list_rows(table, app_id=None)`. Parameterised SQL only; table names come from a fixed whitelist. Tests use a temporary file.
-4. `docfactory/base_saver.py`: `BaseSaver(Generic[M])` with class attributes `model` and `key_patterns` and method `save(key, payload, app_id=None) -> SaveResult`. Table is `DocumentOutputs` when the concrete class's `__module__` contains `documentsaver`, else `KnowledgeFacts`. Behaviour, in this order, exactly `CLAUDE.md` "BaseSaver": (1) key must match one of `key_patterns` (whole-segment placeholders `{app}`, `{component}`, `{doctype}`), derive AppID (`Shared` -> NULL, else first segment, case-sensitive; a passed `app_id` that differs is rejected); (2) validate with the model; (3) `canonical_json(model.model_dump(mode="json"))` and hash; (4) same hash -> `UNCHANGED` (row untouched), no row -> `CREATED` version 1, different hash -> `UPDATED` version + 1; (5) completeness; (6) write in one transaction, never on `REJECTED`. Never raise for bad input: every failure is a `SaveResult` with `ok=False`, `action=REJECTED` and `SaveError`s carrying `path`, Pydantic `message` and `error_type`, `received` and `expected` as text, and the field's `description` (as `field_description`) and `question`, found by walking `model_fields` along the error location. Tests: every "Valid payload / Same payload / Component keys / Key order / Missing mandatory... / Shared / a key matching none of the saver's own `key_patterns` is rejected" case in `CLAUDE.md` "Tests", using test-only model and saver classes declared in the test module (set `__module__ = "docfactory.documentsaver.test"` in a class body to test the document table).
-5. `tests/conftest.py`: fixture `tmp_db` sets `DOCFACTORY_DB` to a file under `tmp_path` (monkeypatch) and initialises the schema. Every test that touches the database uses it.
+3. `docfactory/key_patterns.py`: `SHARED = "Shared"` and `pattern_matches(pattern, key)` (whole-segment match; `{app}`, `{component}`, `{doctype}` stand for one non-empty segment; `Shared` is not an `{app}`). `docfactory/validation_errors.py`: `json_text(value)` and `validation_errors(model, pydantic_error) -> list[SaveError]` (every error carries `path`, Pydantic `message` and `error_type`, `received` and `expected` as text, and the field's `description` as `field_description` plus its `question`, found by walking `model_fields` along the error location). Tests: the "Missing mandatory... / Wrong type / Bad enum / Extra field / error inside a list item" cases of `CLAUDE.md` "Tests", with test-only models declared in the test module.
+4. `docfactory/bundle/`: the OKF bundle store, hand-written once (see `CLAUDE.md` "The bundle" for every contract): `fact_registry.py` (the `FACT_SPECS` dict, one entry per fact; `scaffold_model.py` adds entries to it), `paths.py`, `file_io.py`, `key_check.py`, `BundleStore` and the concept-file readers/writers. This stage only checks that `docfactory/bundle/fact_registry.py` exists with a `FACT_SPECS = {` dict; if the bundle package is missing, stop with `Gaps: the bundle package is hand-written; ask the maintainer`.
+5. `tests/conftest.py`: fixture `tmp_bundle` sets `DOCFACTORY_BUNDLE` and `DOCFACTORY_OUTPUT` to folders under `tmp_path` (monkeypatch). Every test that touches the bundle or the output folder uses it.
 6. `tests/test_structure.py`: the `CLAUDE.md` "Tests: Structure" cases. Load `.claude/scripts/check_structure.py` with `importlib` from its path and assert `collect([], want_tests=False) == []`; add the runtime checks scripts cannot do: every field of every model class in `models/`, `entitymodels/`, `documentmodels/` has a non-empty description and no annotation contains `dict` or `Any`.
 
-Phase 1 has **no registry, no generic `save_fact` / `save_document` dispatchers and no read-side wrappers** (all Phase 2). Callers use a saver directly (`ApplicationOverviewSaver().save(key, payload)`) and read rows through `db.get_row` / `db.list_rows`. Do not create `registry.py` or `tools.py`.
+Facts are written and read only through `BundleStore` (`BundleStore().write_fact(key, payload)`); there are no savers, no database and no registry besides `fact_registry.py`.
 
-Then run the gate one last time and stop. Do **not** create entities, documents or savers here.
+Then run the gate one last time and stop. Do **not** create entities or documents here.
 
 ## Part 2: one shared model
 
@@ -55,5 +55,5 @@ Then run the gate one last time and stop. Do **not** create entities, documents 
 2. `python .claude/scripts/resolve_target.py shared-model <ClassName>`. Exit 1 means stop and report `errors`. If `docfactory/models/doc_factory_model.py` or `doc_field.py` is missing, stop: `Gaps: run /docfactory-create-shared-model skeleton first`.
 3. Get the fields from the request and `CLAUDE.md`. If unclear, stop and return questions under `Gaps`; do not invent fields.
 4. Write `<scratchpad>/<ClassName>.spec.json` following `docfactory-field-spec`.
-5. `python .claude/scripts/scaffold_model.py shared-model <spec.json> --dry-run`, fix rejections, then run it without `--dry-run`. Shared models get no saver.
+5. `python .claude/scripts/scaffold_model.py shared-model <spec.json> --dry-run`, fix rejections, then run it without `--dry-run`. Shared models are never facts.
 6. Quality gate (`docfactory-quality-gate`).

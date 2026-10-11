@@ -96,47 +96,55 @@ def test_add_field_needs_explicit_permission_for_a_mandatory_field(project):
 
 def with_conftest(project):
     (project / "tests").mkdir(exist_ok=True)
-    (project / "tests/conftest.py").write_text("def tmp_db():\n    pass\n", encoding="utf-8")
+    (project / "tests/conftest.py").write_text("def tmp_bundle():\n    pass\n", encoding="utf-8")
 
 
-def test_entity_saver_is_generated_with_the_model(project):
+def test_a_fact_is_registered_and_gets_a_bundle_test_with_its_model(project):
     with_conftest(project)
     assert scaffold(project, None, "entity-model", "--scope", "app") == 0
-    assert (project / "docfactory/entitymodels/facts/environment.py").exists()  # a model with a saver is a fact
+    assert (project / "docfactory/entitymodels/facts/environment.py").exists()  # a registered model is a fact
     assert not (project / "docfactory/entitymodels/items/environment.py").exists()
     assert (project / "docfactory/entitymodels/facts/__init__.py").exists()
-    saver = (project / "docfactory/entitysaver/environment_saver.py").read_text(encoding="utf-8")
-    assert "class EnvironmentSaver(BaseSaver[Environment]):" in saver
-    assert '"{app}.Environment", "{app}.Components.{component}.Environment"' in saver
-    test = (project / "tests/test_environment_saver.py").read_text(encoding="utf-8")
-    compile(test, "test_environment_saver.py", "exec")
-    assert "KnowledgeFacts" in test and "SAVER = EnvironmentSaver()" in test and "SAVER.save(KEY, PAYLOAD)" in test
-    assert "from docfactory.entitysaver.environment_saver import EnvironmentSaver" in test
+    assert not (project / "docfactory/entitysaver").exists()
+    registry = (project / "docfactory/bundle/fact_registry.py").read_text(encoding="utf-8")
+    assert "from docfactory.entitymodels.facts.environment import Environment" in registry
+    assert '"Environment": {"model": Environment, "shared": False},' in registry
+    test = (project / "tests/test_environment_fact.py").read_text(encoding="utf-8")
+    compile(test, "test_environment_fact.py", "exec")
+    assert "BundleStore().write_fact(KEY, PAYLOAD)" in test and "from docfactory.bundle.bundle_store import BundleStore" in test
     assert 'KEY = "TestApp.Environment"' in test
     assert "'TestApp'" in test and "test_component_key_stores_the_application_as_app_id" in test
     assert "\"name\": 'Test-Env-changed'" in test and "test_missing_mandatory_field" in test
     assert check_structure.collect([], want_tests=True) == [
         f for f in check_structure.collect([], want_tests=True) if f[2] == "test-missing" and "environment" not in f[3]
     ]
+    assert naming_registered(project) == {"Environment"}
+
+
+def naming_registered(project):
+    import naming
+
+    return naming.registered_facts()
 
 
 def test_shared_scope_has_no_component_key_and_null_app_id(project):
     with_conftest(project)
     assert scaffold(project, None, "entity-model", "--scope", "shared") == 0
-    test = (project / "tests/test_environment_saver.py").read_text(encoding="utf-8")
+    test = (project / "tests/test_environment_fact.py").read_text(encoding="utf-8")
     assert 'KEY = "Shared.Environment"' in test
-    assert 'row["AppID"] == None' in test and "component_key" not in test
+    assert "record.app_id == None" in test and "component_key" not in test
+    assert '"Environment": {"model": Environment, "shared": True},' in (project / "docfactory/bundle/fact_registry.py").read_text(encoding="utf-8")
 
 
-def test_saver_refusals_write_nothing(project):
-    assert scaffold(project, None, "entity-model", "--scope", "app") == 1  # no tmp_db fixture yet
+def test_fact_refusals_write_nothing(project):
+    assert scaffold(project, None, "entity-model", "--scope", "app") == 1  # no tmp_bundle fixture yet
     with_conftest(project)
-    assert scaffold(project, None, "entity-model", "--pattern", "Widget.{app}") == 1
-    assert scaffold(project, None, "shared-model", "--scope", "app") == 1
+    assert scaffold(project, None, "shared-model", "--scope", "app") == 1  # shared models are never facts
+    assert not (project / "docfactory/models/environment.py").exists()
     spec = copy.deepcopy(ENVIRONMENT_SPEC)
     for f in spec["fields"]:
         f["example"] = "1" if f["name"] == "name" else f["example"]
     spec["fields"] = spec["fields"][:1]
     assert scaffold(project, spec, "entity-model", "--scope", "app") == 1  # no string example to change
-    assert not (project / "docfactory/entitymodels/items/environment.py").exists()
-    assert not (project / "docfactory/entitysaver/environment_saver.py").exists()
+    assert scaffold(project, None, "entity-model", "--scope", "app") == 0
+    assert scaffold(project, None, "entity-model", "--scope", "app") == 1  # already there: nothing is overwritten

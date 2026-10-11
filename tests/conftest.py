@@ -1,14 +1,12 @@
-"""Shared fixtures. Every test that touches the database uses `tmp_db`."""
+"""Shared fixtures. Every test that touches the bundle or the generated documents uses `tmp_bundle`."""
 import pytest
 
-from docfactory import db, fact_files
+from docfactory.bundle import paths as bundle_paths
 
 
 @pytest.fixture
-def tmp_db(tmp_path, monkeypatch):
-    """A fresh temporary database file, selected through DOCFACTORY_DB and initialised."""
-    path = tmp_path / "test.sqlite"
-    monkeypatch.setenv(db.ENV_VAR, str(path))
-    monkeypatch.setenv(fact_files.ENV_VAR, str(tmp_path / "knowledgefacts"))  # a saved fact also writes its JSON file: never into the repo
-    db.connect().close()
-    return path
+def tmp_bundle(tmp_path, monkeypatch):
+    """A fresh temporary workspace: the OKF bundle (DOCFACTORY_BUNDLE) and the output folder (DOCFACTORY_OUTPUT) are empty folders under tmp_path."""
+    monkeypatch.setenv(bundle_paths.ENV_VAR, str(tmp_path / "bundle"))  # facts, sources and contributions are files: never into the repo
+    monkeypatch.setenv("DOCFACTORY_OUTPUT", str(tmp_path / "output"))  # generated documents and their state files: never into the repo
+    return tmp_path

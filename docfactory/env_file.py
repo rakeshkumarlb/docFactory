@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from docfactory.db import PROJECT_ROOT
+from docfactory.project_root import PROJECT_ROOT
 
 
 def load_env_file(path: Path | None = None) -> None:

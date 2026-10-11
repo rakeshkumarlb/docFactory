@@ -7,10 +7,10 @@ import re
 import sys
 from typing import get_args
 
-from docfactory.db import PROJECT_ROOT
+from docfactory.project_root import PROJECT_ROOT
 from docfactory.models.doc_factory_model import DocFactoryModel
 from docfactory.ontology.signals import load_signals
-from docfactory.saver_resolution import entity_saver_classes
+from docfactory.bundle.fact_registry import FACT_SPECS, entity_names, key_patterns_of
 
 OUTPUT = PROJECT_ROOT / "docs" / "ontology.md"
 
@@ -61,10 +61,10 @@ def render_ontology() -> str:
         "evidence. Chunks the signals cannot tag go to the LLM fallback.",
         "",
     ]
-    for saver_class in entity_saver_classes():
-        model = saver_class.model
-        entry = signals[model.__name__]
-        keys = ", ".join(f"`{pattern}`" for pattern in saver_class.key_patterns)
+    for entity in entity_names():
+        model = FACT_SPECS[entity]["model"]
+        entry = signals[entity]
+        keys = ", ".join(f"`{pattern}`" for pattern in key_patterns_of(entity))
         out += [
             f"## {model.__name__}",
             "",
@@ -90,9 +90,8 @@ def ontology_summary() -> str:
     """The compact ontology for an LLM call: one line per entity with its meaning and its heading terms (no facts, no examples)."""
     signals = {entry.entity: entry for entry in load_signals()}
     lines = []
-    for saver_class in entity_saver_classes():
-        name = saver_class.model.__name__
-        lines.append(f"- {name}: {_first_sentence(saver_class.model.__doc__)} Typical headings: {', '.join(signals[name].heading_terms)}.")
+    for name in entity_names():
+        lines.append(f"- {name}: {_first_sentence(FACT_SPECS[name]['model'].__doc__)} Typical headings: {', '.join(signals[name].heading_terms)}.")
     return "\n".join(lines)
 
 

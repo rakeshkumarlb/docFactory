@@ -16,19 +16,16 @@ FIELD_HELPER = "doc_field"
 FIELD_HELPER_MODULE = "docfactory.models.doc_field"
 NOT_APPLICABLE = "NotApplicable"
 NOT_APPLICABLE_MODULE = "docfactory.models.not_applicable"
-BASE_SAVER = "BaseSaver"
-BASE_SAVER_MODULE = "docfactory.base_saver"
 BOOTSTRAP_CLASSES = {BASE_MODEL}  # cannot be scaffolded: they are what scaffolds derive from
 
-# Top-level folders of the package. models/ (machinery only) and entitysaver/ are flat; entitymodels/ and
-# documentmodels/ have sub-folders (below).
+# Top-level folders of the package that hold models. models/ (machinery only) and documentmodels/ are flat; entitymodels/ has
+# sub-folders (below).
 MODEL_FOLDERS = ("models", "entitymodels", "documentmodels")
-SAVER_FOLDERS = ("entitysaver", "documentsaver")
-ALL_FOLDERS = MODEL_FOLDERS + SAVER_FOLDERS
+ALL_FOLDERS = MODEL_FOLDERS
 
 # entitymodels/ has exactly two sub-folders and no module directly in it:
-#   facts   an entity model with a saver in entitysaver/ (a top-level knowledge fact)
-#   items   an entity model with no saver (nested item types and enums)
+#   facts   an entity model registered in the fact registry (a top-level knowledge fact, stored as a concept file of the bundle)
+#   items   an entity model that is not registered (nested item types and enums)
 ENTITY_SUBFOLDERS = ("facts", "items")
 ENTITY_FACTS, ENTITY_ITEMS = ENTITY_SUBFOLDERS
 
@@ -37,14 +34,10 @@ KINDS = {
     "shared-model": {"folder": "models"},
 }
 
-# Where the saver for a model kind lives and what it writes. Only top-level entities (facts) get a saver; nested item types never do.
-SAVERS = {
-    "entity-model": {
-        "folder": "entitysaver",
-        "table": "KnowledgeFacts",
-        "key_column": "FactKey",
-    },
-}
+# The fact registry: the one place that lists the facts a bundle can hold (entity name -> model, application or shared). Only top-level
+# entities (facts) are registered; nested item types never are.
+FACT_REGISTRY_FILE = "docfactory/bundle/fact_registry.py"
+FACT_TEST_SUFFIX = "_fact"  # tests/test_<model>_fact.py is the generated test of a fact
 
 # Placeholders used to turn a key pattern into a concrete key for generated tests.
 SAMPLE_SEGMENTS = {"{app}": "TestApp", "{component}": "testcomponent"}

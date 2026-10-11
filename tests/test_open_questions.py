@@ -10,7 +10,7 @@ from docfactory.entitymodels.facts.sop import Sop
 from docfactory.missing_md import missing_md
 from docfactory.models.fact_question import FactQuestion
 from docfactory.open_questions import default_in_words, open_questions
-from docfactory.saver_resolution import entity_saver_classes
+from docfactory.bundle.fact_registry import FACT_SPECS
 from tests.test_samples import MODEL_BY_FOLDER
 
 SAMPLES = sorted((Path(__file__).resolve().parents[1] / "samples" / "json").glob("*/*.json"))
@@ -51,13 +51,13 @@ def test_the_questions_explain_exactly_the_unanswered_part_of_completeness(path)
     assert sum(q.missing_in or 1 for q in open_questions(fact)) == total - answered
 
 
-@pytest.mark.parametrize("saver_class", [c for c in entity_saver_classes() if not any(f.is_required() for f in c.model.model_fields.values())],
-                         ids=lambda c: c.model.__name__)
-def test_every_empty_entity_asks_every_top_level_scored_field(saver_class):
-    questions = open_questions(saver_class.model())
+@pytest.mark.parametrize("model", [spec["model"] for spec in FACT_SPECS.values() if not any(f.is_required() for f in spec["model"].model_fields.values())],
+                         ids=lambda m: m.__name__)
+def test_every_empty_entity_asks_every_top_level_scored_field(model):
+    questions = open_questions(model())
     assert questions and all(q.question and q.default_assumed for q in questions)
-    assert len(questions) == len(saver_class.model.model_fields) - sum(
-        1 for f in saver_class.model.model_fields.values() if isinstance(f.json_schema_extra, dict) and f.json_schema_extra.get("scored") is False)
+    assert len(questions) == len(model.model_fields) - sum(
+        1 for f in model.model_fields.values() if isinstance(f.json_schema_extra, dict) and f.json_schema_extra.get("scored") is False)
 
 
 def test_default_in_words():
