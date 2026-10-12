@@ -3,6 +3,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 from docfactory.agents.model_client import ModelClient
 from docfactory.models.message_role import MessageRole
@@ -15,11 +16,24 @@ MODEL_ENV = "DOCFACTORY_MODEL"
 HOST_ENV = "OLLAMA_HOST"
 API_KEY_ENV = "OLLAMA_API_KEY"
 NUM_CTX_ENV = "DOCFACTORY_NUM_CTX"
+USAGE_LOG_ENV = "DOCFACTORY_USAGE_LOG"
 DEFAULT_NUM_CTX = 16384
 CLOUD_HOST = "https://ollama.com"
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_HOST = "http://localhost:11434"
 
+
+
+def log_usage(model: str, tool: str, prompt_tokens: int, output_tokens: int) -> None:
+    """Append one JSON line per model call (time, model, the tool on offer = the step, tokens) to the file named by env DOCFACTORY_USAGE_LOG;
+    nothing when it is unset. For measuring what a run costs (`python -m docfactory.agents.run_usage <file>`)."""
+    target = os.environ.get(USAGE_LOG_ENV)
+    if not target:
+        return
+    line = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": model, "tool": tool,
+            "prompt_tokens": prompt_tokens, "output_tokens": output_tokens}
+    with open(target, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(line) + "\n")
 
 class OllamaModelClient(ModelClient):
     """ModelClient over a local Ollama server (/api/chat, no streaming). The model must support tool calling (e.g. llama3.2, gemma4).
@@ -50,6 +64,7 @@ class OllamaModelClient(ModelClient):
             "tools": [{"type": "function", "function": {"name": t.name, "description": t.description, "parameters": json.loads(t.input_schema_json)}} for t in tools],
         }
         data = self.post_json("/api/chat", body)
+        log_usage(self.model, tools[0].name if tools else "", data.get("prompt_eval_count") or 0, data.get("eval_count") or 0)
         if data.get("done_reason") == "length":
             raise RuntimeError(f"model response was cut off (context or output limit, num_ctx={self.num_ctx}); raise num_ctx or shorten the task")
         message = data.get("message", {})

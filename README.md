@@ -70,6 +70,7 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for extraction calls; recognition (a 2000-word window plus the vocabulary and up to 200 catalog entities) wants 65536, the value in use |
    | `DOCFACTORY_WORD_CAP` | words per recognition window and per entity's evidence, default 2000 |
    | `DOCFACTORY_CATALOG_MAX` | entities shown to a recognition call, default 200 (the most relevant first) |
+   | `DOCFACTORY_USAGE_LOG` | optional file: every model call appends one JSON line (step, prompt and output tokens); summarise with `python -m docfactory.agents.run_usage <file>` |
 
 3. Shell variables win over `.env`. In PowerShell: `$env:DOCFACTORY_MODEL = "gemma4:31b"`.
 
