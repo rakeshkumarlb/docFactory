@@ -5,7 +5,7 @@
 The tool checks the answer against the window and returns feedback the model can act on. It refuses: a type outside the vocabulary (or a
 badly written `proposed:` type, or an identifier type such as Requirement), a chunk number that is not in the window, an entity none of whose
 names appears in the window text, a `same_as` that is not in the catalog or names an entity of another type (allowed only for a listed
-promotion, e.g. a Role that is a SupportContact, see `type_vocabulary.PROMOTIONS`), two entities with the same name, a relationship whose ends are
+promotion, e.g. a Role that is a SupportContact, see `type_vocabulary.PROMOTIONS`), two entities with the same name, an alias that names another entity of the answer or of the catalog, a relationship whose ends are
 neither entities of the answer nor of the catalog (or that relates an entity to itself), an unknown relationship kind, and a chunk topic
 outside the taggable facts. An accepted answer is appended to the list the package was built with. It writes nothing.
 """
@@ -83,6 +83,14 @@ def recognition_errors(entities: list[RecognizedEntity], relations: list[Recogni
         if normalize(entity.name) in seen:
             errors.append(f"{label}: listed twice; give each entity once, with all its chunks and aliases")
         seen.add(normalize(entity.name))
+        others = {normalize(e.name): e.name for e in entities if e is not entity}
+        others |= {normalize(n): r.entity_id for r in catalog if r.entity_id != entity.same_as for n in [r.name, *r.aliases]
+                   if r.type == entity.type and normalize(n) != normalize(entity.name)}
+        taken = [alias for alias in entity.aliases if normalize(alias) in others]
+        if taken:
+            errors.append(f"{label}: aliases {taken} name other entities ({', '.join(others[normalize(a)] for a in taken)}); an alias is another "
+                          "name for the SAME thing: if this entity is that catalog entity, set same_as to its id; otherwise leave those aliases out "
+                          "(a related entity belongs in relations)")
     known = _identities(entities, catalog)
     for relation in relations:
         label = f"relation {relation.source!r} {relation.relation} {relation.target!r}"

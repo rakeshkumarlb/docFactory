@@ -146,3 +146,10 @@ def test_the_canonical_name_is_the_one_most_originals_use():
             recognition(C, [ent("Matching Engine", same_as="Component/ai-driven-matching-engine")])]
     graph, _ = merge_entities("App", recs, {})
     assert [(r.entity_id, r.name, r.aliases) for r in graph] == [("Component/matching-engine", "Matching Engine", ["AI-Driven Matching Engine"])]
+
+
+def test_an_alias_that_names_another_entity_is_dropped():
+    first = recognition(A, [ent("Production", "Environment"), ent("Disaster Recovery", "Environment")])
+    second = recognition(B, [ent("Production", "Environment", aliases=["Disaster recovery", "prod"])])
+    graph, _ = merge_entities("App", [first, second], {})
+    assert {r.name: r.aliases for r in graph} == {"Production": ["prod"], "Disaster Recovery": []}

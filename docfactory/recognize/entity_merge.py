@@ -84,12 +84,22 @@ def _match(found: RecognizedEntity, resolver: EntityResolver) -> EntityRecord | 
     same = resolver.find(found.same_as) if found.same_as else None
     if same is not None and (same.type == found.type or can_promote(same.type, found.type)):  # never across types otherwise (as the tool)
         return same
-    return resolver.find(found.name, found.type) or next((r for a in found.aliases if (r := resolver.find(a, found.type))), None)
+    return resolver.find(found.name, found.type) or next((r for a in found.aliases if (r := resolver.find(a, found.type))), None)         if not _names_two(found, resolver) else resolver.find(found.name, found.type)
 
 
-def _merge_one(found: RecognizedEntity, record: EntityRecord | None, scope: str, provisional: str, evidence: list[EntityEvidence]) -> EntityRecord:
+def _names_two(found: RecognizedEntity, resolver: EntityResolver) -> bool:
+    """True when the found entity's names point at two different entities of its type (an alias that is another entity's name): then only
+    its own name matches."""
+    hits = {r.entity_id for n in [found.name, *found.aliases] if (r := resolver.find(n, found.type))}
+    return len(hits) > 1
+
+
+def _merge_one(found: RecognizedEntity, record: EntityRecord | None, scope: str, provisional: str, evidence: list[EntityEvidence],
+               resolver: EntityResolver) -> EntityRecord:
     names = [found.name, *found.aliases]
     names += [i for n in names if (i := leading_identifier(n))]
+    own = record.entity_id if record else provisional
+    names = [n for n in names if (other := resolver.find(n, found.type)) is None or other.entity_id == own]  # never another entity's name
     if record is None:
         record = EntityRecord(entity_id=provisional, scope=scope, type=found.type, name=found.name)
     elif found.type != record.type and can_promote(record.type, found.type):
@@ -160,7 +170,7 @@ def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Ou
                 first_seen.setdefault(name_key(found.name), len(first_seen))
                 match = _match(found, resolver)
                 provisional = match.entity_id if match else _new_id(found.type, found.name, set(records))
-                record = _merge_one(found, match, scope, provisional, _evidence(recognition.resource, found.chunks, outlines))
+                record = _merge_one(found, match, scope, provisional, _evidence(recognition.resource, found.chunks, outlines), resolver)
                 if match is None:
                     order.append(provisional)
                 records[provisional] = record

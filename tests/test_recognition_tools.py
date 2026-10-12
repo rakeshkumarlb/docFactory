@@ -80,3 +80,11 @@ def test_same_as_across_types_only_along_a_listed_promotion():
     assert answer({"name": "Platform Team Lead", "type": "SupportContact", "same_as": "Role/platform-team-lead", "chunks": [4]})["ok"] is True
     refused = answer({**ENGINE, "type": "Tool", "same_as": "DataStore/search-index"})
     assert refused["ok"] is False
+
+
+def test_an_alias_that_names_another_entity_is_refused():
+    store = {"name": "OpenSearch", "type": "DataStore", "aliases": ["Search Index"], "chunks": [3]}  # the catalog's Search Index is another entity
+    result, _ = call({"entities": [store]})
+    assert result["ok"] is False and any("name other entities" in e for e in result["errors"])
+    result, _ = call({"entities": [ENGINE, {"name": "Search Index", "type": "Component", "aliases": ["Matching Engine"], "chunks": [3]}]})
+    assert result["ok"] is False
