@@ -2,8 +2,9 @@
 
 Recognitions are given oldest ingested original first. Per window, in order:
 - an entity is matched to an entity already merged by its `same_as` id, else by its name or an alias within the same type; a match gains
-  the new name (as an alias), aliases and evidence. The canonical name comes from the first (oldest) mention, so ids stay stable as new
-  documents arrive; the summary comes from the newest mention that gives one. A `same_as` match with a more specific type (an item type over a
+  the new name (as an alias), aliases and evidence. The canonical name is the name the most originals give it (ties: the first mention), so a
+  requirements document's phrasing ('AI-Driven Matching Engine') yields to the name the other documents use ('Matching Engine'); every other
+  name stays an alias, so an older id still resolves by its slug. The summary comes from the newest mention that gives one. A `same_as` match with a more specific type (an item type over a
   graph-only type along a listed promotion, e.g. a Role that a support guide calls a SupportContact) gives the entity that type.
 - an unmatched entity is new.
 - a leading document identifier of a name is an alias too: 'ADR-001 Use RabbitMQ' gets the alias 'ADR-001', 'RB-01 High API Error Rate' 'RB-01'.
@@ -80,7 +81,8 @@ def _union_evidence(old: list[EntityEvidence], new: list[EntityEvidence]) -> lis
 
 
 def _match(found: RecognizedEntity, resolver: EntityResolver) -> EntityRecord | None:
-    if found.same_as and (same := resolver.find(found.same_as)) is not None:
+    same = resolver.find(found.same_as) if found.same_as else None
+    if same is not None and (same.type == found.type or can_promote(same.type, found.type)):  # never across types otherwise (as the tool)
         return same
     return resolver.find(found.name, found.type) or next((r for a in found.aliases if (r := resolver.find(a, found.type))), None)
 
@@ -95,8 +97,21 @@ def _merge_one(found: RecognizedEntity, record: EntityRecord | None, scope: str,
     return record.model_copy(update={"aliases": _add_aliases(record, names), "evidence": _union_evidence(record.evidence, evidence)})
 
 
+Uses = dict[str, dict[str, set[str]]]  # provisional id -> name -> the originals that call the entity so
+
+
+def _canonical(record: EntityRecord, uses: dict[str, set[str]], first_seen: dict[str, int]) -> EntityRecord:
+    """`record` named by the name the most originals use (ties: the first mention); its other names are aliases."""
+    best = max(uses, key=lambda n: (len(uses[n]), -first_seen[name_key(n)])) if uses else record.name
+    if name_key(best) == name_key(record.name):
+        return record
+    names = [record.name, *record.aliases]
+    aliases = [n for n in names if name_key(n) != name_key(best)]
+    return record.model_copy(update={"name": best, "aliases": list(dict.fromkeys(aliases))})
+
+
 def _fold(records: dict[str, EntityRecord], order: list[str], summaries: dict[str, str], resolver: EntityResolver,
-          groups: list[ResolutionGroup], notes: list[str]) -> dict[str, str]:
+          groups: list[ResolutionGroup], notes: list[str], uses: Uses) -> dict[str, str]:
     """Apply the resolution decisions: fold every 'same' entity into its group's kept one (names as aliases, evidence, summary when the kept
     one has none). Returns redirects (folded provisional id -> kept provisional id); a decision naming unknown entities, or entities of
     different types, is skipped and noted."""
@@ -120,6 +135,8 @@ def _fold(records: dict[str, EntityRecord], order: list[str], summaries: dict[st
                                                        "evidence": _union_evidence(kept.evidence, folded.evidence)})
             if not summaries.get(keep_id) and summaries.get(same_key):
                 summaries[keep_id] = summaries[same_key]
+            for name, resources in uses.pop(same_key, {}).items():
+                uses.setdefault(keep_id, {}).setdefault(name, set()).update(resources)
             del records[same_key]
             order.remove(same_key)
             redirect.update({old: keep_id for old, new in list(redirect.items()) if new == same_key})
@@ -135,20 +152,26 @@ def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Ou
     order: list[str] = []  # provisional ids in order of first mention
     records: dict[str, EntityRecord] = {}
     summaries: dict[str, str] = {}
+    uses: Uses = {}
+    first_seen: dict[str, int] = {}
     for recognition in recognitions:
         for window in recognition.windows:
             for found in window.entities:
+                first_seen.setdefault(name_key(found.name), len(first_seen))
                 match = _match(found, resolver)
                 provisional = match.entity_id if match else _new_id(found.type, found.name, set(records))
                 record = _merge_one(found, match, scope, provisional, _evidence(recognition.resource, found.chunks, outlines))
                 if match is None:
                     order.append(provisional)
                 records[provisional] = record
+                uses.setdefault(provisional, {}).setdefault(found.name, set()).add(recognition.resource)
                 resolver.register(record)
                 if found.summary.strip():
                     summaries[provisional] = found.summary.strip()  # later (newer) originals overwrite
     notes: list[str] = []
-    redirect = _fold(records, order, summaries, resolver, groups or [], notes)
+    redirect = _fold(records, order, summaries, resolver, groups or [], notes, uses)
+    for provisional in order:
+        records[provisional] = _canonical(records[provisional], uses.get(provisional, {}), first_seen)
     final: dict[str, str] = {}
     for provisional in order:
         final[provisional] = _new_id(records[provisional].type, records[provisional].name, set(final.values()))

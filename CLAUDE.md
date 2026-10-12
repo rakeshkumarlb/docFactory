@@ -12,6 +12,7 @@ Keeps application documentation (Overview, SMTD, SRS, SOP) up to date from struc
 - **Phase 5 (PENDING, outline only): Human in the loop.** The approval gate as a workflow (agents propose, humans approve, tools apply), built on LangGraph checkpointing and interrupts.
 - **Phase 6 (PENDING, outline only): Automate.** A watcher for `incoming/`, automatic triggering and the end-to-end workflow.
 - **OKF alignment redesign (DONE, 2026-10-11, all seven steps): coverage report, one concept per item, notes, type proposals, relationship graph, OKF extras.** Researched against OKF v0.2 (see "OKF alignment redesign"); the user asked for all seven steps to be built in one go, so the review between steps was skipped and the whole redesign awaits the user's review.
+- **Entity-first ingestion (BUILT 2026-10-12): recognition, entity graph, entity resolution, entity-centric extraction.** Recognition of entities and relationships per word-capped window, an entity graph per scope, one item per entity filled from every document that discusses it (see "Entity-first ingestion").
 - **Next activity (after step 3 of the redesign): optimize the generation flow.** Today generation scans the bundle straightforwardly: for each binding of the template it reads the fact's concept file, extracts the JSON under `# Value`, checks its hash, parses it into the entity model and aligns the bindings with the objects (`build.load_fact`, one read per fact per run through the caller's cache). Measure it on a large bundle first, then optimize (for example an in-memory index of facts by key, parse-once caching across documents, skipping unchanged files by hash).
 - **Triggers are manual until Phase 6:** files are moved into `incoming/` and the user runs each step by hand. `README.md` explains the process and lists the commands.
 
@@ -27,7 +28,7 @@ Nothing described here exists until it appears in the repo. If something is uncl
 2. **The facts in the bundle are the source of truth.** A fact is the concept file `<Scope>/<Entity>.md`; its JSON (under `# Value`) is its content, the frontmatter around it is OKF metadata. Generated documents are views of facts, never the other way round. (Built: a fact is a parent concept file plus one concept file per item of its lists, `BundleStore` assembles the aggregate on read, and links are a derived view of the JSON; see "OKF alignment redesign".) `.md` files under `output/` are views too (written for visibility), never edited by hand.
 3. **Only valid data is stored.** Every write goes through a Pydantic model. Invalid input is rejected with a structured error and nothing is written.
 4. **Models are the contract.** Every model and field has a description written for an LLM: what it means, what a good value looks like, what to ask when it is missing. The same model is the validator, the LLM's tool schema and the documentation.
-5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, completeness, merging, composition, document control, revision history, rendering, moving files. An LLM only does judgment work: tag what the rules cannot tag, pick a scope the rules cannot pick, find the information in a batch of chunks, and phrase a document's gaps as a needs list, keep what no entity claims as notes, propose a new entity type, and state a relation between items. Every LLM call has exactly one tool, and code checks its answer.
+5. **Deterministic code does all the work that can be deterministic:** validation, canonical JSON, hashing, completeness, merging, composition, document control, revision history, rendering, moving files. An LLM only does judgment work: tag what the rules cannot tag, pick a scope the rules cannot pick, find the information in a batch of chunks, and phrase a document's gaps as a needs list, keep what no entity claims as notes, propose a new entity type, and state a relation between items, recognize the entities and relationships of a window of sections, decide which entities of one type are the same thing, and fill one entity's item from its evidence. Every LLM call has exactly one tool, and code checks its answer.
 6. **Never invent values.** A default is a placeholder, not knowledge. Completeness counts only what was actually answered. Do not fill fields to raise a score.
 7. **Errors are feedback.** A rejected call returns errors precise enough for a caller (test or LLM) to fix the payload or go and find the missing information.
 8. **Only the stores write.** `BundleStore` (facts), `SourceStore` (sources), `ContributionStore` (contributions) and `DocumentStateStore` (document state) are the only writers of their files, plus the ingestion pipeline's moves of originals. No hand-edited facts, sources, contributions, state files or generated documents: a file whose JSON no longer matches its stored hash is refused on read. New input arrives only as files in `incoming/`.
@@ -207,8 +208,9 @@ docfactory/            Python package
   extract/             Phase 3 function modules: batching (BATCH_CHARS, chunks_hash), fact_keys, partial_schema, model_shapes, grounding, merge, priority_keywords, missing_questions, extraction_pipeline (extract_file, format_reports)
   generation/          Phase 4 (generate a document): the YAML `templates/` (one file per document type), template_loader/check/error, bindings, build_body, generate_document (the flow), template_gaps, gaps, revision_sources, revision_history, document_control, fallback_needs, document_parts (the four parts and their keys), DocumentStateStore, render_document, generation_steps (save_part, choose_needs, write_if_changed, output_dir, format_reports)
   generate.py          Entry point `python -m docfactory.generate <App> <DocType|all> [--no-llm]`
-  tools/               Tool, ToolRegistry, ToolPackage (one class per file); the single-tool packages ingestion_tools (submit_chunk_tags, submit_scope), extraction_tools (submit_extraction), needs_tools (submit_needs); schema_slim (inline_refs for tool schemas)
-  agents/              ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), model_client_factory, AgentLoop (the shared thin loop), prompt_file, IngestionFallback, EntityExtractor, NeedsWriter; entry points run_ingestion, run_extraction
+  recognize/           Entity-first ingestion function modules: type_vocabulary, windows, catalog_filter, entity_merge, recognition_pipeline, duplicate_resolution, expectation_score; EntityResolver
+  tools/               Tool, ToolRegistry, ToolPackage (one class per file); the single-tool packages ingestion_tools (submit_chunk_tags, submit_scope), extraction_tools (submit_extraction), needs_tools (submit_needs), recognition_tools (submit_recognition), resolution_tools (submit_merges); schema_slim (inline_refs for tool schemas)
+  agents/              ModelClient (abstract), OllamaModelClient (default), AnthropicModelClient (optional), FakeModelClient (tests), model_client_factory, AgentLoop (the shared thin loop), prompt_file, IngestionFallback, EntityExtractor, NeedsWriter, EntityRecognizer, DuplicateResolver, EntityItemExtractor; entry points run_ingestion, run_recognition, run_extraction, run_entity_extraction, run_scoring
 samples/json/<entity>/ Example JSON payloads per entity (ReadmeForge, plus shared Kpis and Slo), used by the seeds and tests
 samples/bundle/ samples/output/   Committed snapshot of the AI-Driven-Job-Matching-Platform end-to-end run
 seed/                  Hard-coded seed scripts for ReadmeForge (overview, requirements, SMTD, SRS and SOP); seed_meta.py: SEED_META, the FactMeta (generated_by `seed`) every seeded fact is saved with
@@ -244,6 +246,7 @@ The repo has mixed line endings and no conversion (`* -text`): keep each file's 
   - `ingestion-tagging` = [`submit_chunk_tags`] and `ingestion-scope` = [`submit_scope`] (Phase 2 fallback calls).
   - `extraction` = [`submit_extraction`] (Phase 3, one entity and one batch of its chunks).
   - `generation-needs` = [`submit_needs`] (Phase 4, one document's gaps).
+  - `recognition` = [`submit_recognition`] (one window of a document), `resolution` = [`submit_merges`] (one entity type of a scope); entity-centric extraction reuses `extraction` with the item model.
   - **Phase 5:** LangGraph nodes call the registry tools unchanged and respect the same packages.
 - `AgentLoop` is thin: call the model, run the requested tool, return its result to the model, stop when the model answers in text or at a turn cap; it nudges once on an empty reply and then fails loudly. It is tested with a fake model.
 - **Provider-neutral model interface:** `ModelClient.complete(system, messages, tools)` over neutral machinery models; default provider Ollama (local, or Ollama Cloud with `OLLAMA_HOST=https://ollama.com` and `OLLAMA_API_KEY`), Anthropic optional; cut-off responses raise; connection and 5xx errors are retried; tested with `FakeModelClient`.
@@ -383,6 +386,59 @@ Generation **groups the stored fact JSON by the document template, writes the `.
 **Verified.** Unit tests for every step (`tests/test_extract_coverage.py`, `test_bundle_items.py`, `test_discovery.py`, `test_type_proposals.py`, `test_relationship_graph_build.py`, `test_okf_extras.py`, plus one test file per new model); `apply_type_proposal` was run end to end in a throwaway copy of the repo (models, tests, registry and signals created, then rolled back when the gate failed). The real SRS run is described in STATUS.md.
 
 **Open points.** Items without a stable identifier are named by their statement (the extractor's rule); near-duplicate items that differ in wording are still not merged; a proposal is only as good as its prompt (the model has not yet been judged on a corpus that actually needs a new type); per-item human approval (Phase 5) is to be designed; the generation optimization is still open (a fact now reads one file per item, the entity `index.md` is the natural lookup).
+
+### Entity-first ingestion (2026-10-12)
+**Why.** On the 15 JobMatch documents, keyword routing plus per-entity, per-batch extraction recognized entities poorly: 12 environments
+(Hardware/Software/User Environment, clusters), 25 components (hardware classes, duplicates), runbooks as SOPs, whole documents (decision log,
+risk register, release notes) lost to `Note`, and fields such as component owner and alert condition empty although stated elsewhere. Each
+extraction call saw one schema and 3500 characters with no knowledge of which entities exist, and items were identified by the exact string of
+their first field. Recognition and schema filling are now separate steps (user decision: build on docFactory; windows capped by words, a long
+section alone; `gemma4:31b`; the developer agent may create classes for new kinds of entity, through the gated type proposals).
+
+**Recognize** (`recognize/`, `agents/entity_recognizer.py`, tool package `recognition` = [`submit_recognition`], prompt
+`docfactory-entity-recognizer-agent.md`, entry point `run_recognition`). Per ingested original: windows of whole sections in document order
+within `DOCFACTORY_WORD_CAP` words (default 2000; `windows.py`); one call per window sees the outline, the window, the type vocabulary, the
+catalog (the scope's entity graph, named entities first, `DOCFACTORY_CATALOG_MAX`, default 200; `catalog_filter.py`) and the keyword tags as
+hints, and returns `RecognizedEntity` (type, canonical name, aliases, `same_as`, summary, chunks), `RecognizedRelation` (verb phrase, optional
+`RelationKind` value, chunks) and `ChunkTopic` (the facts a chunk informs). The tool refuses a type outside the vocabulary or an identifier type,
+a name not in the text, an unknown `same_as` or one across types other than a listed promotion, relations to unknown entities or to itself,
+unknown kinds and chunks outside the window. A failed window is split in half and retried; a window covered by stored window recognitions with
+matching hashes is reused without a call. Stored per original by `RecognitionStore` (`<scope>/recognition/<file>.md`).
+- **Type vocabulary** (`type_vocabulary.py`, derived, never hand-kept): the item type of every list-of-models field of a registered fact
+  (definition = its docstring plus `RECOGNITION_NOTES`), minus identifier types (identity field `id`: Requirement, NonFunctionalRequirement,
+  left to the keyword rules and batch extraction), plus `GRAPH_TYPES` (Runbook, Decision, Risk, Release, Team, Role, Tool, Infrastructure,
+  Organization, Capability, UserGroup), plus `proposed:<PascalName>`. `PROMOTIONS` lists the only cross-type merges (Role -> SupportContact;
+  Tool -> Component/DataStore/Integration; Organization, UserGroup -> Integration); a Team or Capability is never promoted.
+- **Entity graph** (`entity_merge.py`, `entity_resolver.py`, `EntityStore`): the deterministic merge of a scope's recognitions, oldest original
+  first: match by `same_as`, else name or alias within the type (`name_key`); canonical name from the oldest mention, summary from the newest;
+  leading identifiers become aliases (ADR-001, RB-01, SOP 1.4); a relation's chunks are evidence of both ends; ids `<Type>/<slug>` assigned after
+  merging; an older id still resolves by its slug. Written as a whole to `<scope>/entities/<Type>/<slug>.md` (OKF frontmatter, the
+  `EntityRecord` JSON under `# Value`, derived `# Relationships` and `# Evidence`) plus `<scope>/entities/index.md`; hash-checked, versioned.
+- **Entity resolution** (`duplicate_resolution.py`, `agents/duplicate_resolver.py`, tool package `resolution` = [`submit_merges`], prompt
+  `docfactory-duplicate-resolver-agent.md`, `ResolutionStore` at `<scope>/recognition/resolution/decisions.md`): per type with two or more
+  entities, one call over the whole list returns `ResolutionGroup`s (keep, same, reason); the merge folds duplicates into the kept entity and
+  redirects links. A type whose entities' hash is unchanged is not asked again.
+
+**Extract, entity-centric** (`extract/entity_item_pipeline.py`, `entity_evidence.py`, `agents/entity_item_extractor.py`, prompt
+`docfactory-entity-item-extractor-agent.md`, entry point `run_entity_extraction <scope>`). Per entity of an item type: its evidence (own chunks
+in every original, then its one-hop neighbours' chunks within the word cap), one call with the item model minus the fields code sets (identity,
+`evidence`, `relations`; `partial_model(..., exclude)`), then code sets the identity (the canonical name), evidence, relations (from the
+graph) and adds "depends on" targets to `dependencies`. An item missing a mandatory field is not stored. Stored as the contribution
+`(entity) <entity id>` (`paths.entity_resource`); unchanged entity and evidence = no call. **Batch extraction** (`extraction_pipeline`) now routes
+chunks by recognition topics (plus keyword tags for the identifier facts; keyword tags alone for a file not recognized yet), does not ask for
+entity-backed list fields, and `merge_and_save` takes those fields only from entity items once a fact has any (old batch items are ignored); a
+fact's sources include the originals behind its entity items.
+
+**Type proposals from recognition** (`proposal_pipeline.propose_from_entities`, run by `run_entity_extraction`): a `proposed:` type with at
+least 3 entities or found in 2 originals, not close to an existing entity or stored proposal, is drafted by the existing `TypeProposer` (with a
+`focus`) from its entities' evidence and stored as pending; `apply_type_proposal` stays the gated developer step.
+
+**Scoring** (`recognize/expectation_score.py`, `run_scoring <scope> [<file>]`): entities per type (found, missing, duplicates, forbidden,
+extras), relations and fields against `tests/corpus/jobmatch_expectations.json`.
+
+**Verified** (`gemma4:31b`, 15 JobMatch documents): expected entities 63/79 before the quality round, 74-76/79 after, no forbidden entities;
+environments 5/5, alerts 7/7 with condition, severity, response and channel filled (previously 9/9 empty), SOPs 6/6 and runbooks 5/5 kept apart,
+decisions, risks and releases recognized. Recognition of all 15 documents takes about 5 minutes; a rerun makes no call.
 
 ### Phase 5: Human in the loop
 - The approval gate becomes a workflow: **agents propose, humans approve, tools apply.** It is built with **LangGraph**, used for orchestration and its **checkpointing** (durable state, `interrupt` to pause for a human, resume with the decision). LangGraph is introduced here and only here; it does not replace the tool layer (Principle 9).

@@ -40,7 +40,9 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
 | Step | Who does it | Status |
 |---|---|---|
 | 1. Ingest: chunk, tag and store originals | Code stages, chunks, tags against the ontology, decides the scope and stores; a small LLM fallback tags what the rules miss and places files the rules cannot | Built (Phase 2) |
+| 1b. Recognize: entities and relationships across all documents | One small LLM call per word-capped window of whole sections, with the entities already known in view; one resolution call per type finds duplicates; code merges everything into the entity graph | Built, verified on the 15 JobMatch documents |
 | 2. Extract: turn a stored file's tagged chunks into facts | Code batches each entity's chunks; one small LLM call per batch returns a partial object; code checks it, merges batches and files, fills priorities from keywords and writes the fact | Built (Phase 3), verified on the real 50-page SRS |
+| 2c. Entity items: one item per recognized entity | One small LLM call per entity over its chunks in every document and its neighbours' chunks; code sets name, evidence, relations | Built, verified on the 15 JobMatch documents |
 | 3. Generate: build documents from the facts | Code copies the facts' JSON into the template (SRS first), writes the document control and revision history and renders the `.md`; one small LLM call, checked by code, turns what is missing into a list of questions | Built (Phase 4), verified on the real SRS of AI-Driven-Job-Matching-Platform |
 
 ### Ideas worth remembering
@@ -65,7 +67,9 @@ Run every command from the project root (`C:\Users\Thinkpad\sourcecode\docFactor
    | `DOCFACTORY_PROVIDER` | `ollama` (default) or `anthropic` |
    | `OLLAMA_HOST`, `OLLAMA_API_KEY` | `https://ollama.com` plus your key for Ollama Cloud; leave unset for a local Ollama |
    | `DOCFACTORY_MODEL` | model name. `gemma4:31b` (Ollama Cloud) is the model in use and works for every call |
-   | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for every call (one tool schema of at most ~1.5k tokens plus its input, e.g. a 3500-character batch) |
+   | `DOCFACTORY_NUM_CTX` | Ollama context window, default 16384. Enough for extraction calls; recognition (a 2000-word window plus the vocabulary and up to 200 catalog entities) wants 65536, the value in use |
+   | `DOCFACTORY_WORD_CAP` | words per recognition window and per entity's evidence, default 2000 |
+   | `DOCFACTORY_CATALOG_MAX` | entities shown to a recognition call, default 200 (the most relevant first) |
 
 3. Shell variables win over `.env`. In PowerShell: `$env:DOCFACTORY_MODEL = "gemma4:31b"`.
 
@@ -96,6 +100,32 @@ python -m docfactory.ontology.ontology_render     # regenerate docs/ontology.md 
 ```
 
 If extraction stops with `no longer chunks as it did at ingestion`, run `chunk_rebuild` (the chunkers changed since the file was ingested).
+
+### Step 1b: recognize entities and relationships
+
+```
+python -m docfactory.agents.run_recognition                      # every ingested original, oldest first
+python -m docfactory.agents.run_recognition "<bundle path>" --force
+python -m docfactory.agents.run_scoring AI-Driven-Job-Matching-Platform   # score against tests/corpus/jobmatch_expectations.json
+```
+
+Recognition finds the **things the documents discuss** (components, environments, alerts, procedures, support contacts, runbooks, decisions,
+risks, ...) and **how they relate**, across all documents of a scope, before any fact is filled:
+
+1. **Windows**: each original is cut into windows of whole sections in document order, capped by words (`DOCFACTORY_WORD_CAP`, default 2000):
+   usually two or three sections; a section too long to share a window gets one of its own.
+2. **One call per window** (tool `submit_recognition`) sees the document's outline, the window, the entity type vocabulary (derived from the
+   fact registry plus graph-only types such as Runbook, Decision, Risk, Team, Tool, Infrastructure), the entities already known (the whole
+   graph, most relevant first, `DOCFACTORY_CATALOG_MAX`, default 200) and the keyword-rule hints. It returns entities (type, canonical name,
+   aliases, `same_as` an existing entity), relationships (a verb phrase, optionally a standard kind) and, per chunk, the facts it informs. Code
+   refuses types outside the vocabulary, names not in the text, unknown `same_as`, `same_as` across types (except a listed promotion such as a
+   Role that is a SupportContact), relationships to unknown entities and chunks outside the window. A thing no type fits is
+   `proposed:<Name>`: kept in the graph, and drafted as a type proposal when it recurs (Step 2c).
+3. **Entity resolution**: per entity type, one call looks at the whole list for entities that are the same thing under different names
+   ("AI Engine", "AI-Driven Matching Engine"); the decisions are stored and applied on every rebuild (`--no-resolve` skips it).
+4. **The entity graph** is the deterministic merge of all recognitions: `bundle/<scope>/entities/<Type>/<slug>.md`, one OKF concept per entity
+   (aliases, evidence = the chunks that discuss it, relationships as links), with `bundle/<scope>/entities/index.md`. Each original's share is
+   `bundle/<scope>/recognition/<file>.md`; unchanged windows are never sent to the model again.
 
 ### Step 2: extract
 
@@ -139,6 +169,21 @@ To see what became of every chunk of an original (extracted, noted, not extracte
 python -m docfactory.agents.run_coverage
 python -m docfactory.agents.run_coverage "<bundle path>"
 ```
+
+### Step 2c: fill one item per entity
+
+```
+python -m docfactory.agents.run_entity_extraction AI-Driven-Job-Matching-Platform
+python -m docfactory.agents.run_entity_extraction Shared
+```
+
+For every entity whose type is an item type (Component -> `Architecture.components`, Alert -> `Monitoring.alerts`, SupportContact ->
+`Support.contacts`, ...), one call fills that item from **every place that discusses it**: its own chunks in every original, then the chunks of
+the entities it is related to (its team, its cluster, its runbook), within the word cap. Code sets the item's name (the entity's canonical
+name, so no duplicates), its evidence, its relations (from the graph) and adds its "depends on" targets to `dependencies`. Each item is stored
+as a contribution `(entity) <id>`; once a fact has entity items, its entity-backed lists come from them alone (Step 2 fills only the fact's own
+fields, from the chunks recognition routed to it). Unchanged entities make no call (`--force` redoes them). Recurring `proposed:` types are then
+drafted as pending type proposals (`--no-proposals` skips it).
 
 ### Step 3: generate
 

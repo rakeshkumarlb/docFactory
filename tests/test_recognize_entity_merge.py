@@ -130,3 +130,19 @@ def test_the_chunks_of_a_relation_are_evidence_of_both_ends():
     second = recognition(B, [], [RecognizedRelation(source="Matching Engine", target="Search Index", relation="depends on", chunks=[2])])
     graph, _ = merge_entities("App", [first, second], {})
     assert all((B, 2) in {(e.resource, e.chunk_no) for e in r.evidence} for r in graph)
+
+
+def test_same_as_to_a_type_it_may_not_become_is_ignored():
+    first = recognition(A, [ent("Matching Team", "Team")])
+    second = recognition(B, [ent("Matching Team", "SupportContact", same_as="Team/matching-team")])
+    graph, _ = merge_entities("App", [first, second], {})
+    assert sorted(r.entity_id for r in graph) == ["SupportContact/matching-team", "Team/matching-team"]
+
+
+def test_the_canonical_name_is_the_one_most_originals_use():
+    C = "App/references/c.md"
+    recs = [recognition(A, [ent("AI-Driven Matching Engine")]),
+            recognition(B, [ent("Matching Engine", same_as="Component/ai-driven-matching-engine")]),
+            recognition(C, [ent("Matching Engine", same_as="Component/ai-driven-matching-engine")])]
+    graph, _ = merge_entities("App", recs, {})
+    assert [(r.entity_id, r.name, r.aliases) for r in graph] == [("Component/matching-engine", "Matching Engine", ["AI-Driven Matching Engine"])]
