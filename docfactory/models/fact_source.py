@@ -20,6 +20,11 @@ class FactSource(DocFactoryModel):
         description="Human-readable title of the source, e.g. Software Requirements Specification v0.3. None when unknown.",
         question="What is the title of this source?",
     )
+    author: str | None = doc_field(
+        default=None,
+        description="Who the source names as its author in its own properties, e.g. 'Product Office' (an OKF credibility signal). None when it names none.",
+        question="Who is the author of this source?",
+    )
     last_modified: str | None = doc_field(
         default=None,
         description="When the source was last modified, ISO 8601 datetime with explicit UTC offset, e.g. 2026-06-30T14:00:00Z (the ingestion time of the file, from its Source). None when unknown.",

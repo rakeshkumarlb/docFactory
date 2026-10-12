@@ -27,6 +27,12 @@ class SourceRecord(DocFactoryModel):
         question="When was the original ingested?",
         min_length=1,
     )
+    author: str | None = doc_field(
+        default=None,
+        description="The author the original names in its own properties (PDF /Author, Word author, HTML meta author), e.g. 'Product Office'. None when it names none; nothing is inferred.",
+        question="Who does the original name as its author?",
+        scored=False,
+    )
     chunks: list[SourceChunk] = doc_field(
         default_factory=list,
         description="The chunk outline of the original in order (number, heading, text hash), e.g. 76 entries for a 50-page SRS.",

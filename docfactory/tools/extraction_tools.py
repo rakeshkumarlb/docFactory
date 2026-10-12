@@ -11,7 +11,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, WithJsonSchema
 
-from docfactory.extract.grounding import duplicate_identities, placeholder_values, tidy_identities, unknown_identities
+from docfactory.extract.grounding import duplicate_identities, placeholder_values, relation_problems, tidy_identities, unknown_identities
 from docfactory.extract.partial_schema import partial_model, partial_values
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
@@ -54,6 +54,10 @@ def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted):
         if unknown:
             return {"ok": False, "error": f"these identifiers do not appear in the chunks: {'; '.join(unknown)}. "
                                           "Use each item's identifier exactly as the document writes it, or leave the item out."}
+        related = relation_problems(entity_model, stated)
+        if related:
+            return {"ok": False, "error": f"these relations are not valid: {'; '.join(related)}. A relation links an item to a different item, once per target; "
+                                          "leave out relations the text does not state."}
         accepted.append((stated, summary.strip() if summary and summary.strip() else None))
         return {"ok": True, "fields": sorted(stated)}
 

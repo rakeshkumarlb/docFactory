@@ -52,11 +52,16 @@ Keys: `{app}.Architecture`, `{app}.Components.{component}.Architecture`
   - `technology`: Main technology or framework the component is built with, e.g. 'Python 3.12 / FastAPI'.
   - `owner`: Role or team responsible for the component, e.g. 'Platform team'.
   - `dependencies`: Names of the other components, services or libraries this component depends on, e.g. ['Order database', 'Payment gateway'].
+  - `relations`: Relationships this item states about other items of the document, one per other item, e.g. [{'target': 'FR-03', 'kind': 'depends_on'}].
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `data_stores`: The data stores used, one entry each, e.g. a store named 'Orders database'.
   - `name`: Short name of the data store, e.g. 'Orders database'.
   - `store_type`: Kind of store, e.g. 'relational database', 'object storage', 'message queue', 'file share'.
   - `technology`: Product and version of the store, e.g. 'PostgreSQL 16'.
   - `contents`: What data the store holds, e.g. 'Customer orders and order line items.' A good value describes the data, not just the technology.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `integrations`: The integrations with other systems, one entry each, e.g. an integration named 'Payment gateway'.
   - `name`: Name of the other system the application integrates with, e.g. 'Payment gateway'.
   - `direction`: Direction of the data flow as seen from this application: 'inbound', 'outbound' or 'bidirectional', e.g. 'outbound'.
@@ -64,6 +69,9 @@ Keys: `{app}.Architecture`, `{app}.Components.{component}.Architecture`
   - `purpose`: Why the integration exists, e.g. 'Submits payment requests and receives payment confirmations.' Leave empty when not yet described.
   - `data_exchanged`: What data crosses the integration, e.g. 'Payment amount, order reference and payment status.' Leave empty when not yet known.
   - `authentication`: How the connection is authenticated, e.g. 'OAuth 2.0 client credentials'.
+  - `relations`: Relationships this item states about other items of the document, one per other item, e.g. [{'target': 'FR-03', 'kind': 'depends_on'}].
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `diagram_reference`: Relative path with forward slashes to an architecture diagram, e.g. 'docs/diagrams/architecture.png'.
   - `reason`: Why the question does not apply, in one sentence, e.g. 'The application is a batch job and has no web UI.' Never empty and never a placeholder such as 'n/a'.
 - `notes`: Free-text context about the architecture, e.g. 'The reporting component is being replaced in 2027.' Leave empty when there is nothing to add.
@@ -135,6 +143,8 @@ Keys: `{app}.Environments`, `{app}.Components.{component}.Environments`
   - `url`: Base URL of the environment, e.g. 'https://app.example.test'.
   - `access_control`: Who may access the environment and how access is granted, e.g. 'Developers via SSO group dev-team; read-only for support.' Leave empty when not yet known.
   - `notes`: Free-text remarks about the environment, e.g. 'Refreshed from production every Sunday.' Leave empty when there is nothing to add.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `notes`: Free-text context about the environments as a whole, e.g. 'Test and UAT share one cluster.' Leave empty when there is nothing to add.
 
 **Tagging signals**
@@ -159,6 +169,9 @@ Keys: `{app}.FunctionalRequirements`, `{app}.Components.{component}.FunctionalRe
   - `priority`: MoSCoW priority: MUST, SHOULD, COULD or WONT, e.g. MUST.
   - `rationale`: Why the requirement exists, e.g. 'Maintainers must not run README updates by hand.' N/A with a reason when no rationale applies.
   - `acceptance_criteria`: Testable conditions that show the requirement is met, e.g. ['A scan starts within 60 seconds of a push'].
+  - `relations`: Relationships this item states about other items of the document, one per other item, e.g. [{'target': 'FR-03', 'kind': 'depends_on'}].
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `out_of_scope`: What the application deliberately does not do, e.g. ['Editing source code other than README files'].
   - `reason`: Why the question does not apply, in one sentence, e.g. 'The application is a batch job and has no web UI.' Never empty and never a placeholder such as 'n/a'.
 
@@ -186,6 +199,8 @@ Keys: `{app}.KnownErrors`, `{app}.Components.{component}.KnownErrors`
   - `severity`: Impact of the error, e.g. 'High', 'Medium', 'Low'.
   - `status`: Current state of the error, e.g. 'Open', 'Workaround available', 'Fixed'.
   - `related_ticket`: Reference to the tracking ticket, e.g. 'JIRA-1234'.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `notes`: Free-text context about the known errors as a whole, e.g. 'Reviewed at every release.' Leave empty when there is nothing to add.
 
 **Tagging signals**
@@ -211,6 +226,8 @@ Keys: `Shared.Kpis`
   - `measurement_frequency`: How often the KPI is measured or reported, e.g. 'Monthly'.
   - `owner`: Role or team accountable for tracking and improving this KPI, e.g. 'Operations Manager'.
   - `data_source`: System or report the KPI value is retrieved from, e.g. 'BI dashboard - Orders report'.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `notes`: Free-text context about the shared KPI set as a whole, e.g. 'Reviewed quarterly by the leadership team.' Leave empty when there is nothing to add.
 
 **Tagging signals**
@@ -235,6 +252,8 @@ Keys: `{app}.Monitoring`, `{app}.Components.{component}.Monitoring`
   - `severity`: How serious the alert is, e.g. 'Critical', 'Warning'.
   - `response_action`: What the responder should do when the alert fires, e.g. 'Check the API logs and restart the service if it is unresponsive.' Leave empty when not yet defined.
   - `notification_channel`: Where the alert is sent, e.g. 'PagerDuty on-call rotation' or 'Email to ops-team'.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `dashboards`: Dashboards, as names or links, e.g. ['Grafana - API overview'].
 - `log_locations`: Where logs can be found, e.g. ['CloudWatch log group /app/api'].
 
@@ -260,6 +279,9 @@ Keys: `{app}.NonFunctionalRequirements`, `{app}.Components.{component}.NonFuncti
   - `target`: The measurable target, e.g. '95th percentile page load under 2 seconds'.
   - `priority`: MoSCoW priority: MUST, SHOULD, COULD or WONT, e.g. SHOULD.
   - `verification`: How the requirement is verified, e.g. 'Monthly load test against the staging environment'.
+  - `relations`: Relationships this item states about other items of the document, one per other item, e.g. [{'target': 'FR-03', 'kind': 'depends_on'}].
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 
 **Tagging signals**
 
@@ -282,6 +304,8 @@ Keys: `Shared.Slo`
   - `measurement_window`: The period the target is measured over, e.g. 'Rolling 30 days'.
   - `measurement_source`: System or report the measurement comes from, e.g. 'Monitoring dashboard - API availability'.
   - `breach_consequence`: What happens when the target is missed, e.g. 'Post-incident review and a service credit.' Leave empty when not yet defined.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `notes`: Free-text context about the shared SLOs as a whole, e.g. 'Reviewed every year by the service owners.' Leave empty when there is nothing to add.
 
 **Tagging signals**
@@ -308,6 +332,8 @@ Keys: `{app}.Sop`, `{app}.Components.{component}.Sop`
   - `steps`: The ordered steps, one action per entry, e.g. ['Log in to the console', 'Restart the service'].
   - `verification`: How to confirm the procedure succeeded, e.g. 'The health endpoint returns 200.' Leave empty when not yet defined.
   - `escalation`: What to do when it fails, e.g. 'Escalate to L3 support.' Leave empty when not yet defined.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `notes`: Free-text context about the procedures as a whole, e.g. 'Procedures are reviewed twice a year.' Leave empty when there is nothing to add.
 
 **Tagging signals**
@@ -331,6 +357,8 @@ Keys: `{app}.Support`, `{app}.Components.{component}.Support`
   - `contact_channel`: How to reach the team, e.g. 'support@example.test' or 'Slack #app-support'.
   - `support_hours`: When the contact is available, e.g. 'Mon-Fri 08:00-18:00 CET' or '24x7'.
   - `escalates_to`: The role this contact escalates to when it cannot resolve an issue, e.g. 'L3 development team'.
+  - `additional_information`: Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.'].
+  - `evidence`: Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2.
 - `escalation_path`: The order in which issues are escalated, e.g. 'L1 helpdesk, then L2 operations, then L3 development.' Leave empty when not yet defined.
 - `incident_process`: How incidents are raised, handled and closed, e.g. 'Incidents are logged in the ticket system and triaged within 30 minutes.' Leave empty when not yet described.
 - `runbooks`: Runbooks, as titles or relative paths with forward slashes, e.g. ['docs/runbooks/restart-api.md'].

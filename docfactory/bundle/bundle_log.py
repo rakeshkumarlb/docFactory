@@ -30,6 +30,6 @@ def append_entry(root: Path, date: str, entry: str) -> None:
     put_text(target, log_text(existing, date, entry))
 
 
-def append_log(root: Path, date: str, action: str, key: str, relpath: str, version: int, actor: str) -> None:
-    """Record one change of a concept: `* **Creation**: [key](/path.md) v1 by actor` (action is Creation or Update)."""
-    append_entry(root, date, f"* **{action}**: [{key}](/{relpath}) v{version} by {actor}")
+def append_log(root: Path, date: str, action: str, key: str, relpath: str, version: int, actor: str, detail: str = "") -> None:
+    """Record one change of a concept: `* **Creation**: [key](/path.md) v1 by actor` (action is Creation, Update or Deprecation); `detail` is appended, e.g. ' (items +2 ~1 -0)'."""
+    append_entry(root, date, f"* **{action}**: [{key}](/{relpath}) v{version} by {actor}{detail}")

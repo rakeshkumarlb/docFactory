@@ -115,6 +115,31 @@ The argument is the original's bundle path, with forward slashes; with a wrong p
 
 The report gives per entity: outcome (`SAVED`, `UNCHANGED`, `SKIPPED_UNCHANGED_CHUNKS`, `SKIPPED_SCOPE`, `REMOVED`, `REJECTED`, `FAILED`), version and completeness, chunks, batches, items, priorities filled from keywords, and for review: batch problems, conflicts, values not found in the text, and the questions the fact still leaves open. Run it again after a new revision of the file: only entities whose chunks changed are extracted, and an entity no longer tagged loses this file's contribution (`REMOVED`). A `REJECTED` fact (for example an overview with no purpose yet) keeps the file's contribution, so a later document can complete it.
 
+### Step 2b: what extraction leaves out (notes, new types, relationships)
+
+`run_extraction` (without `--entity`) does three more things after the entities, unless switched off with `--no-notes` / `--no-proposals`:
+
+1. **Notes.** The chunks that are in no knowledge fact (no entity tagged, or the entity gives no fact from this file) are shown to the model in batches (one tool, `submit_discovery`); what is worth keeping becomes a `Note` (`<App>/Note/notes/<title>.md`), the rest is declared worthless. Notes never enter a document.
+2. **Type proposals.** The same chunks are shown once more (one tool, `submit_type_proposal`): a recurring kind of knowledge the ontology has no entity for (risks, assumptions, ...) is stored as a pending proposal in `staging/type_proposals/`. Nothing is created yet. Look at them and apply one when you agree:
+
+```
+python -m docfactory.agents.apply_type_proposal --list
+python -m docfactory.agents.apply_type_proposal Risks            # creates the model, tests, registry entry and tagging signals, runs the quality gate, tags the stored originals; undoes everything if a step fails
+python -m docfactory.agents.run_extraction "<bundle path>" --entity Risks
+```
+
+   The result is left uncommitted for review (the skill `/docfactory-apply-type-proposal` lets the developer agent review it).
+3. **Relationship graph.** `<App>/graph/relationships.md` is rebuilt from the concept files: structure, identifiers an item names in its text (`FR-12`) and the relations the extraction took from the document (`depends_on`, `implements`, ...). `python -m docfactory.agents.run_graph [<scope>]` rebuilds it alone.
+
+Every item of a list (each requirement, component, alert, ...) is its own concept file under its fact, e.g. `<App>/FunctionalRequirements/requirements/FR-01.md`; the fact file itself holds the other fields and links to its items. Saving and reading still use the whole object.
+
+To see what became of every chunk of an original (extracted, noted, not extracted yet, skipped by scope, unmapped) and how well the graph is linked:
+
+```
+python -m docfactory.agents.run_coverage
+python -m docfactory.agents.run_coverage "<bundle path>"
+```
+
 ### Step 3: generate
 
 ```

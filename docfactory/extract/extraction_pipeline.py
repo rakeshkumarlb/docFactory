@@ -22,7 +22,8 @@ from docfactory.bundle.contribution_store import ContributionStore
 from docfactory.bundle.fact_registry import FACT_SPECS
 from docfactory.bundle.paths import EXISTING_RESOURCE
 from docfactory.bundle.source_store import SourceStore
-from docfactory.extract.batching import batch_chunks, batch_text, chunks_hash
+from docfactory.extract.batching import batch_chunks, batch_text, chunks_hash, split_chunk
+from docfactory.extract.evidence import attach_evidence
 from docfactory.extract.fact_keys import fact_key
 from docfactory.extract.grounding import ungrounded_values
 from docfactory.extract.merge import merge_partials
@@ -55,7 +56,7 @@ def _kebab(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
 
 
-def _keep_existing(key: str) -> None:
+def keep_existing(key: str) -> None:
     """A fact stored before any extraction (e.g. seed data) becomes the lowest-precedence contribution, so merging never drops it."""
     fact = BundleStore().read_fact(key)
     store = ContributionStore()
@@ -64,35 +65,35 @@ def _keep_existing(key: str) -> None:
     store.save(key, EXISTING_RESOURCE, json.loads(fact.value), None, None, fact.generated_by or UNSPECIFIED_ACTOR, fact.generated_at or clock.now_iso())
 
 
-def _ordered(key: str) -> list[tuple[str, dict, str | None, str | None]]:
-    """(resource, value, description, Source timestamp) of every contribution of `key`, newest ingested file first, '(existing)' last."""
+def _ordered(key: str) -> list[tuple[str, dict, str | None, str | None, str | None]]:
+    """(resource, value, description, Source timestamp, Source author) of every contribution of `key`, newest ingested file first, '(existing)' last."""
     rows = []
     sources = SourceStore()
     for contribution in ContributionStore().list(key):
         stored = None if contribution.resource == EXISTING_RESOURCE else sources.read(contribution.resource)
         rows.append((contribution.resource, json.loads(contribution.value_json), contribution.description,
-                     stored.timestamp if stored else None, contribution.timestamp))
+                     stored.timestamp if stored else None, contribution.timestamp, stored.author if stored else None))
     rows.sort(key=lambda r: r[0])  # stable sorts: the last one is the primary order
     rows.sort(key=lambda r: r[3] or r[4], reverse=True)  # newest ingested file first (contribution time when the Source is gone)
     rows.sort(key=lambda r: r[0] == EXISTING_RESOURCE)
-    return [(resource, value, description, stamp) for resource, value, description, stamp, _ in rows]
+    return [(resource, value, description, stamp, author) for resource, value, description, stamp, _, author in rows]
 
 
-def _merge_and_save(key: str, model: type, actor: str, report: dict) -> None:
+def merge_and_save(key: str, model: type, actor: str, report: dict) -> None:
     """Merge every contribution of `key`, save the result and record what happened in `report` (fields of the report)."""
     ordered = _ordered(key)
     report["contributions"] = len(ordered)
     if not ordered:
         report["reason"] = "no file contributes to this fact any more; the stored fact is left as it was"
         return
-    merged, conflicts = merge_partials(model, [(resource, value) for resource, value, _, _ in ordered])
+    merged, conflicts = merge_partials(model, [(resource, value) for resource, value, _, _, _ in ordered])
     scope = key.split(".")[0]
     meta = FactMeta(
         generated_by=actor,
         title=f"{scope} {type_name(model.__name__).lower()}",
-        description=next((d for _, _, d, _ in ordered if d), None),
+        description=next((d for _, _, d, _, _ in ordered if d), None),
         tags=[_kebab(model.__name__), "extracted"],
-        sources=[FactSource(resource=resource, last_modified=stamp) for resource, _, _, stamp in ordered if stamp],
+        sources=[FactSource(resource=resource, last_modified=stamp, author=author) for resource, _, _, stamp, author in ordered if stamp],
     )
     result = BundleStore().write_fact(key, merged, meta)
     report["conflicts"] += conflicts
@@ -129,11 +130,15 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
                 half = len(batch) // 2
                 pending[:0] = [batch[:half], batch[half:]]
                 report["batch_notes"].append(f"{label}: {note}; split and retried in two halves")
+            elif len(split_chunk(batch[0])) > 1:  # a single long chunk (a big table): cut it in two and try the halves
+                pending[:0] = [[half] for half in split_chunk(batch[0])]
+                report["batch_notes"].append(f"{label}: {note}; the chunk was cut in two and retried")
             else:
                 failed += 1
                 report["batch_notes"].append(f"{label}: {note}")
             continue
         stated, filled = fill_priorities(model, stated)
+        stated = attach_evidence(model, stated, batch)  # where the document names each item, set by code
         report["priorities_from_keywords"] += filled
         answers.append((label, stated))
         summaries.append(summary)
@@ -143,23 +148,23 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
         return EntityExtractionReport(outcome=ExtractionOutcome.FAILED, reason="no batch gave an accepted answer; nothing was stored", **report)
     file_value, batch_conflicts = merge_partials(model, answers)
     report["conflicts"] += batch_conflicts
-    _keep_existing(key)
+    keep_existing(key)
     complete = not report["failed_batches"]  # a partial result is stored but retried next run
     ContributionStore().save(key, path, file_value, current_hash if complete else None, next((s for s in summaries if s), None),
                              extractor.actor, clock.now_iso())
     report["outcome"] = ExtractionOutcome.SAVED
-    _merge_and_save(key, model, extractor.actor, report)
+    merge_and_save(key, model, extractor.actor, report)
     if report["outcome"] == ExtractionOutcome.SAVED and report.get("action") == SaveAction.UNCHANGED:
         report["outcome"] = ExtractionOutcome.UNCHANGED
     return EntityExtractionReport(**report)
 
 
-def _remove_entity(path: str, key: str, actor: str) -> EntityExtractionReport:
+def remove_entity(path: str, key: str, actor: str) -> EntityExtractionReport:
     entity = key.rsplit(".", 1)[-1]
     ContributionStore().remove(key, path)
     report = {"entity": entity, "key": key, "outcome": ExtractionOutcome.REMOVED, "conflicts": [],
               "reason": "the entity is no longer tagged in this file; its contribution was removed and the fact re-merged"}
-    _merge_and_save(key, FACT_SPECS[entity]["model"], actor, report)
+    merge_and_save(key, FACT_SPECS[entity]["model"], actor, report)
     return EntityExtractionReport(**report)
 
 
@@ -181,7 +186,7 @@ def extract_file(path: str, extractor: EntityExtractor, entities: list[str] | No
     for contribution in ContributionStore().list(resource=path):
         entity = contribution.fact_key.rsplit(".", 1)[-1]
         if entity not in tagged and (wanted is None or entity in wanted):
-            reports.append(_remove_entity(path, contribution.fact_key, extractor.actor))
+            reports.append(remove_entity(path, contribution.fact_key, extractor.actor))
     return reports
 
 

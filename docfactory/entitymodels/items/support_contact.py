@@ -30,3 +30,15 @@ class SupportContact(DocFactoryModel):
         description="The role this contact escalates to when it cannot resolve an issue, e.g. 'L3 development team'. Leave empty when not yet known.",
         question="Who does this contact escalate to?",
     )
+
+    additional_information: list[str] = doc_field(
+        default_factory=list,
+        description="Further statements the document makes about this item that fit none of its other fields, one per statement, e.g. ['Listed under Server Infrastructure in the hardware interfaces.']. Only what the text states; empty when there is nothing more.",
+        scored=False, in_documents=False,
+    )
+
+    evidence: list[str] = doc_field(
+        default_factory=list,
+        description="Where the document states this item, one entry per place as '<heading trail> (chunk N): <the line>', e.g. ['4.2. Hardware Interfaces (chunk 40): - Application servers']. Set by code from the chunks; leave it empty.",
+        scored=False, in_documents=False,
+    )

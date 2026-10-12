@@ -44,7 +44,7 @@ def test_full_frontmatter_carries_every_okf_family():
     assert data["title"] == 'Kitchen: "HQ" architecture' and data["description"] == "Three services."
     assert data["tags"] == ["architecture", "prod"]
     assert data["sources"][0]["resource"] == "KitchenHQ/srs.pdf" and data["sources"][0]["id"] == "srs"
-    assert data["sources"][1] == {"resource": "https://example.com/x"}
+    assert data["sources"][1] == {"resource": "https://example.com/x", "id": "x"}  # a source without an id gets a label from its file name (the footnote key)
     assert data["verified"][0]["by"] == "human:test-user" and data["status"] == "stable"
     assert str(data["stale_after"]).startswith("2027-01-01")
 

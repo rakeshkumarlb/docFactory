@@ -40,9 +40,14 @@ def _list_lines(values: list, render_as: str, indent: str) -> list[str]:
     return [f"{indent}- {value}" for value in values]
 
 
+def _shown(model: type[DocFactoryModel]) -> dict:
+    """The fields of `model` that appear in documents (not those declared `in_documents=False`)."""
+    return {name: field for name, field in model.model_fields.items() if _extra(field).get("in_documents", True)}
+
+
 def _item_lines(item: DocFactoryModel) -> list[str]:
     lines = []
-    for name, field in type(item).model_fields.items():
+    for name, field in _shown(type(item)).items():
         value = getattr(item, name)
         if isinstance(value, list) and value:
             lines.append(f"  - **{title_of(name)}:**")
@@ -62,7 +67,7 @@ def _table_cell(value) -> str:
 
 
 def _item_table(items: list[DocFactoryModel]) -> list[str]:
-    fields = list(type(items[0]).model_fields)
+    fields = list(_shown(type(items[0])))
     headers = [title_of(name) for name in fields]
     lines = [f"| {' | '.join(headers)} |", f"|{'|'.join(['---'] * len(headers))}|"]
     for item in items:
@@ -107,7 +112,7 @@ def field_lines(label: str, value, render_as: str | None, heading_level: int) ->
 
 def _field_lines(model: DocFactoryModel, heading_level: int) -> list[str]:
     lines = []
-    for name, field in type(model).model_fields.items():
+    for name, field in _shown(type(model)).items():
         lines += field_lines(title_of(name), getattr(model, name), _extra(field).get("render_as"), heading_level)
     return lines
 

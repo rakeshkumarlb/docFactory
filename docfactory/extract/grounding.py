@@ -108,3 +108,19 @@ def duplicate_identities(model: type[BaseModel], data: dict) -> list[str]:
             counts.setdefault(normal_identity(str(item.get(identity, ""))), []).append(str(item.get(identity)))
         found += [f"{name}: {values[0]!r} ({len(values)} items)" for values in counts.values() if len(values) > 1]
     return found
+
+
+def relation_problems(model: type[BaseModel], data: dict) -> list[str]:
+    """Relations in `data` that point an item at itself, or name one target twice within an item, as 'list: item: problem'. Targets that are not in the text are found by `unknown_identities`."""
+    found = []
+    for name, field in model.model_fields.items():
+        items = item_model(field.annotation)
+        if items is None or not isinstance(data.get(name), list) or "relations" not in items.model_fields:
+            continue
+        identity = identity_field(items)
+        for item in data[name]:
+            own, targets = normal_identity(str(item.get(identity, ""))), [normal_identity(str(r.get("target", ""))) for r in item.get("relations", [])]
+            if own in targets:
+                found.append(f"{name}: {item.get(identity)!r} is related to itself")
+            found += [f"{name}: {item.get(identity)!r} names the target {t!r} twice" for t in sorted({t for t in targets if targets.count(t) > 1})]
+    return found

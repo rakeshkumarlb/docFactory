@@ -20,7 +20,7 @@ FUNCTION_MODULES = {"source_reads", "ingestion_tools", "paths", "file_hash", "ta
                     "bindings", "template_check", "template_loader", "document_parts", "build_body", "template_gaps", "revision_sources", "render_document", "generate_document",
                     "gaps", "document_control", "revision_history", "fallback_needs", "generation_steps",
                     "batching", "fact_keys", "partial_schema", "model_shapes", "grounding", "merge", "missing_questions", "extraction_pipeline", "priority_keywords",
-                    "signals", "ontology_render",
+                    "signals", "ontology_render", "coverage", "run_coverage", "evidence", "file_properties", "graph_queries", "run_graph", "proposal_checks", "proposal_spec", "proposal_tools", "proposal_pipeline", "retag_entity", "apply_type_proposal", "discovery_pipeline", "discovery_tools", "entity_index", "item_layout", "item_file_render", "item_file_parse",
                     "paths", "file_io", "fact_registry", "key_check", "frontmatter_yaml", "fact_file_render", "fact_file_parse", "source_file_render", "source_file_parse", "contribution_file_render", "contribution_file_parse", "bundle_log", "bundle_index",
                     "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
 

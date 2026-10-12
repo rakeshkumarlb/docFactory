@@ -28,10 +28,11 @@ from typing import Callable
 from docfactory.bundle.paths import bundle_root, reference_path
 from docfactory.bundle.source_store import SourceStore
 from docfactory.ingest.chunking import chunk_file
+from docfactory.ingest.file_properties import file_author
 from docfactory.ingest.file_hash import file_sha256
 from docfactory.ingest.paths import incoming_dir, resolve_within, staging_dir
 from docfactory.ingest.scope_rules import decide_scope
-from docfactory.ingest.tagging import check_tags, entity_map, tag_chunks
+from docfactory.ingest.tagging import check_tags, entity_map, is_history, tag_chunks
 from docfactory.ingest.target_rules import check_target
 from docfactory.models.chunk_tag import ChunkTag
 from docfactory.models.doc_chunk import DocChunk
@@ -139,7 +140,7 @@ def _store(staged: Path, target: str, hashcode: str, timestamp: str, chunks: lis
         os.replace(destination, backup)
     shutil.move(str(staged), str(destination))
     try:
-        result = SourceStore().write(target, hashcode, timestamp, chunks, tags)
+        result = SourceStore().write(target, hashcode, timestamp, chunks, tags, file_author(destination))
     except Exception:
         shutil.move(str(destination), str(staged))
         if backup is not None:
@@ -170,8 +171,8 @@ def ingest_staged(name: str, clock: Callable[[], str] = _now, fallback=None) -> 
         return _staged(name, "no extractable text (a scanned PDF needs OCR, which is not supported)")
     tags, unmapped = tag_chunks(chunks, load_signals())
     notes = []
-    if fallback is not None and unmapped:
-        llm_tags, note = fallback.tag_chunks([chunk for chunk in chunks if chunk.chunk_no in unmapped])
+    if fallback is not None and any(c.chunk_no in unmapped and not is_history(c) for c in chunks):
+        llm_tags, note = fallback.tag_chunks([chunk for chunk in chunks if chunk.chunk_no in unmapped and not is_history(chunk)])
         rejected = check_tags(llm_tags, chunks, entity_names())
         if rejected:
             llm_tags, note = [], "LLM tags rejected: " + "; ".join(rejected)

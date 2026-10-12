@@ -19,6 +19,7 @@ def render_source_file(record: SourceRecord) -> str:
         f"type: {_text(SOURCE_TYPE)}",
         f"title: {_text(posixpath.basename(record.path))}",
         f"resource: {_text(record.path)}",
+        *([f"author: {_text(record.author)}"] if record.author else []),
         f"generated: {{ by: {_text(INGESTION_ACTOR)}, at: {_text(record.timestamp)} }}",
         f"hashcode: {_text(record.hashcode)}",
         f"version: {record.version}",

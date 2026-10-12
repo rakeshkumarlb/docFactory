@@ -9,6 +9,8 @@ never tag, they only add to the score, so a chunk with nothing but loose vocabul
 chunk can carry several entities. Matching is case-insensitive on word boundaries, a heading term also matches its plural ('service
 level agreement' matches 'Service Level Agreements'), and the longest match wins: in 'Non-Functional Requirements' the term 'non-functional requirements' matches and the
 shorter 'functional requirements' inside it does not. A chunk no entity reaches is unmapped (the LLM fallback looks at those).
+A chunk under a release or revision history (release notes, change log, version history) is never tagged, by the rules or by the LLM fallback: it
+records what changed, not what the system must do, so tagging it would turn release features into requirements. It stays unmapped and is kept as a note.
 """
 import re
 
@@ -20,6 +22,12 @@ THRESHOLD = 3
 OWN_HEADING, ANCESTOR_HEADING, IDENTIFIER, KEYWORD, KEYWORD_CAP = 4, 3, 4, 1, 3
 ORIGIN = "rule"
 _PART = re.compile(r"\s*\(part \d+\)$")
+_HISTORY = re.compile(r"(?<![\w-])(release notes|change[\s-]?log|version history|revision history|what'?s new)(?![\w-])", re.IGNORECASE)
+
+
+def is_history(chunk: DocChunk) -> bool:
+    """True when the chunk sits under a release or revision history heading (see the module docstring): it is never tagged with an entity."""
+    return bool(_HISTORY.search(chunk.heading))
 
 
 def _term(term: str, plural: bool = False) -> re.Pattern:
@@ -42,7 +50,9 @@ def _heading_matches(segment: str, signals: list[EntitySignals]) -> set[str]:
 
 
 def tag_chunk(chunk: DocChunk, signals: list[EntitySignals]) -> list[ChunkTag]:
-    """The rule tags of one chunk, ordered by score (highest first), then entity name."""
+    """The rule tags of one chunk, ordered by score (highest first), then entity name. None for a chunk under a release or revision history."""
+    if is_history(chunk):
+        return []
     segments = _PART.sub("", chunk.heading).split(" > ")
     own = _heading_matches(segments[-1], signals)
     ancestors = set().union(*(_heading_matches(s, signals) for s in segments[:-1])) if len(segments) > 1 else set()

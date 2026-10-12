@@ -4,15 +4,15 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from docfactory.bundle.fact_registry import entity_names as registry_entity_names
+from docfactory.bundle.fact_registry import taggable_entity_names
 from docfactory.models.entity_signals import EntitySignals
 
 SIGNALS_FILE = Path(__file__).with_name("signals.json")
 
 
 def entity_names() -> list[str]:
-    """The closed list of entities a chunk can be tagged with: the facts of the fact registry, ordered by name."""
-    return registry_entity_names()
+    """The closed list of entities a chunk can be tagged with: the taggable facts of the fact registry (not Note), ordered by name."""
+    return taggable_entity_names()
 
 
 def load_signals(path: Path = SIGNALS_FILE) -> list[EntitySignals]:

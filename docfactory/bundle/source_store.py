@@ -44,15 +44,17 @@ class SourceStore:
         return [r for r in self.list()
                 if (file_name is None or r.path.rsplit("/", 1)[-1] == file_name) and (hashcode is None or r.hashcode == hashcode)]
 
-    def write(self, resource: str, hashcode: str, timestamp: str, chunks: list[DocChunk], tags: list[ChunkTag]) -> tuple[int, SourceRecord | None]:
+    def write(self, resource: str, hashcode: str, timestamp: str, chunks: list[DocChunk], tags: list[ChunkTag], author: str | None = None) -> tuple[int, SourceRecord | None]:
         """Record the original `resource` with its chunk outline and tags, replacing any earlier ones. Returns (version, the record before).
 
         No earlier Source: version 1. Same hash: the version stays (a repair or a re-tag). Another hash: version + 1.
+        `author` is what the file names in its properties; a re-tag of the same file (author None) keeps the stored one.
         """
         before = self.read(resource)
         version = 1 if before is None else before.version if before.hashcode == hashcode else before.version + 1
         record = SourceRecord(
             path=resource, hashcode=hashcode, version=version, timestamp=timestamp,
+            author=author if author is not None else before.author if before is not None and before.hashcode == hashcode else None,
             chunks=[SourceChunk(chunk_no=c.chunk_no, heading=c.heading, text_hash=c.text_hash) for c in chunks], tags=tags,
         )
         put_text(self.root / source_relpath(resource), render_source_file(record))

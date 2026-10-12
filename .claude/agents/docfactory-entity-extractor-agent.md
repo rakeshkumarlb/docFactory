@@ -14,6 +14,8 @@ Rules:
 - One list entry per item the chunks state (every requirement, component, environment, ...). Do not drop items and do not invent any.
 - Everything written under a numbered item (its explanation, condition, reason or example) belongs to that item, e.g. in its description or rationale; it is never a separate item. A separate unnumbered item is only a statement that stands on its own, such as one bullet of a list.
 - A closed choice (such as a priority or a category) is filled only when the text supports it, e.g. SHALL/MUST -> MUST, SHOULD -> SHOULD, MAY -> COULD. Otherwise leave it out.
+- `additional_information` (on an item that has the field): every further statement the chunks make about that item that fits none of its other fields (the group it is listed under, a remark, a condition), one entry per statement, in the document's words. Never drop such a statement and never invent one. The item's own `evidence` field (where the document names the item) is set by code: leave it empty.
+- `relations` (on an item that has the field): only when the text of the chunks states how this item relates to a different item of the document, one entry per other item with its `target` (that item's identifier exactly as written in the chunks), its `kind` (depends_on, implements, refines, integrates_with, monitors, conflicts_with, or relates_to when none fits) and the short `evidence` words. Never relate an item to itself, never invent a relation, never name a target that is not in the chunks. Most items have none.
 - `summary`: one sentence on what these chunks tell about the entity.
 - If the chunks state nothing about the entity, call the tool with `values` `{}`.
 

@@ -21,7 +21,7 @@ def parse_source_file(text: str) -> SourceRecord:
         if meta.get("type") != SOURCE_TYPE:
             raise ValueError(f"type is {meta.get('type')!r}, not {SOURCE_TYPE!r}")
         return SourceRecord(
-            path=meta["resource"], hashcode=meta["hashcode"], version=meta["version"], timestamp=meta["generated"]["at"],
+            path=meta["resource"], hashcode=meta["hashcode"], version=meta["version"], timestamp=meta["generated"]["at"], author=meta.get("author"),
             chunks=[SourceChunk(chunk_no=c["chunk"], heading=c["heading"], text_hash=c["hash"]) for c in meta.get("chunks") or []],
             tags=[ChunkTag(chunk_no=t["chunk"], entity=t["entity"], origin=t["origin"], score=t["score"], evidence=t["evidence"])
                   for t in meta.get("chunk_tags") or []],

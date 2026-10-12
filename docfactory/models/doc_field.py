@@ -19,11 +19,15 @@ def doc_field(
     render_as: str = "list",
     ge: int | None = None,
     max_length: int | None = None,
+    in_documents: bool = True,
 ):
     """Declare a model field with its docFactory metadata. `default=...` means mandatory.
 
     `description` becomes the Pydantic field description. `question` (falling back to the
     description), `na_allowed`, `scored` and `render_as` are stored in `json_schema_extra`.
+
+    `in_documents=False` keeps a field out of the rendered documents (it is graph or bookkeeping data, e.g. an item's relations); it is still
+    stored, validated and extracted.
 
     `render_as` is a presentation choice for a list field only. On a list of models: `"list"` (default)
     renders each item as a numbered detail list, `"table"` renders all items as one Markdown table.
@@ -37,6 +41,7 @@ def doc_field(
         "na_allowed": na_allowed,
         "scored": scored,
         "render_as": render_as,
+        "in_documents": in_documents,
     }
     kwargs = {"description": description, "json_schema_extra": extra}
     if min_length is not None:

@@ -1,0 +1,42 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>On-Call Runbooks</title>
+<meta name="author" content="Platform Documentation Team (fictional)"></head><body>
+<h1>On-Call Runbooks</h1>
+<table border="1"><tr><th>Field</th><th>Value</th></tr><tr><td>Title</td><td>AI-Driven Job Matching Platform</td></tr><tr><td>Document ID</td><td>JM-RUN-009</td></tr><tr><td>Version</td><td>1.7</td></tr><tr><td>Status</td><td>Approved</td></tr><tr><td>Owner</td><td>Platform Team Lead</td></tr><tr><td>Date</td><td>2026-10-06</td></tr><tr><td>Classification</td><td>Sample document, fictional content created to test docFactory</td></tr></table>
+<h2>On-Call Runbooks</h2>
+<p>These runbooks are for the on-call engineer. Acknowledge the page within 10 minutes and work through the steps in order.</p>
+<h2>RB-01 High API Error Rate</h2>
+<p>Alert: HighApiErrorRate. Symptoms: users see error pages or failed saves; 5xx rate above 2 percent</p>
+<h3>Diagnosis</h3>
+<ol><li>Check whether a deployment happened in the last hour.</li><li>Open the API Overview dashboard and find the failing route.</li><li>Check the logs of the failing service in Loki.</li></ol>
+<h3>Actions</h3>
+<ol><li>If a deployment caused it, roll back using the SOP Roll Back a Release.</li><li>If one service is failing, restart its pods one at a time.</li><li>If the database is the cause, continue with RB-02.</li></ol>
+<p>Escalate: Page the Platform Team Lead after 30 minutes without improvement</p>
+<h2>RB-02 Database Connections Exhausted</h2>
+<p>Alert: DatabaseConnectionsExhausted. Symptoms: requests time out waiting for a connection</p>
+<h3>Diagnosis</h3>
+<ol><li>List the longest running queries in PostgreSQL.</li><li>Check which service holds the most connections.</li></ol>
+<h3>Actions</h3>
+<ol><li>Cancel the runaway query.</li><li>Restart the service that holds the connections.</li><li>Raise the pool size temporarily only with the Platform Team Lead&#x27;s approval.</li></ol>
+<p>Escalate: Page the Database Administrator</p>
+<h2>RB-03 Matching Queue Backlog</h2>
+<p>Alert: MatchQueueBacklog. Symptoms: new matches appear late; queue depth rising</p>
+<h3>Diagnosis</h3>
+<ol><li>Open the Matching Pipeline dashboard.</li><li>Check the worker count and the job duration.</li></ol>
+<h3>Actions</h3>
+<ol><li>Scale the Matching Engine workers up by 4 replicas.</li><li>If one job type fails repeatedly, move its messages to the dead-letter queue.</li></ol>
+<p>Escalate: Notify the Matching Team in the morning if the backlog cleared; page them if it did not clear in one hour</p>
+<h2>RB-04 Partner Sync Lag</h2>
+<p>Alert: SyncLagHigh. Symptoms: vacancies appear late on jobs.ps</p>
+<h3>Diagnosis</h3>
+<ol><li>Open the Partner Sync dashboard.</li><li>Check whether the partner API returns errors.</li></ol>
+<h3>Actions</h3>
+<ol><li>If the partner API is down, wait and inform the service desk.</li><li>Otherwise run the Run Partner Sync Backfill procedure.</li></ol>
+<p>Escalate: Integrations Team lead during business hours</p>
+<h2>RB-05 Backup Failed</h2>
+<p>Alert: BackupFailed. Symptoms: a nightly backup job reports failure</p>
+<h3>Diagnosis</h3>
+<ol><li>Read the backup job log.</li><li>Check free space on the backup storage.</li></ol>
+<h3>Actions</h3>
+<ol><li>Rerun the backup job.</li><li>If storage is full, remove expired backups according to the retention policy and rerun.</li></ol>
+<p>Escalate: Operations Manager if two nights in a row fail</p>
+</body></html>

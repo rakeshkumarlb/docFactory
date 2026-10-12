@@ -9,8 +9,8 @@ from typing import get_args
 
 from docfactory.project_root import PROJECT_ROOT
 from docfactory.models.doc_factory_model import DocFactoryModel
-from docfactory.ontology.signals import load_signals
-from docfactory.bundle.fact_registry import FACT_SPECS, entity_names, key_patterns_of
+from docfactory.ontology.signals import entity_names, load_signals
+from docfactory.bundle.fact_registry import FACT_SPECS, key_patterns_of
 
 OUTPUT = PROJECT_ROOT / "docs" / "ontology.md"
 

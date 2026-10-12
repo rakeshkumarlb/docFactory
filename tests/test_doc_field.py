@@ -27,9 +27,21 @@ def test_metadata_reads_back_from_json_schema_extra():
         "na_allowed": False,
         "scored": True,
         "render_as": "list",
+        "in_documents": True,
     }
     assert _extra("optional")["na_allowed"] is True
     assert _extra("items")["scored"] is False
+
+
+def test_in_documents_can_keep_a_field_out_of_the_rendered_documents():
+    class _Hidden(DocFactoryModel):
+        """Test-only model."""
+
+        shown: str = doc_field(default="", description="Shown in documents, e.g. a.")
+        hidden: str = doc_field(default="", description="Not shown in documents, e.g. b.", in_documents=False)
+
+    assert _Hidden.model_fields["shown"].json_schema_extra["in_documents"] is True
+    assert _Hidden.model_fields["hidden"].json_schema_extra["in_documents"] is False
 
 
 def test_render_as_defaults_to_list_and_accepts_table():

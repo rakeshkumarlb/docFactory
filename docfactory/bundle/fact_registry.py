@@ -9,6 +9,7 @@ from docfactory.entitymodels.facts.known_errors import KnownErrors
 from docfactory.entitymodels.facts.kpis import Kpis
 from docfactory.entitymodels.facts.monitoring import Monitoring
 from docfactory.entitymodels.facts.non_functional_requirements import NonFunctionalRequirements
+from docfactory.entitymodels.facts.note import Note
 from docfactory.entitymodels.facts.slo import Slo
 from docfactory.entitymodels.facts.sop import Sop
 from docfactory.entitymodels.facts.support import Support
@@ -29,6 +30,7 @@ FACT_SPECS = {
     "Slo": {"model": Slo, "shared": True},
     "Sop": {"model": Sop, "shared": False},
     "Support": {"model": Support, "shared": False},
+    "Note": {"model": Note, "shared": False, "taggable": False},  # written by discovery from untagged chunks; never a tagging target
 }
 
 
@@ -47,6 +49,11 @@ def entity_of_key(key) -> str | None:
     if entity in FACT_SPECS and any(pattern_matches(pattern, key) for pattern in key_patterns_of(entity)):
         return entity
     return None
+
+
+def taggable_entity_names() -> list[str]:
+    """The facts a chunk can be tagged with during ingestion (all but those marked `taggable: False`, such as Note), ordered by name."""
+    return sorted(name for name, spec in FACT_SPECS.items() if spec.get("taggable", True))
 
 
 def entity_names() -> list[str]:
