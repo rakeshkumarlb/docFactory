@@ -4,12 +4,14 @@ Recognitions are given oldest ingested original first. Per window, in order:
 - an entity is matched to an entity already merged by its `same_as` id, else by its name or an alias within the same type; a match gains
   the new name (as an alias), aliases and evidence. The canonical name comes from the first (oldest) mention, so ids stay stable as new
   documents arrive; the summary comes from the newest mention that gives one. A `same_as` match with a more specific type (an item type over a
-  graph-only type, e.g. a Role that a support guide calls a SupportContact) gives the entity that type.
+  graph-only type along a listed promotion, e.g. a Role that a support guide calls a SupportContact) gives the entity that type.
 - an unmatched entity is new.
 - a leading document identifier of a name is an alias too: 'ADR-001 Use RabbitMQ' gets the alias 'ADR-001', 'RB-01 High API Error Rate' 'RB-01'.
+Then the resolution decisions (`ResolutionGroup`: entities of one type that are the same thing) fold each duplicate into the entity kept.
 Ids are given at the end, in order of first mention: '<Type folder>/<slug of the name>' ('-2', '-3', ... on a clash). Then every relationship
 is resolved by id, name or alias across all types (both ends must resolve, else it is reported) and kept once per (target, verb phrase), with
-every original that states it. Evidence carries the chunk's heading and text hash from the Source outline.
+every original that states it; the chunks that state it become evidence of both ends. Evidence carries the chunk's heading and text hash
+from the Source outline.
 """
 import re
 
@@ -21,7 +23,8 @@ from docfactory.models.file_recognition import FileRecognition
 from docfactory.models.recognized_entity import RecognizedEntity
 from docfactory.models.source_chunk import SourceChunk
 from docfactory.recognize.entity_resolver import EntityResolver, name_key
-from docfactory.recognize.type_vocabulary import PROPOSED_PREFIX, type_rank
+from docfactory.models.resolution_group import ResolutionGroup
+from docfactory.recognize.type_vocabulary import PROPOSED_PREFIX, can_promote
 
 MAX_SLUG = 60
 Outlines = dict[str, dict[int, SourceChunk]]  # resource -> chunk number -> its outline entry
@@ -87,13 +90,47 @@ def _merge_one(found: RecognizedEntity, record: EntityRecord | None, scope: str,
     names += [i for n in names if (i := leading_identifier(n))]
     if record is None:
         record = EntityRecord(entity_id=provisional, scope=scope, type=found.type, name=found.name)
-    elif found.type != record.type and type_rank(found.type) > type_rank(record.type):
+    elif found.type != record.type and can_promote(record.type, found.type):
         record = record.model_copy(update={"type": found.type})
     return record.model_copy(update={"aliases": _add_aliases(record, names), "evidence": _union_evidence(record.evidence, evidence)})
 
 
-def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Outlines) -> tuple[list[EntityRecord], list[str]]:
-    """(the entity graph of `scope`, notes on what could not be merged) from its recognitions, oldest original first."""
+def _fold(records: dict[str, EntityRecord], order: list[str], summaries: dict[str, str], resolver: EntityResolver,
+          groups: list[ResolutionGroup], notes: list[str]) -> dict[str, str]:
+    """Apply the resolution decisions: fold every 'same' entity into its group's kept one (names as aliases, evidence, summary when the kept
+    one has none). Returns redirects (folded provisional id -> kept provisional id); a decision naming unknown entities, or entities of
+    different types, is skipped and noted."""
+    redirect: dict[str, str] = {}
+    for group in groups:
+        keep = resolver.find(group.keep)
+        keep_id = redirect.get(keep.entity_id, keep.entity_id) if keep else None
+        for same_id in group.same:
+            same = resolver.find(same_id)
+            if keep_id is None or same is None:
+                notes.append(f"resolution {group.keep} = {same_id} skipped: an entity is no longer in the graph")
+                continue
+            same_key = redirect.get(same.entity_id, same.entity_id)
+            if same_key == keep_id or same_key not in records:
+                continue
+            kept, folded = records[keep_id], records[same_key]
+            if kept.type != folded.type:
+                notes.append(f"resolution {group.keep} = {same_id} skipped: {kept.type} and {folded.type} are different types")
+                continue
+            records[keep_id] = kept.model_copy(update={"aliases": _add_aliases(kept, [folded.name, *folded.aliases]),
+                                                       "evidence": _union_evidence(kept.evidence, folded.evidence)})
+            if not summaries.get(keep_id) and summaries.get(same_key):
+                summaries[keep_id] = summaries[same_key]
+            del records[same_key]
+            order.remove(same_key)
+            redirect.update({old: keep_id for old, new in list(redirect.items()) if new == same_key})
+            redirect[same_key] = keep_id
+    return redirect
+
+
+def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Outlines,
+                   groups: list[ResolutionGroup] | None = None) -> tuple[list[EntityRecord], list[str]]:
+    """(the entity graph of `scope`, notes on what could not be merged) from its recognitions, oldest original first, with the resolution
+    decisions `groups` applied."""
     resolver = EntityResolver()
     order: list[str] = []  # provisional ids in order of first mention
     records: dict[str, EntityRecord] = {}
@@ -110,11 +147,13 @@ def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Ou
                 resolver.register(record)
                 if found.summary.strip():
                     summaries[provisional] = found.summary.strip()  # later (newer) originals overwrite
+    notes: list[str] = []
+    redirect = _fold(records, order, summaries, resolver, groups or [], notes)
     final: dict[str, str] = {}
     for provisional in order:
         final[provisional] = _new_id(records[provisional].type, records[provisional].name, set(final.values()))
+    final.update({old: final[new] for old, new in redirect.items()})
     links: dict[str, dict[tuple[str, str], EntityLink]] = {}
-    notes: list[str] = []
     for recognition in recognitions:
         for window in recognition.windows:
             for relation in window.relations:
@@ -126,6 +165,9 @@ def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Ou
                 source_id, target_id = final[source.entity_id], final[target.entity_id]
                 if source_id == target_id:
                     continue
+                stated_in = _evidence(recognition.resource, relation.chunks, outlines)  # a chunk that states a relationship discusses both ends
+                for end in (redirect.get(source.entity_id, source.entity_id), redirect.get(target.entity_id, target.entity_id)):
+                    records[end] = records[end].model_copy(update={"evidence": _union_evidence(records[end].evidence, stated_in)})
                 key = (target_id, normalize(relation.relation))
                 known = links.setdefault(source_id, {})
                 if key in known:

@@ -65,7 +65,7 @@ def score_relations(graph: list[EntityRecord], relations: list[dict]) -> list[st
     return lines
 
 
-def score_fields(scope: str, fields: list[dict], expected_types: dict) -> list[str]:
+def score_fields(scope: str, fields: list[dict], expected_types: dict, graph: list[EntityRecord]) -> list[str]:
     lines, store, mapping = [], BundleStore(), item_types()
     for check in fields:
         label = f"{check['type']} {check['entity']}.{check['field']} contains {check['contains']!r}"
@@ -77,6 +77,8 @@ def score_fields(scope: str, fields: list[dict], expected_types: dict) -> list[s
         items = json.loads(fact.value).get(field, []) if fact else []
         aliases = next((e.get("aliases", []) for e in expected_types.get(check["type"], {}).get("expected", []) if e["name"] == check["entity"]), [])
         keys = _keys([check["entity"], *aliases])
+        entity = next((r for r in graph if r.type == check["type"] and _entity_keys(r) & keys), None)
+        keys |= _entity_keys(entity) if entity else set()  # the item is named after the entity's canonical name
         item = next((i for i in items if name_key(str(i.get(identity_field(model), ""))) in keys), None)
         value = "" if item is None else json.dumps(item.get(check["field"], ""), ensure_ascii=False)
         ok = check["contains"].lower() in value.lower()
@@ -90,7 +92,7 @@ def score(scope: str, expectations_file: Path) -> str:
     graph = EntityStore().list(scope)
     type_lines, found, total = score_types(graph, expectations["types"])
     relation_lines = score_relations(graph, expectations.get("relations", []))
-    field_lines = score_fields(scope, expectations.get("fields", []), expectations["types"])
+    field_lines = score_fields(scope, expectations.get("fields", []), expectations["types"], graph)
     return "\n".join([f"{scope}: {found}/{total} expected entities found ({len(graph)} entities in the graph)", *type_lines,
                       f"relations ({sum(l.startswith('  ok') for l in relation_lines)}/{len(relation_lines)}):", *relation_lines,
                       f"fields ({sum(l.startswith('  ok') for l in field_lines)}/{len(field_lines)}):", *field_lines])

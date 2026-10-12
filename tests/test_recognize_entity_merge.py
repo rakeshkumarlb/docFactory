@@ -123,3 +123,10 @@ def test_an_older_id_still_resolves_by_its_slug():
     resolver = EntityResolver([record])
     assert resolver.find("UserGroup/third-party-job-portals") is record
     assert resolver.find("UserGroup/billing") is None
+
+
+def test_the_chunks_of_a_relation_are_evidence_of_both_ends():
+    first = recognition(A, [ent("Matching Engine", chunks=[1]), ent("Search Index", "DataStore", chunks=[1])])
+    second = recognition(B, [], [RecognizedRelation(source="Matching Engine", target="Search Index", relation="depends on", chunks=[2])])
+    graph, _ = merge_entities("App", [first, second], {})
+    assert all((B, 2) in {(e.resource, e.chunk_no) for e in r.evidence} for r in graph)

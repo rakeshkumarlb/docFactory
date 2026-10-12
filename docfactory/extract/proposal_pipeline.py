@@ -13,7 +13,15 @@ from docfactory.ingest.source_reads import read_chunks
 from docfactory.models.coverage_status import CoverageStatus
 from docfactory.models.proposal_report import ProposalReport
 from docfactory.models.type_proposal import TypeProposal
+from docfactory.ontology.proposal_checks import similar_to
 from docfactory.ontology.proposal_store import ProposalStore
+from docfactory.bundle.entity_store import EntityStore
+from docfactory.bundle.fact_registry import FACT_SPECS
+from docfactory.recognize.type_vocabulary import PROPOSED_PREFIX
+
+MIN_ENTITIES = 3  # a proposed type found this often ...
+MIN_FILES = 2  # ... or in this many originals is worth drafting as a model
+MAX_EXAMPLES = 8
 
 
 def propose_types(path: str, proposer: TypeProposer, force: bool = False) -> ProposalReport:
@@ -63,6 +71,47 @@ def propose_types(path: str, proposer: TypeProposer, force: bool = False) -> Pro
     return ProposalReport(path=path, chunks_asked=len(chunks), batches=calls, failed_batches=failed, saved=saved,
                           already_known=[name for name in found if name not in saved], batch_notes=notes,
                           reason="" if saved else "no new entity type was proposed")
+
+
+def propose_from_entities(scope: str, proposer: TypeProposer, force: bool = False) -> list[ProposalReport]:
+    """Draft type proposals for the `proposed:<Name>` types of a scope's entity graph that recur (at least MIN_ENTITIES entities or MIN_FILES
+    originals) and are not close to an existing entity or a stored proposal. One call per such type, over the evidence chunks of its entities in
+    the original that discusses them most; accepted proposals are stored as pending, like those of `propose_types`. Unchanged evidence is not
+    asked again unless `force`."""
+    groups: dict[str, list] = {}
+    for entity in EntityStore().list(scope):
+        if entity.type.startswith(PROPOSED_PREFIX):
+            groups.setdefault(entity.type[len(PROPOSED_PREFIX):], []).append(entity)
+    store, reports = ProposalStore(), []
+    known = list(FACT_SPECS) + [p.entity for _, p in store.list()]
+    for name, entities in sorted(groups.items()):
+        files = sorted({e.resource for entity in entities for e in entity.evidence})
+        if len(entities) < MIN_ENTITIES and len(files) < MIN_FILES:
+            continue
+        label = f"(entities) {scope} {name}"
+        near = similar_to(name, known)
+        if near:
+            reports.append(ProposalReport(path=label, reason=f"{name} is close to {near}: not proposed again"))
+            continue
+        counts = {f: sum(e.resource == f for entity in entities for e in entity.evidence) for f in files}
+        path = max(files, key=lambda f: (counts[f], f))
+        wanted = {e.chunk_no for entity in entities for e in entity.evidence if e.resource == path}
+        chunks = [c for c in read_chunks(path)[1] if c.chunk_no in wanted]
+        current_hash = chunks_hash(chunks)
+        if store.asked(label) == current_hash and not force:
+            reports.append(ProposalReport(path=label, chunks_asked=len(chunks), reason="its entities' evidence is unchanged since the last look"))
+            continue
+        examples = "\n".join(f"- {e.name}: {e.summary}" for e in entities[:MAX_EXAMPLES])
+        proposals, note = proposer.propose_batch(path, chunks, f"{name} ({len(entities)} found in {len(files)} documents), e.g.:\n{examples}")
+        if proposals is None:
+            reports.append(ProposalReport(path=label, chunks_asked=len(chunks), batches=1, failed_batches=1, batch_notes=[note]))
+            continue
+        saved = [p.entity for p in proposals if store.save(p.model_copy(update={"source_path": path, "proposed_by": proposer.actor}))]
+        store.mark_asked(label, current_hash)
+        reports.append(ProposalReport(path=label, chunks_asked=len(chunks), batches=1, saved=saved,
+                                      already_known=[p.entity for p in proposals if p.entity not in saved],
+                                      reason="" if saved else "the proposer drafted no new type"))
+    return reports
 
 
 def format_proposals(report: ProposalReport) -> str:

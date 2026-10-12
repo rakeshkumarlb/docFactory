@@ -25,15 +25,16 @@ class EntityExtractor:
         self.actor = f"{ACTOR_PREFIX}/{getattr(client, 'model', 'unknown')}"  # set by code, never by the model
         self.system = system if system is not None else load_prompt(PROMPT_FILE)
 
-    def extract_batch(self, entity_model: type[BaseModel], source_path: str, batch: list[DocChunk]) -> tuple[dict | None, str | None, str]:
-        """(stated fields, summary, '') for one batch, or (None, None, what went wrong)."""
+    def extract_batch(self, entity_model: type[BaseModel], source_path: str, batch: list[DocChunk],
+                      exclude: frozenset[str] = frozenset()) -> tuple[dict | None, str | None, str]:
+        """(stated fields, summary, '') for one batch, or (None, None, what went wrong). Fields in `exclude` are not asked for."""
         text = batch_text(batch)
         accepted: list[tuple[dict, str | None]] = []
         doc = (entity_model.__doc__ or "").strip()
         message = (f"Entity: {entity_model.__name__}: {doc}\nDocument: {source_path}\n\n"
                    f"Chunks:\n\n{text}")
         try:
-            AgentLoop(self.client, extraction_package(entity_model, text, accepted), self.system, message, MAX_TURNS,
+            AgentLoop(self.client, extraction_package(entity_model, text, accepted, exclude), self.system, message, MAX_TURNS,
                       f"{entity_model.__name__} extractor").run()
         except Exception as error:  # one failed batch never stops the others
             if accepted:  # the answer was accepted; only the closing reply failed

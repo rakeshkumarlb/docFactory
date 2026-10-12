@@ -66,10 +66,17 @@ def test_a_proposed_type_is_accepted():
     assert result["ok"] is True and accepted[0][0][0].type == "proposed:Cluster"
 
 
-def test_same_as_across_types_only_when_it_makes_a_graph_type_more_specific():
+def test_same_as_across_types_only_along_a_listed_promotion():
+    text = TEXT + "\n\n[chunk 4] Support\nThe Platform Team Lead and the Matching Team handle escalations."
     catalog = CATALOG + [EntityRecord(entity_id="Team/matching-team", scope="App", type="Team", name="Matching Team"),
-                         EntityRecord(entity_id="Role/matching-engine-owner", scope="App", type="Role", name="Matching Engine")]
-    refused, _ = call({"entities": [{**ENGINE, "type": "Tool", "same_as": "DataStore/search-index"}]}, catalog)
-    assert refused["ok"] is False and any("is a DataStore, but you typed this a Tool" in e for e in refused["errors"])
-    accepted, _ = call({"entities": [{**ENGINE, "same_as": "Role/matching-engine-owner"}]}, catalog)  # Component is more specific than Role
-    assert accepted["ok"] is True
+                         EntityRecord(entity_id="Role/platform-team-lead", scope="App", type="Role", name="Platform Team Lead")]
+
+    def answer(entity):
+        accepted = []
+        return recognition_package(text, CHUNKS, catalog, accepted).call("submit_recognition", {"entities": [entity]})
+
+    refused = answer({"name": "Matching Team", "type": "SupportContact", "same_as": "Team/matching-team", "chunks": [4]})
+    assert refused["ok"] is False and any("is a Team, but you typed this a SupportContact" in e for e in refused["errors"])
+    assert answer({"name": "Platform Team Lead", "type": "SupportContact", "same_as": "Role/platform-team-lead", "chunks": [4]})["ok"] is True
+    refused = answer({**ENGINE, "type": "Tool", "same_as": "DataStore/search-index"})
+    assert refused["ok"] is False

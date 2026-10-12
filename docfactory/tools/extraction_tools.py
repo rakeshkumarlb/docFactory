@@ -24,21 +24,21 @@ EXTRACTION_TOOL_NAMES = ["submit_extraction"]
 Accepted = list[tuple[dict, str | None]]  # (the stated fields, the summary) of every accepted call, in order
 
 
-def partial_json_schema(entity_model: type[BaseModel]) -> dict:
-    """The published schema of the partial object: the entity's fields, all optional, references inlined, token noise dropped."""
-    schema = partial_model(entity_model).model_json_schema()
+def partial_json_schema(entity_model: type[BaseModel], exclude: frozenset[str] = frozenset()) -> dict:
+    """The published schema of the partial object: the entity's fields (minus `exclude`), all optional, references inlined, token noise dropped."""
+    schema = partial_model(entity_model, exclude).model_json_schema()
     return inline_refs(schema, schema.get("$defs", {}))
 
 
-def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted):
-    values_type = Annotated[dict, WithJsonSchema(partial_json_schema(entity_model)),
+def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted, exclude: frozenset[str]):
+    values_type = Annotated[dict, WithJsonSchema(partial_json_schema(entity_model, exclude)),
                             Field(description=f"What the chunks state about the {entity_model.__name__}: only the fields they give, values in the document's own words. {{}} when they state nothing.")]
 
     def submit_extraction(
         values: values_type,
         summary: Annotated[str | None, Field(description="ONE sentence saying what these chunks tell about the entity, e.g. 'Functional requirements for user registration and login.' Omit if they state nothing.")] = None,
     ) -> dict:
-        stated, errors = partial_values(entity_model, values)
+        stated, errors = partial_values(entity_model, values, exclude)
         if errors:
             return {"ok": False, "errors": [e.model_dump(mode="json", exclude_none=True) for e in errors]}
         placeholders = placeholder_values(entity_model, stated)
@@ -64,9 +64,10 @@ def _submit_tool(entity_model: type[BaseModel], text: str, accepted: Accepted):
     return submit_extraction
 
 
-def extraction_package(entity_model: type[BaseModel], text: str, accepted: Accepted) -> ToolPackage:
-    """The only tool of one extraction call over `text` (a batch of chunks); accepted answers are appended to `accepted`."""
+def extraction_package(entity_model: type[BaseModel], text: str, accepted: Accepted, exclude: frozenset[str] = frozenset()) -> ToolPackage:
+    """The only tool of one extraction call over `text` (a batch of chunks); accepted answers are appended to `accepted`. Fields in `exclude`
+    are not offered (code or another step fills them)."""
     registry = ToolRegistry()
-    registry.register(Tool(_submit_tool(entity_model, text, accepted),
+    registry.register(Tool(_submit_tool(entity_model, text, accepted, exclude),
                            f"Submit what the chunks state about the {entity_model.__name__}. Call it once; if it returns errors, fix exactly what they name and call again."))
     return ToolPackage(EXTRACTION_PACKAGE_NAME, registry, EXTRACTION_TOOL_NAMES)

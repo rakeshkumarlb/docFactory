@@ -14,6 +14,7 @@ from docfactory import clock
 from docfactory.agents.entity_recognizer import EntityRecognizer
 from docfactory.bundle.entity_store import EntityStore
 from docfactory.bundle.recognition_store import RecognitionStore
+from docfactory.bundle.resolution_store import ResolutionStore
 from docfactory.bundle.source_store import SourceStore
 from docfactory.canonical import canonical_json, sha256_hex
 from docfactory.extract.batching import batch_text
@@ -41,8 +42,9 @@ def _sources(scope: str) -> list[SourceRecord]:
     return sorted(SourceStore().list(scope), key=lambda r: (r.timestamp, r.path))
 
 
-def scope_graph(scope: str, replace: FileRecognition | None = None) -> tuple[list[EntityRecord], list[str]]:
-    """(the entity graph of `scope`, merge notes) from its stored recognitions, with `replace` standing in for the stored recognition of its resource."""
+def scope_graph(scope: str, replace: FileRecognition | None = None, resolved: bool = True) -> tuple[list[EntityRecord], list[str]]:
+    """(the entity graph of `scope`, merge notes) from its stored recognitions, with `replace` standing in for the stored recognition of its
+    resource, and the scope's entity resolution decisions applied unless `resolved` is False."""
     sources = _sources(scope)
     stored = {r.resource: r for r in RecognitionStore().list(scope)}
     if replace is not None:
@@ -50,7 +52,8 @@ def scope_graph(scope: str, replace: FileRecognition | None = None) -> tuple[lis
     order = {s.path: i for i, s in enumerate(sources)}
     recognitions = sorted(stored.values(), key=lambda r: (order.get(r.resource, len(order)), r.resource))
     outlines = {s.path: {c.chunk_no: c for c in s.chunks} for s in sources}
-    return merge_entities(scope, recognitions, outlines)
+    decisions = ResolutionStore().get(scope) if resolved else None
+    return merge_entities(scope, recognitions, outlines, decisions.groups if decisions else None)
 
 
 def rebuild_graph(scope: str) -> tuple[dict[str, list[str]], list[str]]:

@@ -25,11 +25,15 @@ class TypeProposer:
         self.actor = f"{ACTOR_PREFIX}/{getattr(client, 'model', 'unknown')}"  # set by code, never by the model
         self.system = system if system is not None else load_prompt(PROMPT_FILE)
 
-    def propose_batch(self, source_path: str, batch: list[DocChunk]) -> tuple[list[TypeProposal] | None, str]:
-        """(proposals, '') for one batch (possibly none), or (None, what went wrong)."""
+    def propose_batch(self, source_path: str, batch: list[DocChunk], focus: str | None = None) -> tuple[list[TypeProposal] | None, str]:
+        """(proposals, '') for one batch (possibly none), or (None, what went wrong). `focus` names a kind of thing recognition found that no
+        entity type covers (with examples); the call then drafts that kind, or proposes nothing when it fits an existing entity."""
         text = batch_text(batch)
         accepted: list[list[TypeProposal]] = []
-        message = f"Knowledge entities the system already stores:\n{ontology_summary()}\n\nDocument: {source_path}\n\nChunks none of them claimed:\n\n{text}"
+        message = f"Knowledge entities the system already stores:\n{ontology_summary()}\n\nDocument: {source_path}\n\n"
+        if focus:
+            message += f"Recognition found things of a kind no entity type covers:\n{focus}\nPropose that kind (with items) if it is worth keeping, else nothing.\n\n"
+        message += f"Chunks none of them claimed:\n\n{text}"
         try:
             AgentLoop(self.client, proposal_package({c.chunk_no for c in batch}, accepted), self.system, message, MAX_TURNS, "type proposer").run()
         except Exception as error:  # one failed batch never stops the others

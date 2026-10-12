@@ -1,6 +1,9 @@
 """Extract the knowledge in one ingested original into facts (Phase 3). Code orchestrates; the LLM only fills partial objects per batch.
 
-Per entity tagged in the file (the tags of its Source concept; the chunks are re-derived from the original):
+Per entity tagged in the file (the chunks are re-derived from the original). A chunk informs the facts that recognition gave it as topics
+(`RecognitionStore`), plus, for the identifier facts (FunctionalRequirements, NonFunctionalRequirements), the facts the keyword rules tagged
+it with; a file not recognized yet uses the keyword tags alone. A fact's entity-backed list fields (components, environments, alerts, ...)
+are not asked for here: entity-centric extraction fills one item per recognized entity (`entity_item_pipeline`).
 1. fact key from the file's scope (`fact_keys`); none = SKIPPED_SCOPE;
 2. the entity's chunks unchanged since this file's stored contribution = SKIPPED_UNCHANGED_CHUNKS, no LLM call;
 3. the chunks in batches, one fresh single-tool call per batch (`EntityExtractor`), the batch answers merged in chunk order; a failed
@@ -20,7 +23,9 @@ from docfactory.agents.entity_extractor import EntityExtractor
 from docfactory.bundle.bundle_store import BundleStore
 from docfactory.bundle.contribution_store import ContributionStore
 from docfactory.bundle.fact_registry import FACT_SPECS
-from docfactory.bundle.paths import EXISTING_RESOURCE
+from docfactory.bundle.entity_store import EntityStore
+from docfactory.bundle.paths import ENTITY_RESOURCE_PREFIX, EXISTING_RESOURCE, is_entity_resource
+from docfactory.bundle.recognition_store import RecognitionStore
 from docfactory.bundle.source_store import SourceStore
 from docfactory.extract.batching import batch_chunks, batch_text, chunks_hash, split_chunk
 from docfactory.extract.evidence import attach_evidence
@@ -38,17 +43,30 @@ from docfactory.models.fact_meta import FactMeta
 from docfactory.models.fact_source import FactSource
 from docfactory.models.save_action import SaveAction
 from docfactory.okf_frontmatter import type_name
+from docfactory.recognize.type_vocabulary import entity_fields, identifier_facts
 
 UNSPECIFIED_ACTOR = "docfactory/unspecified"
 
 
+def _chunk_facts(path: str, record) -> list[tuple[int, str]]:
+    """(chunk number, fact) pairs of the stored original `path`: recognition topics plus the keyword tags of identifier facts, or the keyword
+    tags alone when the file has no recognition yet."""
+    recognition = RecognitionStore().get(path)
+    if recognition is None:
+        return [(tag.chunk_no, tag.entity) for tag in record.tags]
+    pairs = [(topic.chunk_no, fact) for window in recognition.windows for topic in window.topics for fact in topic.facts]
+    pairs += [(tag.chunk_no, tag.entity) for tag in record.tags if tag.entity in identifier_facts()]
+    return list(dict.fromkeys(pairs))
+
+
 def _chunks_by_entity(path: str) -> dict[str, list[DocChunk]]:
-    """The chunks of the stored original `path` (re-derived from the file) grouped by the entity they are tagged with, entities by name."""
+    """The chunks of the stored original `path` (re-derived from the file) grouped by the fact they inform (`_chunk_facts`), facts by name."""
     record, chunks = read_chunks(path)
     by_number = {chunk.chunk_no: chunk for chunk in chunks}
     by_entity: dict[str, list[DocChunk]] = {}
-    for tag in record.tags:
-        by_entity.setdefault(tag.entity, []).append(by_number[tag.chunk_no])
+    for chunk_no, fact in sorted(_chunk_facts(path, record)):
+        if chunk_no in by_number and fact in FACT_SPECS:
+            by_entity.setdefault(fact, []).append(by_number[chunk_no])
     return dict(sorted(by_entity.items()))
 
 
@@ -70,13 +88,35 @@ def _ordered(key: str) -> list[tuple[str, dict, str | None, str | None, str | No
     rows = []
     sources = SourceStore()
     for contribution in ContributionStore().list(key):
-        stored = None if contribution.resource == EXISTING_RESOURCE else sources.read(contribution.resource)
+        no_source = contribution.resource == EXISTING_RESOURCE or is_entity_resource(contribution.resource)
+        stored = None if no_source else sources.read(contribution.resource)
         rows.append((contribution.resource, json.loads(contribution.value_json), contribution.description,
                      stored.timestamp if stored else None, contribution.timestamp, stored.author if stored else None))
     rows.sort(key=lambda r: r[0])  # stable sorts: the last one is the primary order
     rows.sort(key=lambda r: r[3] or r[4], reverse=True)  # newest ingested file first (contribution time when the Source is gone)
     rows.sort(key=lambda r: r[0] == EXISTING_RESOURCE)
     return [(resource, value, description, stamp, author) for resource, value, description, stamp, _, author in rows]
+
+
+def _entity_sources(scope: str, ordered: list) -> list[FactSource]:
+    """The originals behind the entity items of a fact (the evidence of their entities), each once, with their Source time and author."""
+    graph = {e.entity_id: e for e in EntityStore().list(scope)}
+    sources, found = SourceStore(), []
+    for resource, _, _, _, _ in ordered:
+        if is_entity_resource(resource) and resource.removeprefix(ENTITY_RESOURCE_PREFIX) in graph:
+            found += [e.resource for e in graph[resource.removeprefix(ENTITY_RESOURCE_PREFIX)].evidence]
+    records = [sources.read(r) for r in dict.fromkeys(found)]
+    return [FactSource(resource=r.path, last_modified=r.timestamp, author=r.author) for r in records if r is not None]
+
+
+def _without_entity_fields(model: type, ordered: list) -> list[tuple[str, dict]]:
+    """The contributions to merge. Once a fact has entity items, its entity-backed list fields come from them alone: what batch extraction once
+    put there (items named after any mention) is ignored. A fact without entity items merges as before."""
+    fields = entity_fields(model.__name__)
+    if not fields or not any(is_entity_resource(resource) for resource, _, _, _, _ in ordered):
+        return [(resource, value) for resource, value, _, _, _ in ordered]
+    return [(resource, value if is_entity_resource(resource) else {k: v for k, v in value.items() if k not in fields})
+            for resource, value, _, _, _ in ordered]
 
 
 def merge_and_save(key: str, model: type, actor: str, report: dict) -> None:
@@ -86,14 +126,16 @@ def merge_and_save(key: str, model: type, actor: str, report: dict) -> None:
     if not ordered:
         report["reason"] = "no file contributes to this fact any more; the stored fact is left as it was"
         return
-    merged, conflicts = merge_partials(model, [(resource, value) for resource, value, _, _, _ in ordered])
+    merged, conflicts = merge_partials(model, _without_entity_fields(model, ordered))
     scope = key.split(".")[0]
+    file_sources = [FactSource(resource=resource, last_modified=stamp, author=author) for resource, _, _, stamp, author in ordered if stamp]
+    known = {s.resource for s in file_sources}
     meta = FactMeta(
         generated_by=actor,
         title=f"{scope} {type_name(model.__name__).lower()}",
         description=next((d for _, _, d, _, _ in ordered if d), None),
         tags=[_kebab(model.__name__), "extracted"],
-        sources=[FactSource(resource=resource, last_modified=stamp, author=author) for resource, _, _, stamp, author in ordered if stamp],
+        sources=file_sources + [s for s in _entity_sources(scope, ordered) if s.resource not in known],
     )
     result = BundleStore().write_fact(key, merged, meta)
     report["conflicts"] += conflicts
@@ -122,7 +164,7 @@ def _extract_entity(path: str, entity: str, chunks: list[DocChunk], extractor: E
     answers, summaries, calls, failed = [], [], 0, 0
     while pending:
         batch = pending.pop(0)
-        stated, summary, note = extractor.extract_batch(model, path, batch)
+        stated, summary, note = extractor.extract_batch(model, path, batch, entity_fields(entity))
         calls += 1
         label = f"chunks {batch[0].chunk_no}-{batch[-1].chunk_no}"
         if stated is None:

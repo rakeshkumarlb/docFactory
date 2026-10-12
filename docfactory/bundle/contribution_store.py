@@ -6,7 +6,7 @@ from docfactory.bundle.bundle_log import append_entry, append_log
 from docfactory.bundle.contribution_file_parse import parse_contribution_file
 from docfactory.bundle.contribution_file_render import render_contribution_file
 from docfactory.bundle.file_io import put_text
-from docfactory.bundle.paths import SOURCES_DIR, SUFFIX, bundle_root, contribution_relpath
+from docfactory.bundle.paths import SOURCES_DIR, SUFFIX, bundle_root, contribution_relpath, is_entity_resource
 from docfactory.canonical import canonical_json, sha256_hex
 from docfactory.models.fact_contribution import FactContribution
 
@@ -62,7 +62,12 @@ class ContributionStore:
             path = self.root / contribution_relpath(key, resource)
             return [path] if path.is_file() else []
         scope, entity = (key.split(".")[0], key.split(".")[-1]) if key else ("*", "*")
-        name = "*" if resource is None else (resource.rsplit("/", 1)[-1] if "/" in resource else resource)
+        if resource is None:
+            name = "*"
+        elif is_entity_resource(resource):
+            name = resource.replace("/", "~")
+        else:
+            name = resource.rsplit("/", 1)[-1] if "/" in resource else resource
         return sorted(p for p in self.root.glob(f"{scope}/{SOURCES_DIR}/{name}/{entity}{SUFFIX}") if p.is_file())
 
     def _parse(self, path: Path) -> FactContribution:

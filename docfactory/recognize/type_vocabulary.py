@@ -77,6 +77,36 @@ def type_rank(type_name: str) -> int:
     return 1 if type_name in GRAPH_TYPES else 0
 
 
+# A graph-only type an entity may be promoted from, when a later document shows it is really of an item type: a role the support guide lists
+# as a support contact, a tool the architecture names as a data store, an organisation or user group that is an external system. A Team or a
+# Capability is never promoted: a team in the escalation chain stays a team (the support contact is its own entity), a capability is never a
+# component.
+PROMOTIONS = {
+    "Role": {"SupportContact"},
+    "Tool": {"Component", "DataStore", "Integration"},
+    "Organization": {"Integration"},
+    "UserGroup": {"Integration"},
+}
+
+
+def can_promote(from_type: str, to_type: str) -> bool:
+    """True when an entity of `from_type` may become `to_type` (a `same_as` across types): a listed promotion, or a proposed type to a vocabulary type."""
+    return to_type in PROMOTIONS.get(from_type, set()) or (is_proposed(from_type) and type_rank(to_type) > 0)
+
+
+def entity_fields(entity: str) -> frozenset[str]:
+    """The list fields of a fact whose items come from the entity graph (one item per recognized entity), e.g. Architecture -> components,
+    data_stores, integrations. Identifier lists (requirements) are not among them: batch extraction fills those."""
+    skip = identifier_types()
+    return frozenset(field for name, (fact, field, _) in item_types().items() if fact == entity and name not in skip)
+
+
+def identifier_facts() -> set[str]:
+    """The facts whose items are identified by a document identifier (FunctionalRequirements, NonFunctionalRequirements): their chunks are
+    found by the keyword rules, which match identifiers such as FR-12 reliably."""
+    return {fact for name, (fact, _, _) in item_types().items() if name in identifier_types()}
+
+
 def types_of_fact(entity: str) -> list[str]:
     """The recognizable item types a fact holds, e.g. Architecture -> [Component, DataStore, Integration]."""
     skip = identifier_types()

@@ -15,6 +15,7 @@ RECOGNITION_DIR = "recognition"  # per original, what recognition found in it (t
 ENTITIES_DIR = "entities"  # the entity graph of a scope: one concept per recognized entity
 NON_FACT_DIRS = (REFERENCES_DIR, SOURCES_DIR, GRAPH_DIR, RECOGNITION_DIR, ENTITIES_DIR)  # inside a scope folder: not facts
 EXISTING_RESOURCE = "(existing)"  # the resource of a fact value stored before any extraction (e.g. seed data): lowest precedence
+ENTITY_RESOURCE_PREFIX = "(entity) "  # '(entity) Component/matching-engine': the item that entity-centric extraction filled for one entity
 SHARED_FOLDER = "Shared"  # the scope folder of common facts and of the originals ingested as `shared`
 SUFFIX = ".md"
 _UNSAFE = re.compile(r'[\x00-\x1f/\\:*?"<>|]')
@@ -76,6 +77,16 @@ def source_relpath(resource: str) -> str:
     return f"{parts[0]}/{SOURCES_DIR}/{parts[2]}{SUFFIX}"
 
 
+def entity_resource(entity_id: str) -> str:
+    """The contribution resource of an entity's item: 'Component/matching-engine' -> '(entity) Component/matching-engine'."""
+    return ENTITY_RESOURCE_PREFIX + entity_id
+
+
+def is_entity_resource(resource: str) -> bool:
+    """True for the resource of an entity's item (no original behind it: its evidence spans the originals that discuss the entity)."""
+    return resource.startswith(ENTITY_RESOURCE_PREFIX)
+
+
 def recognition_relpath(resource: str) -> str:
     """The bundle-relative path of what recognition found in the original `resource`: 'Acme/references/srs.pdf' -> 'Acme/recognition/srs.pdf.md'.
 
@@ -83,6 +94,13 @@ def recognition_relpath(resource: str) -> str:
     """
     scope, _, name = source_relpath(resource).partition(f"/{SOURCES_DIR}/")
     return f"{scope}/{RECOGNITION_DIR}/{name}"
+
+
+def resolution_relpath(scope: str) -> str:
+    """The bundle-relative path of a scope's entity resolution decisions: 'Acme' -> 'Acme/recognition/resolution/decisions.md'."""
+    if not is_safe_segment(scope):
+        raise ValueError(f"{scope!r} cannot be used as a folder name")
+    return f"{scope}/{RECOGNITION_DIR}/resolution/decisions{SUFFIX}"
 
 
 def entity_relpath(scope: str, entity_id: str) -> str:
@@ -107,4 +125,9 @@ def contribution_relpath(key: str, resource: str) -> str:
         raise ValueError(f"{key!r} is not '<scope>.<Entity>'")
     if resource == EXISTING_RESOURCE:
         return f"{segments[0]}/{SOURCES_DIR}/{EXISTING_RESOURCE}/{segments[1]}{SUFFIX}"
+    if is_entity_resource(resource):
+        folder = resource.replace("/", "~")
+        if not is_safe_segment(folder.replace(" ", "_")):
+            raise ValueError(f"{resource!r} cannot be used as a folder name")
+        return f"{segments[0]}/{SOURCES_DIR}/{folder}/{segments[1]}{SUFFIX}"
     return source_relpath(resource).removesuffix(SUFFIX) + f"/{segments[1]}{SUFFIX}"

@@ -20,6 +20,7 @@ An entity is a thing the chunks **discuss**: they give it a definition, properti
 - A functional area or module described in a requirements document ("Notification System", "Content Management", "Reporting and Analytics") is a Capability, not a Component; it is a Component only where an architecture names it as a deployable part.
 - **Same thing, one entity.** Check the catalog first. The catalog lists every entity known so far, also those this window writes differently. If an entity in the catalog is the same thing (same name, an alias, an abbreviation, singular/plural, "the X service" vs "X", a longer or shorter form such as "AI-Driven Matching Engine" for "Matching Engine", a product name vs its role), set `same_as` to its catalog id and use the catalog's type. `same_as` to an entity of another type is only for making a graph-only type more specific (a Role the support guide lists as a SupportContact); a person's role is never the same entity as a team. Within your answer, give each entity once, with all its chunks and aliases. When genuinely unsure whether two things are the same, keep them separate.
 - `summary`: one sentence on what the entity is, in the document's terms. `chunks`: the numbers of the chunks that discuss it.
+- List **every** entity these chunks discuss, also those already in the catalog (with `same_as`): the chunks you list are where extraction later reads the entity's details (its technology, owner, URL, ...).
 
 ## Relationships
 
