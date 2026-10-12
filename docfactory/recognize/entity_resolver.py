@@ -35,9 +35,15 @@ class EntityResolver:
                 self._any.setdefault(key, record.entity_id)
 
     def find(self, name: str, type_name: str | None = None) -> EntityRecord | None:
-        """The entity `name` refers to (an id, a name or an alias), within `type_name` when given; None when unknown."""
+        """The entity `name` refers to (an id, a name or an alias), within `type_name` when given; None when unknown.
+
+        An id that no longer exists ('UserGroup/third-party-job-portals' after the entity became an Integration) still resolves by its slug,
+        read as a name, so a stored recognition that cites an older id of an entity is not lost.
+        """
         if name in self.by_id:
             return self.by_id[name]
         key = name_key(name)
         entity_id = self._by_key.get((type_name, key)) if type_name is not None else self._any.get(key)
+        if entity_id is None and name.count("/") == 1 and " " not in name:
+            entity_id = self._any.get(name_key(name.split("/", 1)[1].replace("-", " ")))
         return self.by_id.get(entity_id) if entity_id else None

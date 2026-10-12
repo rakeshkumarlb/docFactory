@@ -122,7 +122,7 @@ def recognize_file(path: str, recognizer: EntityRecognizer, force: bool = False)
     RecognitionStore().save(path, accepted, recognizer.actor if calls else (previous.generated_by if previous else recognizer.actor),
                             clock.now_iso() if calls or previous is None else previous.timestamp)
     done, merge_notes = rebuild_graph(scope)
-    notes += merge_notes
+    notes += [note.removeprefix(f"{path}: ") for note in merge_notes if note.startswith(f"{path}: ")]  # this file's only
     notes += [f"entities {action}: {len(ids)}" for action, ids in done.items() if ids]
     outcome = RecognitionOutcome.PARTIAL if failed else (RecognitionOutcome.RECOGNIZED if calls else RecognitionOutcome.UNCHANGED)
     return RecognitionReport(outcome=outcome, notes=notes, **report)

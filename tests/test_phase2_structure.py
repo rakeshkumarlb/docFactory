@@ -24,7 +24,7 @@ FUNCTION_MODULES = {"source_reads", "ingestion_tools", "paths", "file_hash", "ta
                     "paths", "file_io", "fact_registry", "key_check", "frontmatter_yaml", "fact_file_render", "fact_file_parse", "source_file_render", "source_file_parse", "contribution_file_render", "contribution_file_parse", "bundle_log", "bundle_index",
                     "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker",
                     "type_vocabulary", "windows", "catalog_filter", "entity_merge", "recognition_pipeline", "recognition_tools", "run_recognition",
-                    "recognition_file_render", "recognition_file_parse", "entity_file_render", "entity_file_parse"}
+                    "recognition_file_render", "recognition_file_parse", "entity_file_render", "entity_file_parse", "expectation_score", "run_scoring"}
 
 
 def _snake(name: str) -> str:

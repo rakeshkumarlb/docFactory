@@ -85,3 +85,41 @@ def test_relations_resolve_across_originals_and_are_kept_once_with_every_source(
 def test_merge_is_deterministic():
     recs = [recognition(A, [ent("X"), ent("Y", "DataStore")]), recognition(B, [ent("Z")])]
     assert merge_entities("App", recs, {}) == merge_entities("App", recs, {})
+
+
+def test_leading_identifiers():
+    from docfactory.recognize.entity_merge import leading_identifier
+    assert leading_identifier("ADR-001 Use RabbitMQ for asynchronous work") == "ADR-001"
+    assert leading_identifier("RB-01 High API Error Rate") == "RB-01"
+    assert leading_identifier("SOP 1.4 Restore PostgreSQL From Backup") == "SOP 1.4"
+    assert leading_identifier("KE-003: Duplicate vacancies") == "KE-003"
+    for plain in ("1.3.0", "Release 1.0.0", "Matching Engine", "Data Centre DC1", "1.1 Deploy a Release"):
+        assert leading_identifier(plain) is None, plain
+
+
+def test_a_leading_identifier_becomes_an_alias():
+    graph, _ = merge_entities("App", [recognition(A, [ent("ADR-001 Use RabbitMQ", "Decision")])], {})
+    assert graph[0].aliases == ["ADR-001"]
+
+
+def test_same_as_to_a_graph_type_promotes_to_the_item_type_and_the_id_follows():
+    first = recognition(A, [ent("Platform Operations Engineer", "Role")])
+    second = recognition(B, [ent("Platform Operations Engineer", "SupportContact", same_as="Role/platform-operations-engineer")])
+    graph, _ = merge_entities("App", [first, second], {})
+    assert [(r.entity_id, r.type) for r in graph] == [("SupportContact/platform-operations-engineer", "SupportContact")]
+
+
+def test_links_follow_promoted_ids():
+    first = recognition(A, [ent("Service Desk Agent", "Role"), ent("Platform Team Lead", "Role")],
+                       [RecognizedRelation(source="Service Desk Agent", target="Platform Team Lead", relation="escalates to")])
+    second = recognition(B, [ent("Platform Team Lead", "SupportContact", same_as="Role/platform-team-lead")])
+    graph, _ = merge_entities("App", [first, second], {})
+    agent = next(r for r in graph if r.name == "Service Desk Agent")
+    assert agent.links[0].target == "SupportContact/platform-team-lead"
+
+
+def test_an_older_id_still_resolves_by_its_slug():
+    record = EntityRecord(entity_id="Integration/third-party-job-portals", scope="App", type="Integration", name="Third-Party Job Portals")
+    resolver = EntityResolver([record])
+    assert resolver.find("UserGroup/third-party-job-portals") is record
+    assert resolver.find("UserGroup/billing") is None

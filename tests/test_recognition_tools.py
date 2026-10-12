@@ -64,3 +64,12 @@ def test_a_relation_may_end_at_a_catalog_entity_by_alias():
 def test_a_proposed_type_is_accepted():
     result, accepted = call({"entities": [{"name": "jm-prod", "type": "proposed:Cluster", "reason": "A cluster.", "chunks": [4]}]})
     assert result["ok"] is True and accepted[0][0][0].type == "proposed:Cluster"
+
+
+def test_same_as_across_types_only_when_it_makes_a_graph_type_more_specific():
+    catalog = CATALOG + [EntityRecord(entity_id="Team/matching-team", scope="App", type="Team", name="Matching Team"),
+                         EntityRecord(entity_id="Role/matching-engine-owner", scope="App", type="Role", name="Matching Engine")]
+    refused, _ = call({"entities": [{**ENGINE, "type": "Tool", "same_as": "DataStore/search-index"}]}, catalog)
+    assert refused["ok"] is False and any("is a DataStore, but you typed this a Tool" in e for e in refused["errors"])
+    accepted, _ = call({"entities": [{**ENGINE, "same_as": "Role/matching-engine-owner"}]}, catalog)  # Component is more specific than Role
+    assert accepted["ok"] is True

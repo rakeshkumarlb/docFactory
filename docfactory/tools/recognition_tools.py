@@ -4,7 +4,8 @@
   and which knowledge facts each of its chunks informs.
 The tool checks the answer against the window and returns feedback the model can act on. It refuses: a type outside the vocabulary (or a
 badly written `proposed:` type, or an identifier type such as Requirement), a chunk number that is not in the window, an entity none of whose
-names appears in the window text, a `same_as` that is not in the catalog, two entities with the same name, a relationship whose ends are
+names appears in the window text, a `same_as` that is not in the catalog or names an entity of another type (allowed only when it makes a
+graph-only type more specific, e.g. a Role that is a SupportContact), two entities with the same name, a relationship whose ends are
 neither entities of the answer nor of the catalog (or that relates an entity to itself), an unknown relationship kind, and a chunk topic
 outside the taggable facts. An accepted answer is appended to the list the package was built with. It writes nothing.
 """
@@ -19,7 +20,7 @@ from docfactory.models.chunk_topic import ChunkTopic
 from docfactory.models.entity_record import EntityRecord
 from docfactory.models.recognized_entity import RecognizedEntity
 from docfactory.models.recognized_relation import RecognizedRelation
-from docfactory.recognize.type_vocabulary import type_problem
+from docfactory.recognize.type_vocabulary import type_problem, type_rank
 from docfactory.tools.schema_slim import inline_refs
 from docfactory.tools.tool import Tool
 from docfactory.tools.tool_package import ToolPackage
@@ -59,7 +60,8 @@ def recognition_errors(entities: list[RecognizedEntity], relations: list[Recogni
     """What is wrong with one answer for a window (`text`, its `chunk_nos`, the `catalog` it was shown); empty when it can be accepted."""
     errors: list[str] = []
     window = set(chunk_nos)
-    catalog_ids = {e.entity_id for e in catalog}
+    catalog_types = {e.entity_id: e.type for e in catalog}
+    catalog_ids = set(catalog_types)
     seen: set[str] = set()
     for entity in entities:
         label = f"entity {entity.name!r}"
@@ -70,6 +72,11 @@ def recognition_errors(entities: list[RecognizedEntity], relations: list[Recogni
             errors.append(f"{label}: neither its name nor an alias appears in the chunks; use the name the document writes")
         if entity.same_as is not None and entity.same_as not in catalog_ids:
             errors.append(f"{label}: same_as {entity.same_as!r} is not an entity id of the catalog; leave same_as out unless it names a catalog id")
+        elif entity.same_as is not None and not problem:
+            other = catalog_types[entity.same_as]
+            if other != entity.type and type_rank(entity.type) <= type_rank(other):
+                errors.append(f"{label}: same_as {entity.same_as!r} is a {other}, but you typed this a {entity.type}; if it is really the same thing "
+                              f"use type {other}, otherwise it is a different entity: leave same_as out")
         outside = sorted(set(entity.chunks) - window)
         if outside:
             errors.append(f"{label}: chunks {outside} are not in this window; use only {sorted(window)}")

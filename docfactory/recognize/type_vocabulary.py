@@ -20,6 +20,17 @@ from docfactory.extract.model_shapes import identity_field
 
 PROPOSED_PREFIX = "proposed:"
 NOT_RECOGNIZED_FACTS = {"Note"}  # written by discovery from left-over chunks; never an entity type
+# What recognition must know beyond an item model's docstring (which describes the item, not how to spot it in a document).
+RECOGNITION_NOTES = {
+    "Component": "Only deployable or logical parts of the application itself (a service, a front end, a worker). Never the application as a "
+                 "whole, never a hardware category ('Application servers'), never a functional area of a requirements document (that is a Capability).",
+    "DataStore": "Includes databases, search indexes, caches, object stores and message brokers or queues (e.g. 'RabbitMQ'), named as the "
+                 "architecture names them (e.g. 'Primary Database'), with the product as an alias (e.g. 'PostgreSQL').",
+    "Integration": "Recognize the external system itself, named after it (e.g. 'SMS Gateway', 'National Civil Registry', 'jobs.ps Partner Portal'): "
+                   "any system outside the application that it exchanges data with.",
+    "SupportContact": "Any role or team in the support model or the escalation chain (e.g. 'Service Desk Agent', 'Platform Operations Engineer'), "
+                      "named as the support document names it.",
+}
 GRAPH_TYPES = {
     "Runbook": "A step-by-step response to an operational event, usually tied to an alert or incident, e.g. 'RB-01 High API Error Rate'.",
     "Decision": "An architecture or design decision with its reason, e.g. 'ADR-002 Use OpenSearch for candidate retrieval'.",
@@ -27,9 +38,9 @@ GRAPH_TYPES = {
     "Release": "A released version of the application with its changes, e.g. '1.3.0'.",
     "Team": "A team of people that owns, builds or runs parts of the application, e.g. 'Matching Team'.",
     "Role": "A job role with responsibilities, e.g. 'Release Manager' or 'On-Call Engineer'. A support contact (a role in the support or escalation chain) is a SupportContact instead.",
-    "Tool": "A tool or product used to build, deploy, monitor or operate the application that is not one of its own components or data stores, e.g. 'Prometheus', 'GitLab CI', 'Terraform'.",
+    "Tool": "A tool or product used to build, deploy, monitor or operate the application that is not one of its own components or data stores and not an external system it exchanges data with (that is an Integration), e.g. 'Prometheus', 'GitLab CI', 'Terraform'.",
     "Infrastructure": "A piece of hosting infrastructure: a cluster, data centre, network zone or server group, e.g. 'jm-prod cluster', 'Data Centre DC1'. Not an environment: an environment is hosted on infrastructure.",
-    "Organization": "An organisation outside the team: a ministry, a funder, a partner, a customer, e.g. 'Ministry of Labour'.",
+    "Organization": "An organisation outside the team: a ministry, a funder, a partner, a customer, e.g. 'Ministry of Labour'. Not a system (a registry or portal the application exchanges data with is an Integration).",
     "Capability": "A business capability or feature area of the application as a whole, e.g. 'Resume Parsing' or 'Job Search and Filtering'. Not a component: a capability is what the application does, a component is a part that does it.",
     "UserGroup": "A class of users of the application, e.g. 'Job Seekers' or 'Employers'.",
 }
@@ -54,8 +65,16 @@ def identifier_types() -> set[str]:
 
 def entity_types() -> dict[str, str]:
     """Type name -> definition of every type recognition may use: item types (not identifier types) first, then graph types."""
-    items = {name: " ".join((model.__doc__ or "").split()) for name, (_, _, model) in item_types().items() if name not in identifier_types()}
+    items = {name: " ".join(((model.__doc__ or "") + " " + RECOGNITION_NOTES.get(name, "")).split())
+             for name, (_, _, model) in item_types().items() if name not in identifier_types()}
     return items | {name: text for name, text in GRAPH_TYPES.items() if name not in items}
+
+
+def type_rank(type_name: str) -> int:
+    """How specific a type is: 2 for an item type (it feeds a template), 1 for a graph type, 0 for a proposed or unknown one."""
+    if type_name in item_types() and type_name not in identifier_types():
+        return 2
+    return 1 if type_name in GRAPH_TYPES else 0
 
 
 def types_of_fact(entity: str) -> list[str]:
