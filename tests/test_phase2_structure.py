@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1] / "docfactory"
-FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "ontology", "extract", "generation", "bundle")
+FOLDERS = ("tools", "agents", "ingest", "ingest/chunkers", "ontology", "extract", "generation", "bundle", "recognize")
 FILES = sorted(p for folder in FOLDERS for p in (PACKAGE / folder).glob("*.py") if p.name != "__init__.py")
 
 # Function-only modules and entry points: they define no class, so the file name carries no class name.
@@ -22,7 +22,9 @@ FUNCTION_MODULES = {"source_reads", "ingestion_tools", "paths", "file_hash", "ta
                     "batching", "fact_keys", "partial_schema", "model_shapes", "grounding", "merge", "missing_questions", "extraction_pipeline", "priority_keywords",
                     "signals", "ontology_render", "coverage", "run_coverage", "evidence", "file_properties", "graph_queries", "run_graph", "proposal_checks", "proposal_spec", "proposal_tools", "proposal_pipeline", "retag_entity", "apply_type_proposal", "discovery_pipeline", "discovery_tools", "entity_index", "item_layout", "item_file_render", "item_file_parse",
                     "paths", "file_io", "fact_registry", "key_check", "frontmatter_yaml", "fact_file_render", "fact_file_parse", "source_file_render", "source_file_parse", "contribution_file_render", "contribution_file_parse", "bundle_log", "bundle_index",
-                    "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker"}
+                    "chunking", "tagging", "scope_rules", "pipeline", "chunk_rebuild", "pdf_chunker", "word_chunker", "html_chunker", "text_chunker",
+                    "type_vocabulary", "windows", "catalog_filter", "entity_merge", "recognition_pipeline", "recognition_tools", "run_recognition",
+                    "recognition_file_render", "recognition_file_parse", "entity_file_render", "entity_file_parse"}
 
 
 def _snake(name: str) -> str:

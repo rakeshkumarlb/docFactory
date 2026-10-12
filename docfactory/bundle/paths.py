@@ -11,7 +11,9 @@ RESERVED_FILES = ("index.md", "log.md")  # OKF section 3.1: never concept files
 REFERENCES_DIR = "references"  # OKF section 6.3: the originals of a scope
 SOURCES_DIR = "sources"  # the Source concept of each original (and, per original, its contributions)
 GRAPH_DIR = "graph"  # the generated relationship graph concept of a scope
-NON_FACT_DIRS = (REFERENCES_DIR, SOURCES_DIR, GRAPH_DIR)  # inside a scope folder: not facts
+RECOGNITION_DIR = "recognition"  # per original, what recognition found in it (the share it gives the entity graph)
+ENTITIES_DIR = "entities"  # the entity graph of a scope: one concept per recognized entity
+NON_FACT_DIRS = (REFERENCES_DIR, SOURCES_DIR, GRAPH_DIR, RECOGNITION_DIR, ENTITIES_DIR)  # inside a scope folder: not facts
 EXISTING_RESOURCE = "(existing)"  # the resource of a fact value stored before any extraction (e.g. seed data): lowest precedence
 SHARED_FOLDER = "Shared"  # the scope folder of common facts and of the originals ingested as `shared`
 SUFFIX = ".md"
@@ -72,6 +74,26 @@ def source_relpath(resource: str) -> str:
     if len(parts) != 3 or parts[1] != REFERENCES_DIR or not parts[0] or not parts[2]:
         raise ValueError(f"{resource!r} is not '<scope>/{REFERENCES_DIR}/<file name>'")
     return f"{parts[0]}/{SOURCES_DIR}/{parts[2]}{SUFFIX}"
+
+
+def recognition_relpath(resource: str) -> str:
+    """The bundle-relative path of what recognition found in the original `resource`: 'Acme/references/srs.pdf' -> 'Acme/recognition/srs.pdf.md'.
+
+    Raises ValueError when `resource` is not '<scope>/references/<file name>'.
+    """
+    scope, _, name = source_relpath(resource).partition(f"/{SOURCES_DIR}/")
+    return f"{scope}/{RECOGNITION_DIR}/{name}"
+
+
+def entity_relpath(scope: str, entity_id: str) -> str:
+    """The bundle-relative path of an entity concept: ('Acme', 'Component/matching-engine') -> 'Acme/entities/Component/matching-engine.md'.
+
+    Raises ValueError unless `entity_id` is '<Type>/<slug>' with file-safe segments.
+    """
+    segments = entity_id.split("/")
+    if len(segments) != 2 or not all(is_safe_segment(s) for s in [scope, *segments]):
+        raise ValueError(f"{entity_id!r} of scope {scope!r} is not '<Type>/<slug>' with file-safe segments")
+    return f"{scope}/{ENTITIES_DIR}/{entity_id}{SUFFIX}"
 
 
 def contribution_relpath(key: str, resource: str) -> str:

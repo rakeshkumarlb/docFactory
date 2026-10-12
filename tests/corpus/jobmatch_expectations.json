@@ -1,0 +1,180 @@
+{
+  "application": "AI-Driven-Job-Matching-Platform",
+  "inputs": "samples/inputs/AI-Driven-Job-Matching-Platform",
+  "matching": "A produced entity matches an expected one when its name or any alias equals the expected name or any expected alias, ignoring case, spacing and punctuation. Two produced entities matching one expected entity count as a duplicate. 'allowed' entities are neither counted nor penalised; 'forbidden' ones are errors.",
+  "types": {
+    "Environment": {
+      "expected": [
+        {"name": "Development", "aliases": ["Development Environment", "dev"]},
+        {"name": "Test", "aliases": ["Test Environment", "QA", "qa"]},
+        {"name": "Staging", "aliases": ["Staging Environment", "UAT"]},
+        {"name": "Production", "aliases": ["Production Environment", "prod"]},
+        {"name": "Disaster Recovery", "aliases": ["Disaster Recovery Environment", "DR"]}
+      ],
+      "allowed": ["Local Development", "Local Development Environment"],
+      "forbidden": ["Hardware Environment", "Software Environment", "Technical Environment", "User Environment", "Operating Environment", "jm-prod", "jm-stage", "jm-dr", "jm-nonprod", "private Kubernetes"]
+    },
+    "Component": {
+      "expected": [
+        {"name": "API Gateway", "aliases": []},
+        {"name": "Admin Console", "aliases": []},
+        {"name": "Employer Service", "aliases": []},
+        {"name": "Identity Service", "aliases": ["Keycloak"]},
+        {"name": "Matching Engine", "aliases": ["AI-Driven Matching Engine", "AI Engine"]},
+        {"name": "Notification Service", "aliases": []},
+        {"name": "Partner Sync Service", "aliases": []},
+        {"name": "Profile Service", "aliases": []},
+        {"name": "Reporting Service", "aliases": []},
+        {"name": "Resume Parser", "aliases": []},
+        {"name": "Web Frontend", "aliases": ["React single-page application"]}
+      ],
+      "allowed": ["Celery workers", "NGINX Ingress"],
+      "forbidden": ["Firewalls", "Load balancers", "Storage systems", "Network monitoring devices", "Backup systems", "Application servers", "Database servers", "message broker", "Python services", "Python (FastAPI) services", "sync dashboard"]
+    },
+    "DataStore": {
+      "expected": [
+        {"name": "Primary Database", "aliases": ["PostgreSQL", "PostgreSQL 16"]},
+        {"name": "Search Index", "aliases": ["OpenSearch", "OpenSearch 2.13"]},
+        {"name": "Session Cache", "aliases": ["Redis", "Redis 7"]},
+        {"name": "Document Store", "aliases": ["MinIO", "MinIO (S3-compatible)"]},
+        {"name": "Message Broker", "aliases": ["RabbitMQ"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Integration": {
+      "expected": [
+        {"name": "E-mail Relay", "aliases": ["Email relay", "Email gateway"]},
+        {"name": "SMS Gateway", "aliases": []},
+        {"name": "Labour Market Information System", "aliases": ["LMIS", "Labor Market Information System"]},
+        {"name": "National Civil Registry", "aliases": []},
+        {"name": "Skills Taxonomy Service", "aliases": []},
+        {"name": "jobs.ps Partner Portal", "aliases": ["jobs.ps", "Third-Party Job Portals"]}
+      ],
+      "allowed": ["Government Databases", "Educational Institution Databases"],
+      "forbidden": ["RabbitMQ", "external integrations", "Analytics and Reporting Tools", "Email and SMS Gateways"]
+    },
+    "Alert": {
+      "expected": [
+        {"name": "HighApiErrorRate", "aliases": []},
+        {"name": "DatabaseConnectionsExhausted", "aliases": []},
+        {"name": "MatchQueueBacklog", "aliases": []},
+        {"name": "SyncLagHigh", "aliases": []},
+        {"name": "BackupFailed", "aliases": []},
+        {"name": "DiskUsageHigh", "aliases": []},
+        {"name": "CertificateExpiry", "aliases": []}
+      ],
+      "allowed": [],
+      "forbidden": ["alerts for critical system events and performance thresholds", "real-time monitoring and alerting for security incidents"]
+    },
+    "SopProcedure": {
+      "expected": [
+        {"name": "Deploy a Release to Production", "aliases": ["SOP 1.1", "1.1 Deploy a Release to Production"]},
+        {"name": "Roll Back a Release", "aliases": ["SOP 1.2", "1.2 Roll Back a Release"]},
+        {"name": "Rotate TLS Certificates", "aliases": ["SOP 1.3", "1.3 Rotate TLS Certificates"]},
+        {"name": "Restore PostgreSQL From Backup", "aliases": ["SOP 1.4", "1.4 Restore PostgreSQL From Backup"]},
+        {"name": "Run Partner Sync Backfill", "aliases": ["SOP 1.5"]},
+        {"name": "Monthly Access Review", "aliases": ["SOP 1.6"]}
+      ],
+      "allowed": [],
+      "forbidden": ["RB-01 High API Error Rate", "RB-02 Database Connections Exhausted", "RB-03 Matching Queue Backlog", "RB-04 Partner Sync Lag", "RB-05 Backup Failed"]
+    },
+    "SupportContact": {
+      "expected": [
+        {"name": "Service Desk Agent", "aliases": ["Service Desk"]},
+        {"name": "Platform Operations Engineer", "aliases": []},
+        {"name": "Integrations Engineer", "aliases": []},
+        {"name": "Matching Engineer", "aliases": []},
+        {"name": "Platform Team Lead", "aliases": []},
+        {"name": "Security Officer", "aliases": []}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "KnownError": {
+      "expected": [
+        {"name": "Password-protected CVs fail to parse", "aliases": ["KE-001"]},
+        {"name": "Arabic names with diacritics rank inconsistently in search", "aliases": ["KE-002"]},
+        {"name": "Duplicate vacancies on jobs.ps after a timeout", "aliases": ["KE-003"]},
+        {"name": "Notification e-mails delayed during queue backlog", "aliases": ["KE-004"]},
+        {"name": "Dashboard layout breaks in Safari 15", "aliases": ["KE-005"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Runbook": {
+      "expected": [
+        {"name": "High API Error Rate", "aliases": ["RB-01"]},
+        {"name": "Database Connections Exhausted", "aliases": ["RB-02"]},
+        {"name": "Matching Queue Backlog", "aliases": ["RB-03"]},
+        {"name": "Partner Sync Lag", "aliases": ["RB-04"]},
+        {"name": "Backup Failed", "aliases": ["RB-05"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Decision": {
+      "expected": [
+        {"name": "Use RabbitMQ for asynchronous work", "aliases": ["ADR-001"]},
+        {"name": "Use OpenSearch for candidate retrieval", "aliases": ["ADR-002"]},
+        {"name": "Run on private Kubernetes, not a public cloud", "aliases": ["ADR-003"]},
+        {"name": "Keycloak for identity", "aliases": ["ADR-004"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Risk": {
+      "expected": [
+        {"name": "Matching model drift", "aliases": ["RSK-01"]},
+        {"name": "jobs.ps API changes without notice", "aliases": ["RSK-02"]},
+        {"name": "Loss of data centre DC1", "aliases": ["RSK-03"]},
+        {"name": "Personal data leak", "aliases": ["RSK-04"]},
+        {"name": "Key engineer leaves", "aliases": ["RSK-05"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Release": {
+      "expected": [
+        {"name": "1.0.0", "aliases": ["Release 1.0.0"]},
+        {"name": "1.1.0", "aliases": ["Release 1.1.0"]},
+        {"name": "1.2.0", "aliases": ["Release 1.2.0"]},
+        {"name": "1.3.0", "aliases": ["Release 1.3.0"]},
+        {"name": "1.3.1", "aliases": ["Release 1.3.1"]},
+        {"name": "1.3.2", "aliases": ["Release 1.3.2"]}
+      ],
+      "allowed": [],
+      "forbidden": []
+    },
+    "Team": {
+      "expected": [
+        {"name": "Core Services Team", "aliases": []},
+        {"name": "Data Team", "aliases": []},
+        {"name": "Frontend Team", "aliases": []},
+        {"name": "Integrations Team", "aliases": []},
+        {"name": "Matching Team", "aliases": []},
+        {"name": "Platform Operations Team", "aliases": ["Platform Operations"]},
+        {"name": "Platform Team", "aliases": []},
+        {"name": "Service Desk", "aliases": []}
+      ],
+      "allowed": [],
+      "forbidden": []
+    }
+  },
+  "relations": [
+    {"source": "Matching Engine", "target": "Search Index", "note": "depends on"},
+    {"source": "Matching Engine", "target": "Primary Database", "note": "depends on"},
+    {"source": "Matching Engine", "target": "Session Cache", "note": "depends on"},
+    {"source": "Matching Engine", "target": "Matching Team", "note": "owned by"},
+    {"source": "HighApiErrorRate", "target": "RB-01", "note": "handled by runbook"}
+  ],
+  "fields": [
+    {"type": "Component", "entity": "Matching Engine", "field": "owner", "contains": "Matching Team"},
+    {"type": "Component", "entity": "Matching Engine", "field": "technology", "contains": "Python"},
+    {"type": "Alert", "entity": "HighApiErrorRate", "field": "severity", "contains": "Critical"},
+    {"type": "Alert", "entity": "HighApiErrorRate", "field": "condition", "contains": "5xx"},
+    {"type": "Environment", "entity": "Production", "field": "url", "contains": "www.jobmatch.example"},
+    {"type": "Environment", "entity": "Development", "field": "hosting", "contains": "jm-nonprod"},
+    {"type": "SupportContact", "entity": "Service Desk Agent", "field": "escalates_to", "contains": "Platform Operations Engineer"}
+  ]
+}
