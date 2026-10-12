@@ -88,3 +88,8 @@ def test_an_alias_that_names_another_entity_is_refused():
     assert result["ok"] is False and any("name other entities" in e for e in result["errors"])
     result, _ = call({"entities": [ENGINE, {"name": "Search Index", "type": "Component", "aliases": ["Matching Engine"], "chunks": [3]}]})
     assert result["ok"] is False
+
+
+def test_two_entities_cannot_claim_one_catalog_entity():
+    result, _ = call({"entities": [INDEX, {"name": "OpenSearch", "type": "DataStore", "same_as": "DataStore/search-index", "chunks": [3]}]})
+    assert result["ok"] is False and any("cannot both be one catalog entity" in e for e in result["errors"])

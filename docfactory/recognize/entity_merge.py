@@ -166,13 +166,19 @@ def merge_entities(scope: str, recognitions: list[FileRecognition], outlines: Ou
     first_seen: dict[str, int] = {}
     for recognition in recognitions:
         for window in recognition.windows:
+            taken: set[str] = set()  # entities already matched in this window: a second, differently named entity is another thing
             for found in window.entities:
                 first_seen.setdefault(name_key(found.name), len(first_seen))
                 match = _match(found, resolver)
+                if match is not None and match.entity_id in taken and name_key(found.name) not in {name_key(n) for n in [match.name, *match.aliases]}:
+                    match = None
+                if match is not None:
+                    taken.add(match.entity_id)
                 provisional = match.entity_id if match else _new_id(found.type, found.name, set(records))
                 record = _merge_one(found, match, scope, provisional, _evidence(recognition.resource, found.chunks, outlines), resolver)
                 if match is None:
                     order.append(provisional)
+                    taken.add(provisional)
                 records[provisional] = record
                 uses.setdefault(provisional, {}).setdefault(found.name, set()).add(recognition.resource)
                 resolver.register(record)

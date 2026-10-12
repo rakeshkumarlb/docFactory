@@ -153,3 +153,11 @@ def test_an_alias_that_names_another_entity_is_dropped():
     second = recognition(B, [ent("Production", "Environment", aliases=["Disaster recovery", "prod"])])
     graph, _ = merge_entities("App", [first, second], {})
     assert {r.name: r.aliases for r in graph} == {"Production": ["prod"], "Disaster Recovery": []}
+
+
+def test_two_entities_of_one_window_never_become_one():
+    first = recognition(A, [ent("Production", "Environment")])
+    second = recognition(B, [ent("Production", "Environment", same_as="Environment/production"),
+                             ent("Disaster recovery", "Environment", same_as="Environment/production")])
+    graph, _ = merge_entities("App", [first, second], {})
+    assert sorted((r.name, tuple(r.aliases)) for r in graph) == [("Disaster recovery", ()), ("Production", ())]

@@ -6,6 +6,7 @@ compared with `name_key`), missing ones, duplicates (two produced entities match
 target entity. Fields: the item of the fact that holds the entity (found by the expected name or aliases) has the field containing the text.
 """
 import json
+import re
 from pathlib import Path
 
 from docfactory.bundle.bundle_store import BundleStore
@@ -17,7 +18,9 @@ from docfactory.recognize.type_vocabulary import item_types
 
 
 def _keys(names: list[str]) -> set[str]:
-    return {name_key(n) for n in names if name_key(n)}
+    """Name keys of `names`, each also without a trailing parenthesis ('Labour Market Information System (LMIS)')."""
+    plain = [re.sub(r"\s*\([^)]*\)\s*$", "", n) for n in names]
+    return {name_key(n) for n in [*names, *plain] if name_key(n)}
 
 
 def _entity_keys(record: EntityRecord) -> set[str]:
